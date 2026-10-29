@@ -1,0 +1,227 @@
+/* (c) DDNet developers. See licence.txt in the root of the distribution for more information. */
+/* If you are missing that file, acquire a complete release at teeworlds.com.  */
+
+#include <base/fs.h>
+#include <base/io.h>
+#include <base/logger.h>
+#include <base/os.h>
+#include <base/str.h>
+
+#include <engine/gfx/image_loader.h>
+#include <engine/map.h>
+#include <engine/shared/datafile.h>
+#include <engine/storage.h>
+
+#include <game/gamecore.h>
+#include <game/mapitems.h>
+
+#include <utility>
+
+static constexpr const char *const TOOL_NAME = "map_convert_07";
+
+// global new image data (set by ReplaceImageItem)
+static CImageInfo g_aNewImageInfos[MAX_MAPIMAGES];
+
+static int g_Index = 0;
+static int g_NextDataItemId = -1;
+
+static int g_aImageIds[MAX_MAPIMAGES];
+
+static bool CheckImageDimensions(IMap *pMap, void *pLayerItem, int LayerType, const char *pFilename)
+{
+	if(LayerType != MAPITEMTYPE_LAYER)
+		return true;
+
+	CMapItemLayer *pImgLayer = (CMapItemLayer *)pLayerItem;
+	if(pImgLayer->m_Type != LAYERTYPE_TILES)
+		return true;
+
+	CMapItemLayerTilemap *pTMap = (CMapItemLayerTilemap *)pImgLayer;
+	if(pTMap->m_Image == -1)
+		return true;
+
+	int Type;
+	void *pItem = pMap->GetItem(g_aImageIds[pTMap->m_Image], &Type);
+	if(Type != MAPITEMTYPE_IMAGE)
+		return true;
+
+	CMapItemImage *pImgItem = (CMapItemImage *)pItem;
+
+	if(pImgItem->m_Width % 16 == 0 && pImgItem->m_Height % 16 == 0 && pImgItem->m_Width > 0 && pImgItem->m_Height > 0)
+		return true;
+
+	char aTileLayerName[12];
+	IntsToStr(pTMap->m_aName, std::size(pTMap->m_aName), aTileLayerName, std::size(aTileLayerName));
+
+	const char *pName = pMap->GetDataString(pImgItem->m_ImageName);
+	log_error(TOOL_NAME, "%s: Tile layer \"%s\" uses image \"%s\" with width %d, height %d, which is not divisible by 16. This is not supported in Teeworlds 0.7. Please scale the image and replace it manually.", pFilename, aTileLayerName, pName == nullptr ? "(error)" : pName, pImgItem->m_Width, pImgItem->m_Height);
+	return false;
+}
+
+static void *ReplaceImageItem(IMap *pMap, int Index, CMapItemImage *pImgItem, CMapItemImage *pNewImgItem)
+{
+	if(!pImgItem->m_External)
+		return pImgItem;
+
+	const char *pName = pMap->GetDataString(pImgItem->m_ImageName);
+	if(pName == nullptr || pName[0] == '\0')
+	{
+		log_error(TOOL_NAME, "failed to load name of image %d", Index);
+		return pImgItem;
+	}
+
+	log_info(TOOL_NAME, "embedding image '%s'", pName);
+
+	char aStr[IO_MAX_PATH_LENGTH];
+	str_format(aStr, sizeof(aStr), "data/mapres/%s.png", pName);
+
+	CImageInfo ImgInfo;
+	int PngliteIncompatible;
+	if(!CImageLoader::LoadPng(io_open(aStr, IOFLAG_READ), aStr, ImgInfo, PngliteIncompatible))
+		return pImgItem; // keep as external if we don't have a mapres to replace
+
+	const size_t MaxImageDimension = 1 << 13;
+	if(ImgInfo.m_Format != CImageInfo::FORMAT_RGBA || ImgInfo.m_Width > MaxImageDimension || ImgInfo.m_Height > MaxImageDimension)
+	{
+		log_error(TOOL_NAME, "only RGBA PNG images with maximum width/height %" PRIzu " are supported", MaxImageDimension);
+		ImgInfo.Free();
+		return pImgItem;
+	}
+
+	*pNewImgItem = *pImgItem;
+
+	pNewImgItem->m_Width = ImgInfo.m_Width;
+	pNewImgItem->m_Height = ImgInfo.m_Height;
+	pNewImgItem->m_External = false;
+	pNewImgItem->m_ImageData = g_NextDataItemId++;
+
+	g_aNewImageInfos[g_Index] = std::move(ImgInfo);
+	g_Index++;
+
+	return (void *)pNewImgItem;
+}
+
+int main(int argc, const char **argv)
+{
+	CCmdlineFix CmdlineFix(&argc, &argv);
+	log_set_global_logger_default();
+
+	if(argc < 2 || argc > 3)
+	{
+		log_error(TOOL_NAME, "Invalid arguments");
+		log_error(TOOL_NAME, "Usage: %s <source map filepath> [<dest map filepath>]", argc > 0 ? argv[0] : TOOL_NAME);
+		return -1;
+	}
+
+	std::unique_ptr<IStorage> pStorage = std::unique_ptr<IStorage>(CreateStorage(IStorage::EInitializationType::BASIC, argc, argv));
+	if(!pStorage)
+	{
+		log_error(TOOL_NAME, "Error creating basic storage");
+		return -1;
+	}
+
+	const char *pSourceFilename = argv[1];
+	char aDestFilename[IO_MAX_PATH_LENGTH];
+
+	if(argc == 3)
+	{
+		str_copy(aDestFilename, argv[2]);
+	}
+	else
+	{
+		char aBuf[IO_MAX_PATH_LENGTH];
+		fs_split_file_extension(fs_filename(pSourceFilename), aBuf, sizeof(aBuf));
+		str_format(aDestFilename, sizeof(aDestFilename), "data/maps7/%s.map", aBuf);
+		if(fs_makedir("data") != 0)
+		{
+			log_error(TOOL_NAME, "failed to create data directory");
+			return -1;
+		}
+
+		if(fs_makedir("data/maps7") != 0)
+		{
+			log_error(TOOL_NAME, "failed to create data/maps7 directory");
+			return -1;
+		}
+	}
+
+	std::shared_ptr<IMap> pMap = CreateMap();
+	if(!pMap->Load(pStorage.get(), pSourceFilename, IStorage::TYPE_ABSOLUTE))
+	{
+		log_error(TOOL_NAME, "failed to open source map. filename='%s'", pSourceFilename);
+		return -1;
+	}
+
+	CDataFileWriter Writer;
+	if(!Writer.Open(pStorage.get(), aDestFilename, IStorage::TYPE_ABSOLUTE))
+	{
+		log_error(TOOL_NAME, "failed to open destination map. filename='%s'", aDestFilename);
+		return -1;
+	}
+
+	g_NextDataItemId = pMap->NumData();
+
+	size_t i = 0;
+	for(int Index = 0; Index < pMap->NumItems(); Index++)
+	{
+		int Type;
+		pMap->GetItem(Index, &Type);
+		if(Type == MAPITEMTYPE_IMAGE)
+		{
+			if(i >= MAX_MAPIMAGES)
+			{
+				log_warn(TOOL_NAME, "map uses more images than the client maximum of %" PRIzu ". filename='%s'", MAX_MAPIMAGES, pSourceFilename);
+				break;
+			}
+			g_aImageIds[i] = Index;
+			i++;
+		}
+	}
+
+	bool Success = true;
+
+	// add all items
+	for(int Index = 0; Index < pMap->NumItems(); Index++)
+	{
+		int Type, Id;
+		CUuid Uuid;
+		void *pItem = pMap->GetItem(Index, &Type, &Id, &Uuid);
+
+		// Filter ITEMTYPE_EX items, they will be automatically added again.
+		if(Type == ITEMTYPE_EX)
+		{
+			continue;
+		}
+
+		int Size = pMap->GetItemSize(Index);
+		Success &= CheckImageDimensions(pMap.get(), pItem, Type, pSourceFilename);
+
+		CMapItemImage NewImageItem;
+		if(Type == MAPITEMTYPE_IMAGE)
+		{
+			pItem = ReplaceImageItem(pMap.get(), Index, (CMapItemImage *)pItem, &NewImageItem);
+			if(!pItem)
+				return -1;
+			Size = sizeof(CMapItemImage);
+			NewImageItem.m_Version = 1;
+		}
+		Writer.AddItem(Type, Id, Size, pItem, &Uuid);
+	}
+
+	// add all data
+	for(int Index = 0; Index < pMap->NumData(); Index++)
+	{
+		void *pData = pMap->GetData(Index);
+		int Size = pMap->GetDataSize(Index);
+		Writer.AddData(Size, pData);
+	}
+
+	for(int Index = 0; Index < g_Index; Index++)
+	{
+		Writer.AddData(g_aNewImageInfos[Index].DataSize(), g_aNewImageInfos[Index].m_pData);
+	}
+
+	pMap->Unload();
+	Writer.Finish();
+	return Success ? 0 : -1;
+}
