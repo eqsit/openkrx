@@ -1381,3 +1381,61 @@ allow_immediate_auto_shot и settings.rocket_pulse_prediction.
 Запущенный клиент надо перезапустить с обычного ярлыка.
 Нельзя обещать отсутствие всех других промахов/полное KRX runtime parity.
 
+
+
+## Разбор новых двух промахов — реальная готовность Rocket и время доставки ввода (2026-10-29)
+
+Запрос: разобрать два новых промаха18:52:39/18:53:19. Пользовательское
+разрешение на исправление связи Avoid/Rocket от предыдущего эпизода остаётся
+в силе; нового подтверждения не требовалось. Сохранены обаJSONL/clientlog в
+research/codex/failure-analysis-20261029-1853/.
+
+В первой новой ситуации выявлена неполнота прошлой правки: прогноз
+консервативно игнорировал ещё не состоявшийся выстрел, но реальный pending
+press мог дождаться готовности и всё-таки выстрелить с изменённым прицелом.
+4320 originalbaseline5/bestSAFE выдавал175 приreload3;4323 predreload0,
+authreload1, фактический177 всё ещё был удержан. Удар от нового выстрела
+на4323 меняетvy на+11.172 и ведёт воfreeze через3шага. Восстановленный
+noqueue178 вариант не стреляет и выдерживает12шагов. Это boundednative
+реконструкция, не полный session replay или liveKRX A/B.
+
+Завершение исправления под тем же `openkrx_avoid_rocket_pulse_prediction=1`:
+- RocketShotReady проверяет готовую гранату, ammo, reload0, inputs>=2,
+  отсутствие freeze в auth И pred. Avoid использует тот же helper.
+- RequireReadyShot блокирует только ещё не готовое автоматическое нажатие:
+  сохраняет исходные fire/aim/jump/movement и подготовкуWanted4, не обещает
+  ручнойJump при отменённом выстреле. Уже летящие гранаты по-прежнему могут
+  поддерживать ручнойJump; результаты без нового Fired не стираются.
+- Ещё не выстреливший собственный pending press при неготовности отменяется;
+  AttackTickOnIssue отличает его от состоявшегося выстрела. Для состоявшихся
+  выстрелов сохранено обычное modulo-release. Старый Search/углы/threshold
+  не переписаны;0отключает эту согласованную политику и возвращаетстарую.
+
+По второму эпизоду родственные кадры6357/6358/6359 восстановлены:
+выбранный85,-341Hook даётSAFE; задержка применения на1тик даёт точно
+следующий реальный hookpos6667,1154 иlife4. Физический mouse restore сам по
+себе не причина: кадр6358 не отправлялся. В существующем отчёте нет данных,
+доказывающих серверное опоздание пакета. Промах хука НЕ считать исправленным.
+
+Добавлена READONLY телеметрия NETMSG_INPUTTIMING по каждому соединению:
+server_input_timing_valid/tick/age_ms/local_match иserver_input_time_left_ms.
+Меняет только запись, прежние packet/prediction calculations сохранены.
+Сбрасывается при entering/disconnect/dummy/reconnect. ОтрицательноеTimeLeft
+доказывает опоздание того входа;0пограничныйиз-за округления кнулю; поле
+относится к последнему полученному ack tick, не текущемуforecast.
+
+Проверки сборка/C++ ONLYsshhome:
+- rocket-ready-guard.log: exact4320/4323, blocking, harmfulqueued/noqueue,
+  errors0. Original baseline/aim воспроизводятся до нового guard.
+- ready-positive/manual/existing-projectile проверки и ручные ground/double/
+  gun->grenade сохранены; originalplanner/trace400comparisons OK.
+- isolated live manual-jump:1rescued,0freeze/0лишнихбоковых, exit0, pending
+  правильно распознан Avoid. manual-live.log.
+- Native finalhookfixtureerrors0. Inputtiminglive:4reports/480frames,
+  slots0->1->0->0,471validtimings;unknown после start/reconnectпоказываетreset,
+  nofreeze/exit0. ОтдельныеfixtureXvfb95/private18319 процессы очищены.
+
+Сборкаdist SHA256 a2fcb2d5a92245bc39de162197988a453534a41c92d97c8aaf556faed0235b7b; бэкап /home/a/backups/openkrx-before-ready-rocket-20261029-190451.
+Ярлык прежний, нужно перезапустить клиент. Полный Avoid/KRX ещё не объявлять
+доделанным; точная причина hookdeliverycorrection открыта до новых ackданных.
+
