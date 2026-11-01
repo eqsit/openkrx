@@ -60,8 +60,6 @@ namespace OpenKrx
 			pGameClient->m_Snap.m_SpecInfo.m_Active || !pGameClient->m_Snap.m_pLocalCharacter ||
 			!(Input.m_PlayerFlags & PLAYERFLAG_PLAYING))
 		{
-			if(m_OwnsHook && !ManualHook && g_Config.m_AvoidEmergencyHook)
-				Input.m_Hook = 0;
 			if(m_WasActive)
 				OnReset();
 			m_Diagnostic.m_pGate = !Active() ? "disabled" : ClientId < 0                                    ? "invalid_cid" :
@@ -80,17 +78,7 @@ namespace OpenKrx
 		m_LastClientId = ClientId;
 		m_LastSlot = g_Config.m_ClDummy;
 		const CBlatantSettings Settings = SettingsFromConfig();
-		m_Diagnostic.m_PendingAutomaticFire = g_Config.m_AvoidRocketPulsePrediction &&
-						      pGameClient->m_RocketSave.OwnsPendingFire(Input.m_Fire, ClientId, g_Config.m_ClDummy);
-		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		const auto *pPredictionSource = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
-		if(!pPredictionSource)
-			pPredictionSource = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		m_Diagnostic.m_AllowImmediateShot = m_Diagnostic.m_PendingAutomaticFire &&
-						    RocketShotReady(pPredictionSource, pAuthoritative) &&
-						    !pGameClient->m_RocketSave.ReleasesPendingFireNow(pGameClient->m_GameWorld.GameTick(), Input.m_Fire);
-		auto pSimulation = CreateSimulation(pGameClient, ClientId, Settings.m_PlayerPrediction,
-			m_Diagnostic.m_PendingAutomaticFire, m_Diagnostic.m_AllowImmediateShot);
+		auto pSimulation = CreateSimulation(pGameClient, ClientId, Settings.m_PlayerPrediction);
 		// KRX b4450 gates on the authoritative world, while cd0c0 searches the
 		// predicted world. A predicted freeze must not clear NSIF/skip unfreeze.
 		const bool AuthoritativeFrozen = IsKrxCharacterFrozen(pGameClient, ClientId);
@@ -103,8 +91,6 @@ namespace OpenKrx
 			}
 			m_Planner.Reset();
 			m_Diagnostic.m_pGate = AuthoritativeFrozen ? "authoritative_frozen_gate" : "invalid_simulation";
-			if(m_OwnsHook && !ManualHook && g_Config.m_AvoidEmergencyHook)
-				Input.m_Hook = 0;
 			m_OwnsHook = false;
 			return Input;
 		}
@@ -114,33 +100,13 @@ namespace OpenKrx
 		const bool WasFrozen = pSimulation->Frozen();
 		const vec2 Pos = pSimulation->Position();
 		const auto Start = std::chrono::steady_clock::now();
+		// Rocket releases after Avoid. A later NSIF reuse must simulate and emit
+		// the current fire counter, otherwise the old odd counter can latch fire
+		// after Rocket has already retired its release timer.
+		m_Planner.SynchronizeFireCounter(Input.m_Fire);
 		auto Decision = m_Planner.Decide(*pSimulation, Input, MouseAim);
 		m_Diagnostic.m_Proposed = Decision;
 		int DecisionLife = m_Planner.LastDecisionLife();
-		if(Decision && g_Config.m_AvoidKeepDirection && Decision->m_Direction != Input.m_Direction)
-		{
-			const auto Preferred = CBlatantPlanner::KeepDirectionIfSafe(*pSimulation, *Decision, Input.m_Direction, Settings.m_CheckTicks);
-			if(Preferred.m_Direction == Input.m_Direction)
-			{
-				m_Diagnostic.m_KeptDirection = true;
-				Decision = Preferred;
-				DecisionLife = CBlatantPlan::SAFE;
-			}
-		}
-		const bool MayFilterHook = !ManualHook && (Input.m_Hook == 0 || m_OwnsHook);
-		if(g_Config.m_AvoidEmergencyHook && MayFilterHook)
-		{
-			// Also retire a previously injected hook when the search has no result.
-			auto Proposed = Decision.value_or(Input);
-			const auto Filtered = CBlatantPlanner::FilterEmergencyHook(*pSimulation, Proposed, Settings.m_CheckTicks, ManualHook);
-			m_Diagnostic.m_FilteredHook = Filtered.m_Hook != Proposed.m_Hook;
-			if(Decision || Filtered.m_Hook != Input.m_Hook)
-			{
-				if(!Decision && Filtered.m_Hook != Input.m_Hook)
-					DecisionLife = CBlatantPlan::SAFE;
-				Decision = Filtered;
-			}
-		}
 		const auto Output = Decision.value_or(Input);
 		m_OwnsHook = !ManualHook && Output.m_Hook != 0 && (m_OwnsHook || Input.m_Hook == 0);
 		const auto Elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - Start).count();
@@ -153,7 +119,7 @@ namespace OpenKrx
 		{
 			const auto *pLocal = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
 			if(!pLocal)
-				pLocal = pAuthoritative;
+				pLocal = pGameClient->m_GameWorld.GetCharacterById(ClientId);
 			const vec2 Velocity = pLocal ? pLocal->Core()->m_Vel : vec2(0, 0);
 			const vec2 HookPos = pLocal ? pLocal->Core()->m_HookPos : vec2(0, 0);
 			const int HookState = pLocal ? pLocal->Core()->m_HookState : -1;

@@ -522,11 +522,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(Card(Right, 85.0f, "Discord RPC"))
 			Later("Enable");
 		// Explicit OpenKRX additions remain separate from recovered KRX cards.
-		if(Card(Left, 125.0f, "OpenKRX"))
+		if(Card(Left, 100.0f, "OpenKRX"))
 		{
 			Check(g_Config.m_RocketPreserveJump, "Keep manual jump with Rocket Save");
-			Check(g_Config.m_AvoidEmergencyHook, "Only necessary automatic hook");
-			Check(g_Config.m_AvoidKeepDirection, "Keep direction when safe");
+			Check(g_Config.m_RocketRestoreWeapon, "Restore weapon after Rocket Save");
 			Check(g_Config.m_AvoidDebug, "Record Avoid decisions");
 		}
 	}

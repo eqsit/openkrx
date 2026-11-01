@@ -1,461 +1,197 @@
-# Последнее обновление — глубокий аудит простых функций KRX (2026-10-31)
-
-Пользователь усомнился в AutoRehook и явно попросил углубить реверс каждой
-перенесённой функции, дополнительно читать документацию KRX.
-Подробный итог: research/deep-audit-20261031/RESULT.md +INPUT.md/MISC.md,
-38REArecords в evidence.json, новая checkpoint.snap; сессия штатно закрыта.
-
-AutoRehook в ЭТОМ бинарнике сам не меняет прицел: pendingglobal63a901
-ссылается только из его handlerbeae0. Документы Misc обещают release/re-hook,
-не автонаведение. Physicsfixtureдвухтии: toward=>regrab, away/up=>miss,
-aimне меняется. Это реконструкция порта, НЕ исполнение оригинальногоKRX.
-Пользователь НЕ попросил добавлять новое cursor-independentавтонаведение.
-Исправлена действительная ошибка: чтениеHookTick из predictedworld вместо
-authoritative; pending теперь сохраняется при off/нетcharacter как в leaf.
-
-Полная цепочка Snap23e670->2700b0->26d2d0 доказала, что это НЕ OnRender
-cadence (исправление прежнего предположения). PixelWalk/QuickStop перенесены
-послеAvoid, QuickStop sharedFNG/nameFrozen+renderPosground+predCharvelocity.
-Misc сняты сOnRender:AutoTeamдоflags,EmoteдоAvoid,Kill/AntiAFKпослеAvoid.
-AntiAFKnormalizeполныйmouseMax+truncate,nextinputeffect; KillsharedSendKill
-учитываетcopyMoves. HiddenBubbleсохраняетпредыдущиеflagsкакoriginal.
-Themeперенесена изCUIRect вgraphicsDrawRect,Draw4неизменён. SmoothCam
-лишнийpLocalCharactergateснят. Tee/hook/weapon полныеconsumerпроверены.
-Уже разрешённые корректировки Avoid/Rocket не менялись.
-
-distсобранТОЛЬКОsshhome SHA2565acc6032a6f620ef513501dccbb4283ea39e817fe3176765f23471c8b8f069ef.
-15productionfilesmanifestсовпалисhome. 704boundary,deepquantize/pending/late
-fixtures,двухтииhookphysics,Avoidplanner400trace,Rocketguard,privatekeys/
-AntiAFK/AutoTeam/SuperRestore,walls,шестьменютабов,colors/chat/seed passed.
-Бэкапdist /home/a/backups/openkrx-before-deep-audit-20261031. Запущенныйклиент
-перезапуститьпрежнимярлыком. Пользовательскийconfigнетронут,fixturesочищены.
-
-Нельзяобъявлятьполной1:1копией:originalnativeABнеполучен;отдельныеlifecycle/
-emoteвалидность/ticklimit/teamretry/oncefreeze/deadzonerestoreадаптацииявные;
-функцииLaterнеперенесены. Документацияможетбытьновееданногобинарника.
-
-# Последнее обновление — простые функции и меню KRX (2026-10-31)
-
-Новый запрос: переносить простые Goodcrack/KRX функции, сложные позже;
-структура меню как в оригинале; сборка исключительно ssh home.
-Реализован и проверен пакет: Moonwalk, Auto Fire, Auto Rehook, Hook Spam,
-Pixel Walk, Quick Stop/Ground Only, Hide Chat Bubble, AutoTeam/lock,
-AntiAFK, Kill on Freeze, Emote Spam, Random Timeout Seed; цвета тии/хука/
-оружия/замороженных других игроков/Rainbow, SmoothCam/SuperDynCam,
-Custom Menu. Шесть вкладок Aimbot/Misc/Visuals & HUD/Avoid/TAS/Settings,
-равная ширина,20высота,4радиус, исходный порядок карточек. Сложные Later.
-Прежние пользовательские коррекции — KRX > Settings > OpenKRX.
-
-Полный отчёт/ограничения: research/easy-port-20261030/RESULT.md.
-Нельзя объявлять полной копией всех функций/пикселей: native KRX UI A/B
-не получен; TAS/Aimbot deferred subpanels частичные. Простые функции
-перенесены по REA+shell consumers с явно описанными адаптациями lifecycle/
-tick-rate/modern0.7. Avoid/Rocket исходники не менялись.
-
-Сборка dist только home SHA2566538fe066143a5f98614d9f5bea669de78f68124097e38eabba70aab1bc13805.
-17productionfiles совпали с home; source.sha256 отделяет изменения от
-basecommit в BUILD.txt. 704C++ cases+stateboundaries passed, Avoidplanner/
-400trace и Rocketreadyregressions passed. Шесть вкладок clicked/save passed.
-Private live: fire/moon/pixel/spam/AntiAFK, team5lock, SuperDynrestore,
-kill-freeze confirmed. Final colors/chatflags/timeout passed, exit0.
-Все fixtureпроцессы очищены; пользовательскийconfig не меняли. Старый
-ярлык указывает на новыйdist; запущенныйклиент нужно перезапустить.
-Бэкап dist до изменений /home/a/backups/openkrx-before-easy-20261031.
-Код не коммитили. REA tool session сейчас closed, всеqueryrecords сохранены.
-
-# Последнее обновление — реальная готовность Rocket и время доставки ввода (2026-10-29)
-
-Запрос: разобрать два новых промаха18:52:39/18:53:19. Пользовательское
-разрешение на исправление связи Avoid/Rocket от предыдущего эпизода остаётся
-в силе; нового подтверждения не требовалось. Сохранены обаJSONL/clientlog в
-research/codex/failure-analysis-20261029-1853/.
-
-В первой новой ситуации выявлена неполнота прошлой правки: прогноз
-консервативно игнорировал ещё не состоявшийся выстрел, но реальный pending
-press мог дождаться готовности и всё-таки выстрелить с изменённым прицелом.
-4320 originalbaseline5/bestSAFE выдавал175 приreload3;4323 predreload0,
-authreload1, фактический177 всё ещё был удержан. Удар от нового выстрела
-на4323 меняетvy на+11.172 и ведёт воfreeze через3шага. Восстановленный
-noqueue178 вариант не стреляет и выдерживает12шагов. Это boundednative
-реконструкция, не полный session replay или liveKRX A/B.
-
-Завершение исправления под тем же `openkrx_avoid_rocket_pulse_prediction=1`:
-- RocketShotReady проверяет готовую гранату, ammo, reload0, inputs>=2,
-  отсутствие freeze в auth И pred. Avoid использует тот же helper.
-- RequireReadyShot блокирует только ещё не готовое автоматическое нажатие:
-  сохраняет исходные fire/aim/jump/movement и подготовкуWanted4, не обещает
-  ручнойJump при отменённом выстреле. Уже летящие гранаты по-прежнему могут
-  поддерживать ручнойJump; результаты без нового Fired не стираются.
-- Ещё не выстреливший собственный pending press при неготовности отменяется;
-  AttackTickOnIssue отличает его от состоявшегося выстрела. Для состоявшихся
-  выстрелов сохранено обычное modulo-release. Старый Search/углы/threshold
-  не переписаны;0отключает эту согласованную политику и возвращаетстарую.
-
-По второму эпизоду родственные кадры6357/6358/6359 восстановлены:
-выбранный85,-341Hook даётSAFE; задержка применения на1тик даёт точно
-следующий реальный hookpos6667,1154 иlife4. Физический mouse restore сам по
-себе не причина: кадр6358 не отправлялся. В существующем отчёте нет данных,
-доказывающих серверное опоздание пакета. Промах хука НЕ считать исправленным.
-
-Добавлена READONLY телеметрия NETMSG_INPUTTIMING по каждому соединению:
-server_input_timing_valid/tick/age_ms/local_match иserver_input_time_left_ms.
-Меняет только запись, прежние packet/prediction calculations сохранены.
-Сбрасывается при entering/disconnect/dummy/reconnect. ОтрицательноеTimeLeft
-доказывает опоздание того входа;0пограничныйиз-за округления кнулю; поле
-относится к последнему полученному ack tick, не текущемуforecast.
-
-Проверки сборка/C++ ONLYsshhome:
-- rocket-ready-guard.log: exact4320/4323, blocking, harmfulqueued/noqueue,
-  errors0. Original baseline/aim воспроизводятся до нового guard.
-- ready-positive/manual/existing-projectile проверки и ручные ground/double/
-  gun->grenade сохранены; originalplanner/trace400comparisons OK.
-- isolated live manual-jump:1rescued,0freeze/0лишнихбоковых, exit0, pending
-  правильно распознан Avoid. manual-live.log.
-- Native finalhookfixtureerrors0. Inputtiminglive:4reports/480frames,
-  slots0->1->0->0,471validtimings;unknown после start/reconnectпоказываетreset,
-  nofreeze/exit0. ОтдельныеfixtureXvfb95/private18319 процессы очищены.
-
-Сборкаdist SHA256 a2fcb2d5a92245bc39de162197988a453534a41c92d97c8aaf556faed0235b7b; бэкап /home/a/backups/openkrx-before-ready-rocket-20261029-190451.
-Ярлык прежний, нужно перезапустить клиент. Полный Avoid/KRX ещё не объявлять
-доделанным; точная причина hookdeliverycorrection открыта до новых ackданных.
-
-# Последнее обновление — разрешённая правка связи Avoid/Rocket (2026-10-29)
-
-НОВОЕ РЕШЕНИЕ ПОЛЬЗОВАТЕЛЯ: на вопрос о точечном исправлении прогноза
-ожидающего выстрела он ответил «Исправить эту несогласованность».
-Это разрешённое исключение к строгому KRX, а не новая общая политика Rocket.
-
-Свежий реальный отчёт18:34:15 уже содержит pipeline_us новой сборки:
-полный pipeline максимум7245us при configured margin8ms. Authoritative
-upper-freeze на4706; уже нет оснований переносить прежнюю гипотезу14ms
-на этот конкретный эпизод. Новый отчёт сохранён в
-research/codex/failure-analysis-20261029-1834/.
-
-Точный native replay bounded scene: на4703 выбранный Hook0 с heldFire243
-получаетGreedySAFE благодаря выстрелу послеreload1. При известном отпускании
-244 на4704 тот же план замораживается через2 шага, AttackTick остаётся4679.
-На4701 важный нюанс: старый выбранный Hook1 тоже имеет safe-план без ракеты,
-но ложное held-fire предположение ухудшает ИСХОДНЫЙ прогноз6/8 и заставляет
-включитьHook1. Без ожидания выстрела исходный GreedySAFE и Hook0 сохраняется.
-
-Реализовано `openkrx_avoid_rocket_pulse_prediction=1` по умолчанию:
-Rocket помнит только выданный им press/cid/slot; Avoid включает ограничение
-лишь для этого ещё ожидающего odd-counter press. В simulation он не обещает
-будущее удержание Fire/aim через reload: подавляет новые будущие выстрелы,
-сохраняя все уже существующие projectiles. Один немедленный выстрел можно
-учесть только при готовой гранате в auth И pred и отсутствии текущего
-modulo-release. Остальные future shots считаются негарантированными.
-
-Это консервативный прогноз ожидающей команды, НЕ точный симулятор будущих
-сетевых packet timings/physical mouse changes. Input/fire реально не
-отменяется этой функцией, обычный Rocket Search/углы/threshold/release не
-менялись. Ручной новый fire с другим counter не помечается как ожидающий
-нашего Rocket. `0` возвращает прежний прогноз KRX. UI не расширяли.
-Clone переносит policy и его шаг, CopyFrom сбрасывает; вложенные Constant/
-Greedy/NSIF пользуются той же моделью. Для подавления берётся актуальный
-counter мира, а не stale candidate counter: разные even counters сами могут
-создавать presses при wrap. Логи добавили pending_automatic_fire,
-allow_immediate_auto_shot и settings.rocket_pulse_prediction.
-
-Проверки ONLY sshhome для C++:
-- native avoid_pending_rocket_test: original/immediate-release/known-release/
-  production-policy modes, точные сцены4701/4703, counter/Clone/CopyFrom/
-  ready-immediate shot; errors0. Ранний исправленный22-input план при
-  известном реальном release проходит безfreeze. Это не полный sessionreplay.
-- original planner и400tracing tests OK; manual ground/double jump/gun->grenade
-  fixture OK. Rocketmanual algorithm не меняли.
-- isolated live manual press:1rescued, nofreeze, no unwanted direction,
-  press recognised by Avoid pending policy; exit0. Wall/menu/trace checks OK.
-
-Бэкап: /home/a/backups/openkrx-before-pending-rocket-20261029-184020.
-Новая сборкаdist SHA256 9da468fa5fe3ae3fc835283beb148a7d88b243cca6067e555038641e153677e4; сборка толькоhome.
-Запущенный клиент надо перезапустить с обычного ярлыка.
-Нельзя обещать отсутствие всех других промахов/полное KRX runtime parity.
-
-# Последнее обновление — два реальных freeze, задержка хука и ускорение поиска (2026-10-29)
-
-Разобраны реальные отчёты16:22:49 и16:24:09, копии и выводы сохранены в
-research/codex/failure-analysis-20261029-1624/ANALYSIS.md. REA: повторно
-использованы существующие exports, не заявлять новый live A/B KRX.
-Основные проверенные ветки Blatant соответствуют оригиналу; полного
-поведенческого совпадения всех функций пока не доказано.
-
-Контролируемая реконструкция хука по реальным map/core/input/tuning/reload
-показала чувствительность обоих эпизодов к одному тику применения ввода:
-854 immediate1599,495 -> delayed1599,509 (authoritative anchor);
-4865 immediate9339,2171 -> delayed9321,2175, life9 (совпадает со следующим
-реальным состоянием4867). Это не доказательство конкретной сетевой причины.
-В реальных данных planner до14.228ms, saved prediction margin8ms; личную
-настройку не меняли. Старые логи не содержат полного времени pipeline.
-
-Rocket: точно воспроизведён baseline6/best14/aim(-39,398) кадра4873.
-Постоянное Fire в probe стреляет после reload6 и даётlife14; каждый
-реальный original-style modulo1..5 pulse отпускается раньше и не стреляет,
-life7. Эта несовместимость probe/pulse есть и в сохранённой логике KRX.
-Обычный Rocket policy НЕ меняли: пользователь ранее выбрал строгий KRX.
-Первый эпизод отличается: предыдущая обычная граната ещё перезаряжалась,
-нового Rocket-issued press в финальном окне нет.
-
-Исправлена лишняя работа порта: AimCandidates может завершиться, когда ВСЕ
-включённые selectors ужеSAFE9999 и строгие сравнения больше не могут
-изменить выход. Порядок и выбираемые inputs сохранены. Unknown adapters
-по умолчанию не разрешают elision. Реальный adapter разрешает только
-isolated/nullPRNG мир; проверены отсутствие внешних mutation/random-effects.
-Это serial optimization; прежний conservative parallel guard не меняли.
-
-Дополнены диагностики: full Avoid+Rocket pipeline_us, requested_input_tick,
-prediction time/configured margin, attack_tick/reload/num_inputs/queued weapon,
-previous/latest/current inputs; DiagnosticSavedInput теперь действительно
-возвращает m_SavedInput (раньше в этом поле записывалиm_Input). Rocket debug
-явно содержит issued_press/reload/attack_tick; старый fired сохранён для
-совместимости и по-прежнему означает выдачу нажатия, а не факт выстрела.
-
-Все C++ сборки/проверки толькоsshhome:
-- 108 controlled +288 real-map comparisons полного и сокращённого поиска:
-  output40bytes, full stored plans, candidate records совпадают; source/grid
-  не мутируют. 94real cases используют сокращение, aggregate time -45%.
-- На ранних сценах обоих реальных промахов:854 10507->4627us,
-  4865 7529->2964us, inputs/plans совпадают. Это измерение на build host,
-  не гарантия такого же времени на ноутбуке или устранения промаха.
-- Native original planner+flight recorder400 comparisons OK; Rocket reload
-  reproduction после сборки остаётся тем же. Hook reconstruction assertions0.
-- Isolated live trace:3reports/766frames/192candidateframes, новые поля,
-  menu retention/no-send/one controlled freeze/exit0 OK.
-- source manifest28 совпал с home; gitdiff--check OK. GUI не меняли.
-
-Сборка вdist, SHA256 9c06b89b1af2bf33ebddcc104e247ee6e38babcd9ea8e6258b4576f5261dfddd.
-Бэкап до изменений: /home/a/backups/openkrx-before-latency-audit-20261029-182356.
-Ярлык тот же; старый запущенный процесс сам не обновится.
-Открытые вопросы: полное live KRX A/B, source-time corrections/input delay,
-18.9.1vs20.3 physics/tune-zone/telegun, AutoDrag DragAim и непроверенные
-consumers настроек. Не считать их доказанной причиной этих падений.
-
-# Последнее обновление — подробный flight recorder Avoid (2026-10-29)
-
-По последнему запросу пользователя сначала усилили ЛОГИ. Поведение спасения
-не меняли. `openkrx_avoid_debug 1` пишет каждый SnapInput в ограниченный буфер:
-до 6 секунд / 384 кадров; при серверной/authoritative заморозке сразу сохраняет
-JSONL и ещё до 1 секунды / 128 кадров после. Frozen prediction сам по себе
-не запускает отчёт. Повторные тики одной заморозки не плодят файлы.
-
-Путь: `~/.local/share/ddnet/dumps/openkrx-avoid/`; абсолютное имя печатается
-в launcher log. `openkrx_avoid_dump` вручную сохраняет последние кадры.
-Настройка уже была сохранена у пользователя как1; личный конфиг не меняли.
-История сохраняется при меню/чате и переключении Avoid; disconnect/slot/cid
-смена сбрасывает контекст. Запись выключается через openkrx_avoid_debug0.
-
-Три стадии input + planner proposal; reasons/gates, все результаты кандидатов
-с явным cap128+selected, NSIF horizon/tail, stored plan prefix64; physics tuning,
-auth/pred hook/jump/freeze/ammo/reload/input, nearby tees/projectiles, 7x7 tiles,
-ticks/latency/settings. Подробности и ограничения: research/codex/AVOID-TRACE.md.
-`life9999` по NSIF относится только к длине хвоста; latency_snapshot_ms не
-доказывает моментальный ping, emitted input не доказывает доставку UDP.
-
-Сборка и C++ проверки только sshhome. Native: прежние boundary tests OK,
-400 сравнений tracing on/off без изменения output, cap/age/freeze/manual/reset
-и независимый JSON parse OK. Live private server: 3 отчёта,
-767 записей, 192 кадров с кандидатами,
-одна контрольная freeze (Avoid намеренно выключен), меню/история/no-send OK,
-exit0. Это доказывает логирование, а не исправление последних промахов.
-
-Новая сборка dist, client SHA256: df3d485ed17205589986c44a4f3c4b8fb3960b362cad09a7df9e1913a33a00db.
-28 файлов source manifest совпали с build host; ярлыки по-прежнему указывают
-на scripts/openkrx.sh и этот dist. Уже запущенный клиент надо перезапустить.
-Исходники до этой правки и последний тогдашний real log сохранены в
-research/codex/avoid-trace-backup-20261029-154809/.
-
-# Последнее обновление — убрать снос влево при прыжках (2026-10-29)
-
-Реальныйлог14:44 подтвердил before_dir0 -> dir-1 при отмене Jump, Rocketfired0.
-Причина — таблицы кандидатов исключают текущую Direction+Hook пару, но при
-Jump1 такая пара с Jump0 была бы другим действием. Базовую таблицу не меняли.
-Пользовательская корректировка `openkrx_avoid_keep_direction=1` сохраняет
-запрошенное направление, если ИДЕНТИЧНЫЙ остальной input безопасен по всему
-CheckTicks+1. Необходимое уклонение/торможение сохраняется при unsafe.
-0отключает корректировку. UI: KRX -> Misc -> Keep direction when safe.
-Это намеренное дополнение по жалобе, не восстановленная часть оригинала KRX.
-
-Сборка/тесты толькоhome, всё прошло. Реальный Space+Rocket: 1rescuedpress,
-0лишнихбоковыхкоманд/0freeze/exit0. Реальные A/D freeze-стены:639/128 безfreeze.
-Nativeрегрессия показывает исходный-1 и исправленный0, сохраняет необходимый-1
-и brake. UI toggle проверен. Бэкап:
-`/home/a/backups/openkrx-before-direction-fix-20261029-145137`.
-Текущий client SHA: 537564369f8599cf17ecee162c2dcf834009f39687f821529c94076ef46ea5cf. Подробности — конец JOURNAL.md.
-
-# Последнее обновление — ручной прыжок, 2026-10-29
-
-Новый явный запрос пользователя: Rocket Save не должен отменять его РУЧНОЙ
-прыжок/даблджамп, если ракета спасает. Автоматические прыжки не нужны.
-Реализовано и проверено. `openkrx_rocket_preserve_jump=1` по умолчанию,
-`KRX -> Misc -> Keep manual jump with Rocket Save`;0отключает эту доработку.
-Только новый физический press, одно восстановление на press, release/reset
-очищают запрос. Кандидат Jump1+grenade проверяется физикой; учтены подготовка
-оружия и уже летящая собственная граната. Исчерпанные air jumps не восстанавливаются.
-Это явно разрешённое исключение к прежнему требованию строгого Rocket KRX;
-обычный Search вне ручной ветки остаётся прежним. Общий no-shot safety filter
-для всех ракет пользователь НЕ разрешал, его по-прежнему нет.
-
-Тесты на home: `research/codex/manual-jump-tests.log` OK, реальные ground/air и
-weapon preparation. Live localhost+Space: `runtime/manual-jump-final/result.json`
-keptpress1/frozen0/exit0; опция0: `runtime/manual-jump-disabled/result.json`
-keptpress0/frozen0/exit0. UI и strict Rocket regressions такжеOK.
-Новая сборка уже в dist, старый запущенный процесс требует обычного перезапуска.
-Текущий SHA: d80c42ab2ac5fbecf29853749ab56047f5d5548d79709abf25d0b53a63886d9a. Бэкап до правок:
-`/home/a/backups/openkrx-before-manual-jump-20261029-133043`.
-Подробности и сохранённый свежий реальный промах — в конце JOURNAL.md.
-
-# OpenKRX — актуальный checkpoint, 2026-10-29
-
-Каноническая папка `/home/a/openkrx`; обе записи OpenKRX (рабочий стол и
-`~/.local/share/applications`) запускают `scripts/openkrx.sh` отсюда.
-Компиляция и все C++ тесты **только `ssh home`**, `scripts/build-remote.sh`.
-На ноутбуке — изменения, REA и запуск готовых бинарников. Не коммитить/не чистить
-untracked research. Не использовать ChatGPT Web/ZIP orchestration.
-
-## Актуальный запрос и предпочтения пользователя
-
-Пользователь требует максимально точную копию Avoid/Blatant и Rocket Save KRX
-(goodcrack), сообщает реальные промахи с верхним/нижним freeze и в проходе высотой
-один тайл с freeze сверху/снизу. Подозревает взаимодействие ракеты с хуком.
-
-**Последнее явное решение:** Rocket Save оставить СТРОГО как KRX. Пользователь
-отказался от предлагаемого дополнительного фильтра «стрелять только если лучше
-варианта без выстрела». Такого фильтра в коде нет, не включать его молча.
-Ранее пользователь отдельно попросил менее навязчивый автоматический хук:
-`openkrx_avoid_emergency_hook=1` — отдельная намеренная доработка. Значение0
-возвращает восстановленный путь без этого фильтра. Ручной Hook не фильтруется.
-
-Меню: общий пункт **KRX**, первым внутренним разделом **Avoid**, затем **Misc**.
-Rocket Save находится в Misc (`Auto grenade save`), убран из General.
-
-## Установленная проверенная сборка
-
-`dist/OpenKRX`, `dist/DDNet-Server`, время/хеши в `dist/BUILD.txt`.
-25 исходных/сборочных файлов из `dist/SOURCE-SHA256.txt` сверены с удалённой
-сборкой, все OK. Текущий хеш клиента: b8747c142d64b5a5a5fd1b21a4601ea91a57fe825317293520932ec6b7cfffd0.
-Сводка всех проверок: `research/codex/RELEASE-2026-10-29.json`.
-
-Важно: бинарник до этой сессии был собран29окт05:02UTC. Логи09:34/11:29MSK
-относятся именно к старому бинарнику, БЕЗ исправлений углублённого аудита.
-Новая сборка получена29окт после12:49MSK; повторный запуск ярлыка нужен, чтобы
-уже запущенный процесс перешёл на новые байты. Не убивать игровой клиент пользователя.
-
-## Подтверждённые исправления
-
-1. Ранее исправлена точка ввода: KRX custom SnapInput23e670, поставленный через
-   controls vtable4a9278+90, вызывает Avoid ПОСЛЕ подготовки direction/aim и ДО
-   send/last-input checks. Stock16b420 был ложным следом DeepSeek. Его вывод
-   «KRX не управляет направлением» опровергнут. `openkrx_avoid_apply` legacy,
-   оба значения теперь один правильный путь.
-2. m_IsLocal (`character+98`) подтверждён свежим REA Read2195c0. Оригинал сохраняет
-   обе локальные тии во всех фильтрах cd0c0 и в danger-world Rocketba150.
-   Порт ошибочно удалял dummy. Теперь локальные сохраняются. Регрессия Rocket
-  108состояний: до исправления0различий, после95, во всех95 жизнь с опорой лучше.
-3. Frozen gate b4450 читает **authoritative m_GameWorld**, а поиск — predicted
-   m_PredictedWorld. Прежний root gate по predicted был ошибкой. Теперь единый
-   IsKrxCharacterFrozen для Avoid/Rocket с точными FNG/name conventions:
-   FNG ищется в GameType или worldflag; DDNet — в server NAME; соответственно
-   timer/deep/live либо timer/snapshot-weaponNinja. Не заменять общим IsDDRace.
-4. Независимые Greedy кандидаты оцениваются через existing engine job pool,
-   все результаты ждутся и выбираются по исходному индексу, как оригинал.
-   Queued job можно атомарно забрать на main thread, чтобы HTTP очередь не
-   блокировала ввод. Late worker после уничтожения snapshot не трогает его.
-   Существующий laser либо inventory/pickup способный его породить -> sequential,
-   поскольку CLaser временно меняет shared collision grid. Byte-for-byte тест
-   последовательного/параллельного поиска и позднего выполнения прошёл.
-5. Isolated copy теперь сохраняет m_DestroyTick/m_MarkedForDestroy, как обычный
-   CopyWorld. Старое обнуление могло воскрешать удаляемые сущности. Изоляцию
-   обеспечивают detached parent/child links; регрессия удаления/изоляции прошла.
-6. Aim assist/auto действительно Hook1 (assembly115c/1172/11a4); центр от mouse,
-   similarity от input aim. NSIF требует непустой CURRENT partial. ActionGroups
-   5actions+3sentinels верны. Guard возвращает текущий ввод при safe continuation.
-7. Player Prediction удаляет других тии, не выбирает время snapshot. Unfreeze
-   читает raw game tile (GetCollisionAt отфильтровывает11). HookPoint квантует aim,
-   трассирует hook_length-28, учитывает live player blocker и только SOLID.
-8. Rocket Save перенесён по ba150/b6760: danger clone stripped +currentInput1tick,
-   затем ShotInputFire+1 10+1steps, trigger<7; full snapshot shots21+1,
-  65float-accumulated directions, bestlife>8, Wanted4 даже при отсутствии выстрела.
-   MSVC bounded sort перенесён, GCC std::sort иначе выбирал ties. Release modulo
-   uniform1..5, game-world tick divisor, перед enable/gates. RNG distribution,
-   не битовая последовательность. Сохраняет Hook/Direction/Jump; пишет Aim/Fire.
-
-## Проверки текущей версии
-
-Все native fixtures скомпилированы и выполнены на `home`. Общий лог:
-`research/codex/final-deep-validation.log`.
-- Planner/policy boundary regressions OK.
-- World isolation, destruction markers, dummy collisions, actual job pool,
-  queued takeover, laser fallback OK.
-- Rocket physics126states:85triggers,64acceptedshots,0unsafe first9steps,
- 0source mutations. Это не обещание спасения на всей дальнейшей траектории.
-- Upper freeze:22/26/33horizons, release1, miny182, frozen0.
-- Frozen-head support retainedy338/frozen0; removedy369/frozen1.
-- Corridor960states,384safe no-shot22steps,37unnecessaryshots,0harmful inside22;
- 37safe no-shot100tickcases x5release moduli ->0harmful. **Именно пользовательский
- промах не воспроизведён. Не утверждать, что он исправлен.**
-- Private live A/D walls: stopx639/right and128/left, frozen0, exit0.
- `research/codex/runtime/deep-audit-release/result.json`.
-- UI screenshot/click smoke: KRX Avoid/Misc, master, F8 keyreader, conditional
- rows, UnfreezeTicks0 preserved, Rocket checkbox. Last menu-smoke run OK.
-- Both desktop files validated, source manifest verified25/25, git diff--check OK.
-
-## Что выяснил новый REA по узкому проходу
-
-Свежие доказательства: `research/codex/corridor-rocket/`.
-Original219340/217760 действительно создают гранату из ShotInput в danger probe;
-никакого специального запрета выстрела в безопасном проходе нет. Это может
-провоцировать поиск/лишний выстрел и в восстановленном алгоритме. Пользователь
-выбрал сохранить это поведение.
-
-OriginalCProjectile vtable4aac78 Tick+10 -> wrapper21c6a0 -> **custom24dc80**.
-Обычные radius135/inner48/force*2 и ClampVel совпали в зоне0. Дополнительные
-telegun/weapon-teleport ветки KRX отсутствуют в текущем DDNet20.3 predictor —
-реальное оставшееся расхождение, пока не перенесено. В исследованном обычном
-коридоре оно не доказано причиной. 9999 покрывает только22шага, life>8 только
-первые9шагов; это не гарантия всей жизни гранаты или прохождения маршрута.
-
-## Оставшиеся ограничения
-
-- Полного live KRX A/B одинаковых сохранённых ситуаций ещё нет.
-- Telegun/weapon-teleport prediction, tuning-zone точность, whole18.9.1vs20.3
- physics, точные Hook/Direction toggle consumers требуют продолжения.
-- AutoDrag DragAim stub, AFK behavior, ESP drawing, агенты0/1/3 не закончены.
-- Original wider pipeline содержит отдельные AutoJumpSave/laser-unfreeze/etc;
- их не добавляли в пространство Blatant Jump, чтобы не выдумывать другой алгоритм.
-- Runtime VM checkpoint `research/runtime/FINDINGS.md` (исключение Defender,
- media cleanup) не меняли. Не объявлять старые cleanup-действия выполненными.
-
-## Логи, бэкапы и продолжение
-
-Launcher сохраняет новые реальные сессии в `research/runtime/client-logs/`.
-Новые строки Avoid включают life(-1/9999/partial), tick, velocity, hook state/pos,
- входной/выходной aim, check/kick. Rocket: trigger/baseline/best/fired, aim/fire,
- weapon/wanted/hook/time. Это нужно для точного разбора следующих промахов.
-
-Бэкапы: `/home/a/backups/openkrx-before-hook-change-20261028-210535` (полный
-код+бинарник+настройки+ярлык, до пользовательской правки хука) и
-`/home/a/backups/openkrx-pre-corridor-20261029-124916` (старый установленный
-бинарник+текущие на тот момент ещё не собранные исходники Avoid).
-Оригинальные данные REA/ZIP/исследования не удалять. Код не коммитили.
-
-## Состояние на 2026-11-01
-
-Средний пакет (Aimbot, Auto Unfreeze/Shotgun/Aled, Dummy Fly, Hook Nearest,
-Balance, Auto Jump Save, Fake Aim, Hook/Jet Ride, HUD/Aim lines/Trail, ID
-Stealer) собран на `ssh home`, dist обновлён и лежит в `dist/OpenKRX`
-(SHA256 `96f47ae3...`, built_at_utc 2026-11-01T06:30:47Z).
-
-Автоматические хуки KRX/Avoid не подчиняются аимботу:
-`CAimbotSettings::m_HookIsAutomated` взводится в `CControls::SnapInput`, когда
-hook нажат без физического нажатия или им владеет Avoid; при этом флаге
-аимбот не меняет aim. Регрессия —
-`research/medium-port-20261031/fixtures/aimbot_hook_ownership_test.cpp`.
-
-Фикстуры среднего пакета (`krx_bots_test`, `krx_aimbot_physics_test`,
-`krx_hook_ownership_test`) проходят на `home` с errors=0. Запуск:
-`python3 run-native-test.py <name> --map` из `/home/a/openkrx-build`.
-
-Меню KRX: шесть вкладок Aimbot / Misc / Visuals & HUD / Avoid / TAS /
-Settings; Avoid-дропдаун Basic/Legit/Blatant/Fent, страница Blatant рисует
-Main, Settings, Hotkeys, Tiles, Aimb, Visuals. Скриншоты и интерактивный
-пробник: `research/medium-port-20261031/menu-probe.py` (start/shot/click/stop).
+# Актуальная сборка: аудит Blatant/Rocket/timing, 2026-11-01
+
+Итог: `research/codex/full-parity-20261101/RESULT.md`. Таблицы функций и REA
+Evidence находятся в `avoid/`, `rocket/`, `timing/`. Проход и установка завершены.
+
+Главная находка: в оригинале cl_prediction_margin default/min20/max300;
+порт разрешал пользовательские8. Вернули20/20/300, загрузка8->20 и effective20
+проверены в игре. Два промаха при10.5ms поиске воспроизводятся задержкой хука
+на1тик, но отрицательного ack именно старого пакета нет. Новые input-send /
+input-timing логи сохраняют все ответы и uncached время. Порядок SendInput ->
+OnPredict совпал с оригиналом; дополнительный тик в прогноз не добавлен.
+
+Исправлены source fallback, zero sentinels/anchors, придуманные Direction/Hook
+фильтры; эквивалентная Assist-оптимизация проверена. В speculative KRX worlds
+восстановлены death/tele policy, projectile disposal, weapon tele, telegun,
+источник силы взрыва и длины пробного хука. krx_predictionteleports default0.
+
+Сохранены ручной прыжок и возврат оружия. Fire-sync против NSIF replay старого
+нажатия — явная поправка совместимости. EmergencyHook/KeepDirection/readiness
+не возвращены. Перенесённые правила физики не включать в обычный prediction.
+
+12 native suites ONLY sshhome passed: 648 boundaries, 108 controlled + 288 real
+full/elided comparisons, 48 tile cases, projectile/Rocket/Fire/restore/trace.
+Final live: 1 rescue/1 real shot/return hammer/no freeze/exit0, margin8->20,
+91 timing replies без late. Это bounded проверка, не native original A/B.
+
+dist/OpenKRX SHA256 `1e5c5f1284125defe2788a6dd9f2960b86fa137b1f5ad1821af8a449ca8faca9`.
+34 source hashes и home binary совпали; BUILD/SOURCE-SHA256 актуальны.
+Оба ярлыка обновлены и проверены. Нужен перезапуск через прежний ярлык.
+Личный конфиг не переписан, krx-beta.desktop не тронут. Исходники этого прохода
+подготовлены к commit/push в main по явному запросу пользователя; релиз не создаётся.
+JOURNAL и openkrx-project skill обновлены; quick_validate passed.
+
+Не объявлять идеальной1:1: native original A/B отсутствует, optional FastInput1,
+TAS/other agents не портированы; полная cross-version physics не доказана.
+Ниже исторические сводки, они не описывают текущую сборку.
+
+# Текущее: исправлен staleFire, начат полный аудит (2026-11-01)
+
+Новый запрос: полностью сверить Blatant/Avoid, prediction и Rocket/timing
+с GoodCrack через REA. Два дополнения — manualjump иweaponrestore — оставлены.
+Сейчас dist/OpenKRX SHA256 5ed21d651e583ccc81b31fdb468dc77d123591478154356d4b09c41b4f3b3f95, сборкаONLYsshhome,
+7native suites/8firecases/isolatedlive passed,31sourcehashes matched.
+Новаяпоправка SynchronizeFireCounter передDecide предотвращаетNSIF replay
+старогоFireпослеrelease; OnPlayerDeath сохраняетpendingrelease,отменяетrestore.
+Этонамеренноеотличиеотoriginalfullinputcopy,невыдаватьза1:1.
+Бэкап /home/a/backups/openkrx-before-fire-sync-20261101-143043.
+Отчётresearch/codex/fire-sync-20261101/RESULT.md. Hookdelay1ещёнеисправлен:
+дваслучая14:22/14:31reconstructedточно, причиналожногоtimingнеустановлена.
+Текущийfullauditподзадачи/отчётыresearch/codex/full-parity-20261101/.
+Нуженrestartчерезпрежнийярлыкдляновойсборки,конфигнетронут. Далееистория.
+
+# Актуальное состояние: политика KRX и два дополнения (2026-11-01)
+
+Пользователь попросил поведение Avoid/Rocket как в GoodCrack, затем явно
+оставил возврат оружия и сохранение ручного прыжка. Оба дополнения сохранены.
+Убраны runtime EmergencyHook, KeepDirection и pending-shot readiness/forecast.
+Основной aimbot теперь перед Avoid; Rocket после Avoid до Send. Старые три
+конфиг-переключателя удалены, их сохранённые1 больше не влияют.
+Бэкап до изменений: /home/a/backups/openkrx-before-krx-parity-20261101-141313.
+Отчёт: research/codex/krx-parity-20261101/RESULT.md; новые REA ba150/b6760
+Evidence сохранены, сессия закрыта. Native original runtime A/B всё ещё нет,
+полную1:1копию не объявлять; два дополнения намеренно отличаются.
+Сборка только sshhome, шесть native suites и isolated live passed;
+1manualrescue/1shot/returnhammer/nofreeze/exit0; 31source hashes совпали.
+dist/OpenKRX SHA256 4ebef395a7612dd933f13d71f8c02a220b4c67dc01e347a96ab42c5c57e87101.
+Для пользователя — перезапуск прежним ярлыком. Конфиг не переписан,
+коммит/релиз не сделаны. Ниже предыдущие сводки для контекста.
+
+# Диагностика фриза 14:01:18 (2026-11-01)
+
+См. research/codex/failure-analysis-20261101-1401/ANALYSIS.md.
+EmergencyHook на13012948 снял рабочий зацеп по ConstantLife27 SAFE;
+remote native probe: без хука freeze32, с хуком76 (горизонт80).
+Далее промах повторного броска, NSIF26..1, no_safe_no_tail, freeze13012988.
+Короткий NSIF/null подтверждён новым REA2d2080 как поведение оригинала;
+фильтр отпускания — отдельная доработка. Полный causal originalAB отсутствует.
+Это диагностика, production/config/dist не меняли. Текущие незакоммиченные
+Rocket/controls правки относятся к другой работе и сохранены.
+
+# OpenKRX — актуальное состояние на 2026-11-01, 14:03 МСК
+
+Эта сводка описывает текущее дерево и установленный Linux-клиент. Старые
+записи JOURNAL.md о релизах v0.1.0–v0.1.2 и удалении возврата оружия —
+история; новый запрос пользователя снова разрешает эту функцию.
+Предыдущий HANDOFF сохранён в
+`research/rocket-restore-20261101/HANDOFF-before.md`.
+
+## Рабочие пути и сборка
+
+- Основной проект/реверс/результаты: `/home/a/openkrx` на текущем ПК.
+- Компиляция C++ и сборочные тесты **только через `ssh home`**.
+  `scripts/build-remote.sh` синхронизирует исходники в
+  `home:/home/a/openkrx-build/source`, собирает в `.../build` и возвращает
+  артефакты в локальный `dist/`. Hostname обоих ПК бывает `arch`.
+- Текущий launcher: `scripts/openkrx.sh` → `dist/OpenKRX`.
+  Логи запусков: `research/runtime/client-logs/`.
+- Оба актуальных ярлыка: `~/.local/share/applications/openkrx.desktop` и
+  `~/Рабочий стол/openkrx.desktop`. Обновлены, desktop-file-validate passed.
+  `krx-beta.desktop` не меняли. Открытый клиент требует перезапуска.
+- Личная конфигурация: `~/.local/share/ddnet/settings_ddnet.cfg`.
+  Тесты используют отдельное хранилище; личный конфиг не переписывали.
+- Проектный скилл: `/home/a/.codex/skills/openkrx-project/SKILL.md`.
+
+Установленная сборка: `dist/BUILD.txt`, built_at_utc
+`2026-11-01T11:03:35Z`, build_host=home, SHA256 OpenKRX
+`3410b0bd82ae3d513ddef14128b0e9ea7d39ce06a2210fbb24ceab2596d7d569`.
+Source_commit `006b384` — база, текущие правки пока не закоммичены.
+31 файл `dist/SOURCE-SHA256.txt` совпал с home; хеш установленного бинарника
+совпал с home build/DDNet (verification.json в папке исследования).
+Linux/Windows release-файлы с другими именами в dist и старые GitHub-релизы
+в этой задаче не пересобирали и не публиковали; их нельзя считать этой сборкой.
+
+## Что сейчас реализовано
+
+- Avoid Freeze/Blatant и Rocket Save; пользовательские дополнения:
+  keep manual jump, only necessary automatic hook, keep direction when safe,
+  согласованный прогноз pending rocket press и готовности выстрела.
+- Простые функции: Moonwalk, Auto Fire, Auto Rehook, Hook Spam, Pixel Walk,
+  Quick Stop/Ground Only, Hide Chat Bubble, AutoTeam/lock, AntiAFK,
+  Kill on Freeze, Emote Spam, Random Timeout Seed.
+- Средний пакет уже в коде: Aimbot, Auto Unfreeze/Shotgun/Aled, Dummy Fly,
+  Hook Nearest, Balance, Auto Jump Save, Fake Aim, Hook/Jet Ride, ID Stealer;
+  HUD/Watermark/Aim lines/Trail, цвета тии/хука/оружия/замороженных игроков,
+  Rainbow, SmoothCam/SuperDynCam, Custom Menu.
+- Автоматические хуки KRX/Avoid сохраняют своё направление: аимбот не
+  переписывает их aim. AutoRehook сам по себе не является автонаведением.
+- В меню шесть вкладок: Aimbot / Misc / Visuals & HUD / Avoid / TAS / Settings.
+  Настройки пользователя сверх оригинала — KRX → Settings → OpenKRX.
+
+Это перечень имеющегося кода, а не обещание полной 1:1 копии оригинала.
+Исходники меню: `src/game/client/components/menus_settings_krx.cpp`.
+Строки `Later(...)` остаются заглушками: в частности TAS, Trajectory,
+Frozen HUD, Auto Edge, Discord RPC, Version Spoofer, ряд чат-функций,
+Teleport prediction/Advanced settings. Сверять конкретную функцию с кодом,
+не переносить устаревшие выводы из ранних секций журнала.
+
+## Новый возврат оружия после Rocket Save
+
+`openkrx_rocket_restore_weapon=1` по умолчанию; checkbox
+`Restore weapon after Rocket Save` в KRX → Settings → OpenKRX.
+
+Запоминается прежнее оружие при автоматическом изменении WantedWeapon на
+гранату. Во время подготовки возврат не перебивает нужный для сейва выбор.
+`Decision.m_Fired` означает запрос, а не реальный выстрел: завершение
+распознаётся по новому authoritative AttackTick с активной гранатой.
+Затем прежний слот запрашивается до подтверждённого переключения; реальный
+reload/DoWeaponSwitch отрабатывает игровую задержку без фиксированных 4 тиков.
+
+Исправлен новый баг: если граната досталась, но выстрел не состоялся,
+подготовка больше не висит навсегда. После окончания собственного fire pulse
+проверяется реальная траектория без нового выстрела на 22 шага. Если она
+безопасна, возвращается прежнее оружие и состояние освобождается. При
+проверке учитывается ещё удерживаемый подавленный ручной прыжок, чтобы не
+сорвать взведение. Это ограниченный горизонт предиктора, не гарантия всей
+будущей траектории. Клавиша оружия/колесо отменяют возврат; явный ручной
+выбор гранаты сохраняется. Disconnect/death/dummy change/off/missing weapon
+сбрасывают сохранённую цель.
+
+Проверки текущей версии:
+- C++ на home: реальные grenade projectiles и reload для hammer/gun/shotgun/
+  laser → grenade → прежний слот, ожидание 26 шагов; неподтверждённый shot,
+  pending release, новая попытка, ninja, безопасная отмена без выстрела.
+- C++ pending Rocket/Avoid, ready guard 4320/4323, manual ground/air/gun→grenade
+  regressions прошли. В новой fixture исправлен тестовый setup: FreezeDelay=3
+  и доступные прыжки; нулевой freeze-delay не проверял опасный сценарий.
+- Изолированный сервер/Xvfb, реальный SnapInput: обычный сейв = 1 выстрел,
+  возврат молота; отмена до выстрела = 0 выстрелов, возврат молота; следующая
+  попытка в той же сессии = 1 выстрел и возврат. Ручной выбор гранаты без
+  сейва сохраняется. Freeze/лишних направлений нет, exit0.
+- На первой сборке также проверены отключённый возврат и ручной выбор гранаты
+  во время кулдауна. Все fixture-процессы этих запусков очищены.
+
+Код: `src/game/client/avoid/rocket_save.{h,cpp}`, weapon callbacks в controls,
+config_variables.h и меню. Доказательства/логи/фикстуры/REA:
+`research/rocket-restore-20261101/`; live-данные:
+`research/codex/runtime/confirmed-restore-*`.
+Бэкап до работы: `/home/a/backups/openkrx-before-confirmed-restore-20261101`.
+
+## Эталон и оставшиеся неизвестные
+
+GoodCrack/KRX — источник переносимого поведения. REA-agents обязателен для
+анализа бинарника; используемые Evidence не подменять shell-догадками.
+Эталон `research/rea/krx-source-analysis.exe`, SHA256
+`0477b21ed12ce04a3a657a26be2f75cfcfc9b7429d6ad07ff8ecd3359616dc3d`.
+Свежий REA/Ghidra handler `0x1402ba150` сохранён в
+`research/rocket-restore-20261101/rea-0.json`: выбор WantedWeapon=4,
+порог/поиск, fire press и modulo release 1..5. Новый возврат — явное
+дополнение пользователя, не заявлять его функцией оригинального KRX.
+Своя REA-сессия закрыта, checkpoint.snap сохранён.
+
+Полного native live A/B GoodCrack нет. Telegun/weapon-teleport и часть
+предсказания/сложных Later-функций не завершены; ранние исследования
+`research/codex/`, `research/deep-audit-20261031/`,
+`research/medium-port-20261031/` сохраняются. VM-состояние и прежние
+неизвестные/cleanup описаны в `research/runtime/FINDINGS.md`; в этой задаче
+VM не запускали и старую уборку не объявляли выполненной.

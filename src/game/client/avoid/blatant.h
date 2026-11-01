@@ -116,6 +116,9 @@ namespace OpenKrx
 		void SetSettings(const CBlatantSettings &Settings) { m_Settings = Settings; }
 		const CBlatantSettings &Settings() const { return m_Settings; }
 		void Reset();
+		// Fire is a live edge counter, not a replayable movement command. Keep
+		// NSIF from resurrecting an already released manual or automatic press.
+		void SynchronizeFireCounter(int Fire);
 		void SetTracing(bool Enabled) { m_Tracing = Enabled; }
 		const CBlatantDiagnostic &Diagnostic() const { return m_Diagnostic; }
 		std::optional<CNetObj_PlayerInput> Decide(IBlatantSimulation &World, CNetObj_PlayerInput Input, vec2 MouseAim);

@@ -24,7 +24,7 @@ MACRO_CONFIG_INT(ClAntiPingWeapons, cl_antiping_weapons, 1, 0, 1, CFGFLAG_CLIENT
 MACRO_CONFIG_INT(ClAntiPingSmooth, cl_antiping_smooth, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Make the prediction of other player's movement smoother")
 MACRO_CONFIG_INT(ClAntiPingGunfire, cl_antiping_gunfire, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Predict gunfire and show predicted weapon physics (with cl_antiping_grenade 1 and cl_antiping_weapons 1)")
 MACRO_CONFIG_INT(ClAntiPingPreInput, cl_antiping_preinput, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Predict other players using preinputs for more accurate input prediction")
-MACRO_CONFIG_INT(ClPredictionMargin, cl_prediction_margin, 10, 1, 300, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction margin in ms (adds latency, can reduce lag from ping jumps)")
+MACRO_CONFIG_INT(ClPredictionMargin, cl_prediction_margin, 20, 20, 300, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction margin in ms (adds latency, can reduce lag from ping jumps)")
 MACRO_CONFIG_INT(ClSubTickAiming, cl_sub_tick_aiming, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Send aiming data at sub-tick accuracy")
 #if defined(CONF_PLATFORM_ANDROID) || defined(CONF_PLATFORM_IOS)
 MACRO_CONFIG_INT(ClTouchControls, cl_touch_controls, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Enable ingame touch controls")
@@ -756,12 +756,11 @@ MACRO_CONFIG_INT(AvoidDrawAimbot, krx_drawavoidaimbot, 0, 0, 1, CFGFLAG_CLIENT |
 MACRO_CONFIG_INT(AvoidDrawPath, krx_drawavoidpath, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid freeze esp path on/off")
 // OpenKRX-only diagnostics, not a KRX variable.
 MACRO_CONFIG_INT(AvoidDebug, openkrx_avoid_debug, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Record detailed Avoid decisions; save freeze reports to dumps/openkrx-avoid (manual: openkrx_avoid_dump)")
-MACRO_CONFIG_INT(AvoidEmergencyHook, openkrx_avoid_emergency_hook, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Use automatic hook only when the same input without it would freeze within Check ticks (0 = recovered KRX behavior)")
-MACRO_CONFIG_INT(AvoidRocketPulsePrediction, openkrx_avoid_rocket_pulse_prediction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Keep Avoid and Rocket fire consistent: automatic shots only when ready, no assumed deferred press (0 = original KRX forecast/pulses)")
-MACRO_CONFIG_INT(AvoidKeepDirection, openkrx_avoid_keep_direction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Keep the player's direction when the otherwise identical Avoid input is safe for all Check ticks (0 = recovered KRX choices)")
 MACRO_CONFIG_INT(AvoidApply, openkrx_avoid_apply, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legacy compatibility setting; both values use recovered KRX SnapInput ordering")
 MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto grenade save on/off")
+MACRO_CONFIG_INT(KrxPredictionTeleports, krx_predictionteleports, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction teleport support on/off")
 MACRO_CONFIG_INT(RocketPreserveJump, openkrx_rocket_preserve_jump, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Keep a manually held jump suppressed by Avoid when Rocket Save can rescue it (0 = original KRX input ordering)")
+MACRO_CONFIG_INT(RocketRestoreWeapon, openkrx_rocket_restore_weapon, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Return to the previous weapon after a confirmed Rocket Save shot")
 // Simple KRX features. Source registry: research/easy-port-20261030/config-map-shell.json.
 MACRO_CONFIG_INT(KrxMenuTab, krx_menu_tab, 0, 0, 5, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Last KRX settings tab")
 MACRO_CONFIG_INT(KrxAutoFire, krx_autofire, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto Fire Bot")

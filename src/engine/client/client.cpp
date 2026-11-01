@@ -363,6 +363,7 @@ void CClient::SendInput()
 			break;
 		}
 		int i = g_Config.m_ClDummy ^ Dummy;
+		const int64_t DebugBegin = g_Config.m_AvoidDebug ? time_get_impl() : 0;
 		int Size = GameClient()->OnSnapInput(m_aInputs[i][m_aCurrentInput[i]].m_aData, Dummy, Force);
 
 		if(Size)
@@ -396,7 +397,19 @@ void CClient::SendInput()
 			m_aCurrentInput[i]++;
 			m_aCurrentInput[i] %= 200;
 
+			const int64_t BeforeSend = g_Config.m_AvoidDebug ? time_get_impl() : 0;
 			SendMsg(i, &Msg, MSGFLAG_FLUSH);
+			if(g_Config.m_AvoidDebug)
+			{
+				const int64_t AfterSend = time_get_impl();
+				dbg_msg("input-send", "conn=%d intended=%d begin_us=%lld queue_us=%lld sent_us=%lld prepare_us=%lld flush_us=%lld effective_margin_ms=%d",
+					i, m_aPredTick[g_Config.m_ClDummy],
+					(long long)(DebugBegin / time_freq() * 1000000 + DebugBegin % time_freq() * 1000000 / time_freq()),
+					(long long)(BeforeSend / time_freq() * 1000000 + BeforeSend % time_freq() * 1000000 / time_freq()),
+					(long long)(AfterSend / time_freq() * 1000000 + AfterSend % time_freq() * 1000000 / time_freq()),
+					(long long)((BeforeSend - DebugBegin) * 1000000 / time_freq()),
+					(long long)((AfterSend - BeforeSend) * 1000000 / time_freq()), PredictionMargin());
+			}
 			// ugly workaround for dummy. we need to send input with dummy to prevent
 			// prediction time resets. but if we do it too often, then it's
 			// impossible to use grenade with frozen dummy that gets hammered...
@@ -2116,6 +2129,17 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket, int Conn, bool Dummy)
 					Target = Target - (int64_t)((TimeLeft / 1000.0f) * time_freq());
 					break;
 				}
+			}
+
+			// Keep every reply in the debug log. The frame recorder retains only
+			// the latest receipt, so a late input followed by an on-time one in
+			// this same network pump would otherwise lose its negative timing.
+			if(g_Config.m_AvoidDebug)
+			{
+				const int64_t Received = time_get_impl();
+				dbg_msg("input-timing", "conn=%d intended=%d time_left_ms=%d local_match=%d received_us=%lld",
+					Conn, InputPredTick, TimeLeft, Timing.m_Value.m_MatchedLocalInput,
+					(long long)(Received / time_freq() * 1000000 + Received % time_freq() * 1000000 / time_freq()));
 			}
 
 			if(Target)

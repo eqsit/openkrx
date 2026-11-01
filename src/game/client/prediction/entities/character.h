@@ -78,6 +78,10 @@ public:
 	vec2 m_PrevPos;
 	vec2 m_PrevPrevPos;
 	int m_TeleCheckpoint;
+	// Original prediction character+0x60/+0x68/+0x69, used only by KRX worlds.
+	vec2 m_KrxTeleGunPos = vec2(0.0f, 0.0f);
+	bool m_KrxTeleGunTeleport = false;
+	bool m_KrxBlueTeleGunTeleport = false;
 
 	int m_TileIndex;
 	int m_TileFIndex;

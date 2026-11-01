@@ -1,5 +1,10 @@
 # OpenKRX — журнал исследования и реализации
 
+> Актуальная сводка: [HANDOFF.md](HANDOFF.md), обновлена 2026-11-01.
+> Журнал ниже хронологический. Старые записи об удалении возврата оружия и
+> версиях релизов описывают прошлое; текущий возврат и исправление отменённого
+> сейва описаны в последней записи. Текущий установленный файл — dist/OpenKRX.
+
 ## Задача и требования пользователя
 
 - База: исходники обычного DDNet; проект целиком в `/home/a/openkrx`.
@@ -1666,3 +1671,209 @@ blatant_hook_timing_test failures=0.
 GitHub: main = cba7c37. Старые релизы v0.1.0 и v0.1.1 удалены вместе с тегами,
 опубликован один актуальный v0.1.2 (Linux + Windows), бинарники без фичи
 (в exe нет строки "restore weapon=").
+
+
+## 2026-11-01 14:03 МСК — возврат оружия и безопасное завершение несостоявшегося сейва
+
+Новый явный запрос пользователя: после Rocket Save автоматически возвращать
+оружие, которое было до автоматического доставания ракеты; собрать только
+на ssh home, обновить ярлык, обязательно использовать REA-agents. Затем
+пользователь попросил актуализировать журнал и сохранить проектный скилл.
+
+Прошлые попытки из записей v0.1.0–v0.1.2 не являются текущей реализацией.
+Сначала реализован возврат после наблюдения реального authoritative grenade
+AttackTick, а не просто Decision.m_Fired (это всего лишь выданная команда).
+В CRocketWeaponRestore сохраняется прежний слот при автоматическом изменении
+WantedWeapon на 4; повторные подготовки не перезаписывают цель. Возврат
+выдаётся после собственного fire release и удерживается до authoritative
+переключения, проходя через настоящий reload/DoWeaponSwitch. Молот, gun,
+shotgun и laser проверены на реальных prediction objects с projectile и
+кулдауном 26 шагов. Никакого фиксированного ожидания «>4 тика» нет.
+
+Пользователь обнаружил баг первой сборки этой сессии: если граната досталась,
+но выстрела не произошло, подготовка оставалась навсегда. Исправлено:
+когда нет собственного pending fire и нового выданного shot, дополнительно
+проверяется 22-шаговая no-new-shot траектория с существующими projectiles.
+Безопасная траектория разрешает отменить подготовку и вернуть прежний слот.
+Подавленный физический прыжок включён в эту проверку: пока удерживаемый
+прыжок реально требует ракеты, отмена не мешает подготовке. Это bounded
+прогноз, не гарантия безопасности всей будущей игры. Ручной выбор оружия
+и колесо отменяют восстановление, явный ручной выбор гранаты сохраняется;
+death/disconnect/dummy/disable/missing weapon очищают цель.
+
+Конфиг `openkrx_rocket_restore_weapon=1` по умолчанию. Checkbox
+`Restore weapon after Rocket Save` в KRX → Settings → OpenKRX.
+Debug (`openkrx_avoid_debug`) пишет `restore weapon=...` и
+`restore after safe cancellation ...`. Настройки пользователя не переписывали.
+
+REA Evidence отдельно от тестов порта:
+- Через подключённый REA-agents/Ghidra получен 0x1402ba150 из аналитического
+  GoodCrack PE SHA256 0477b21ed12ce04a3a657a26be2f75cfcfc9b7429d6ad07ff8ecd3359616dc3d.
+  ev_6cbd25f4c7f60696e0521eac26826e436aa7c6bd03712234c7adc8f7cd89361f,
+  `research/rocket-restore-20261101/rea-0.json`: исходный handler выбирает
+  Wanted4, fire counter и random modulo 1..5; нового возврата в нём нет.
+- Дополнительный interior selector 0x140217680 разрешился в функцию
+  FUN_1402170b0, а НЕ в DoWeaponSwitch. `rea-1.json` сохраняется, но этот
+  результат не используется как доказательство переключения или кулдауна.
+- Snapshot при открытии PE восстановил сохранённые bindings; новые
+  псевдокодные запросы потребовали анализа Ghidra. Сессия штатно закрыта,
+  `checkpoint.snap` сохранён. Статический результат не является live A/B.
+
+Валидация (C++ сборка/тесты только ssh home):
+- final-physics.log: hammer/gun/shotgun/laser, настоящий выстрел и кулдаун,
+  pending release, неподтверждённый shot, safe/unsafe отмена подготовки,
+  следующая попытка, reset/ninja — errors=0.
+- На первом расширении fixture были 2 FAIL: отсутствовали SvFreezeDelay=3
+  и доступные jump-поля. В production дефекта по этим FAIL не выявлено;
+  тестовое состояние исправлено, итоговый отдельный прогон errors=0.
+  Исходный неудачный прогон сохранён в regression-safe-abort.log.
+- pending Rocket/Avoid reconstruction errors=0; ready guard 4320/4323
+  errors=0; manual ground/double/gun→grenade OK (regression-safe-abort.log).
+- Реальный локальный клиент + отдельный сервер/Xvfb, финальный бинарник:
+  final-normal.log — молот→ракета→1 shot→молот; final-cancel-retry.log —
+  первая попытка отменена без выстрела и возвращает молот, следующая в той
+  же сессии стреляет один раз и возвращает молот; final-manual-select.log —
+  ручной выбор гранаты остаётся активным, 0 shots. Freeze/лишних боковых
+  переключений движения нет, exit0. Хранилища тестов изолированы, процессы
+  завершены. Первая сборка также прошла live-off/manual-grenade.
+
+Установлен локальный dist/OpenKRX, сборка home 2026-11-01T11:03:35Z:
+SHA256 3410b0bd82ae3d513ddef14128b0e9ea7d39ce06a2210fbb24ceab2596d7d569.
+База source_commit=006b384; текущие изменения не коммитили и не публиковали.
+Оба ярлыка рабочего стола/меню ведут на scripts/openkrx.sh→dist/OpenKRX,
+обновлены и проверены desktop-file-validate. Старые Linux/Windows release
+файлы с другими именами в dist не обновлялись; не выдавать их за этот билд.
+Бэкап: /home/a/backups/openkrx-before-confirmed-restore-20261101.
+
+HANDOFF.md заменён актуальной краткой сводкой функций/путей/ограничений;
+старый сохранён в research/rocket-restore-20261101/HANDOFF-before.md.
+AGENTS.md исправляет устаревшее «ничего не коммитили» и фиксирует REA-требование.
+Новый проектный скилл /home/a/.codex/skills/openkrx-project/SKILL.md содержит
+пути локального проекта и home, сценарии сборки/фикстур, эталон, ярлыки,
+правило актуализации журналов и известные ловушки возврата. quick_validate OK.
+Полной 1:1 копией GoodCrack клиент не объявлять, Later-функции и native A/B
+остаются ограничениями. VM в этой задаче не трогали.
+
+Финальная сверка: 31 файл source-manifest совпал с деревом на home,
+локальный dist/OpenKRX побайтно совпал по SHA256 с home build/DDNet.
+Обновлён dist/SOURCE-SHA256.txt; итог research/rocket-restore-20261101/verification.json.
+Повторные quick_validate скилла, desktop-file-validate и git diff --check OK.
+
+
+## 2026-11-01 — диагностика пользовательского фриза 14:01:18
+
+Отчёт research/codex/failure-analysis-20261101-1401/ANALYSIS.md.
+На pred13012948 emergency-hook снял работающий зацеп (filtered_hook1).
+Bounded native probe ONLY sshhome: Hook0/1 оба ConstantLife27 SAFE,
+но при горизонте80 живут32/76. После повторного броска хук не зацепился;
+NSIF расходовал хвост26..1, затем no_safe_no_tail и raw right -> freeze
+на auth13012988. Ракета лишь продлила полёт. Полный original runtimeAB
+не получен, сохранение зацепа не доказано гарантированным спасением.
+Новый REA2d2080 evidence ev_9c2b8335c59a773f7130770abe50e00035bc2a779dd0c4b0ad9ce97f28d26188
+подтверждает short-tail/null при исчерпании как оригинальную ветку.
+Evidence сохранён, REA закрыта. Production/config/dist не меняли;
+существующие незакоммиченные изменения не трогали.
+
+
+## 2026-11-01 — восстановление политики Avoid/Rocket KRX с двумя исключениями
+
+Явный запрос: бэкап, восстановить поведение оригинала; затем уточнение оставить
+возврат оружия и сохранение ручного прыжка. Бэкап кода/dirtypatch/dist/config
+/home/a/backups/openkrx-before-krx-parity-20261101-141313, archive1888files verified.
+Удалены runtime emergency-hook/keepdirection/pendingrocketforecast+readygate;
+старые конфиг-переключатели удалены. Два запрошенных дополнения сохранены.
+Основной aimbot поставлен перед Avoid согласно сохранённому REA26d2d0.
+Новое REA ba150/b6760 evidence ev_c595294580d36379381326f26d11783d6e28ea8d6b85decba2bb417270c95507
+сохранено, сессия закрыта. Оригинал также имеет modulo/reload quirks;
+пороги и tie sort не переписывались. Отчёт research/codex/krx-parity-20261101/RESULT.md.
+Сборка/шестьnative suites толькоsshhome passed; isolated live manualjump1,
+shot1, returnhammer, nofreeze, exit0; три удалённых политики0 в trace.
+31source hashes и client home/local match. dist SHA256 4ebef395a7612dd933f13d71f8c02a220b4c67dc01e347a96ab42c5c57e87101.
+Native originalAB отсутствует, двух намеренных отличий не скрывать.
+Конфиг пользователя не меняли, текущий процесс не закрывали. Нужен restart.
+Коммитов/релизов нет; остальные ранее существовавшие изменения сохранены.
+
+
+## 2026-11-01 — свежие фризы14:22/14:23 и временно залипший Rocket
+
+PID12910 подтверждён новый SHA2564ebef395...87101. Отчёт/триJSONL/clientlog:
+research/codex/failure-analysis-20261101-1422/ANALYSIS.md.
+ONLYsshhome native: delay1 hook из1955 точно даёт реальный1958 pos2796,626/
+hook2665,426 вместо immediategrab2642,383. Safe->life8, затемfreeze1966.
+В первомкейсе гранаты нет. Причина timing shift не доказана, ackнеотрицательны.
+Второй5388 custommanualJump+Fire1, затем reloadingFire3 иfreeze5393;
+полный causal replay не получен. После5657release8/5658NSIF длительноFire7.
+Native stale_fire_probe подтвердил planFire7->release8/modulo0->NSIF7,
+releaseневозможен, errors0. Конкретный8->7 отсутствует в пользовательскомJSONL,
+механизм объясняет логи, original runtimeAB отсутствует. После14:24:10feature
+снова стрелял. Production/config/dist не менялись; это диагностика.
+
+
+## 2026-11-01 — исправление NSIF staleFire и новый фриз14:31
+
+Бэкап /home/a/backups/openkrx-before-fire-sync-20261101-143043.
+ПередDecide SynchronizeFireCounter обновляеттолькоFire всохранённомплане:
+старый7 не переигрываетсяпослеrelease8, simulationtail тожеиспользуетlivecounter.
+Этонамереннаяпоправкакoriginal40bytecopy длясовместимости; ручнойinput сохранён.
+OnPlayerDeath отменяеттолькоweaponrestore,неубиваетpendingreleaseтаймер.
+7native suites и8firecases ONLYsshhome passed; isolatedlive rescue1/shot1/
+returnhammer/nofreeze/exit0. 31source hashes matched. dist SHA256 5ed21d651e583ccc81b31fdb468dc77d123591478154356d4b09c41b4f3b3f95.
+Деталиresearch/codex/fire-sync-20261101/RESULT.md. Пользовательскийконфигнетронут.
+Фриз14:31:50встаромPID12910повторяетdelay1hook: nativeполучилточный31106
+pos4270,2947/hook4360,2854. Rocket вводнеменял. НовыйREA sourcecd0c0/guardd1b90
+сохранёнвfailure-analysis-20261101-1431/rea-source-guard.json.
+ПользовательрасширилзадачудополногoauditAvoid/Rocket/timing;работапродолжается.
+
+
+## 2026-11-01 — полный Blatant/Rocket/timing аудит, сборка и ярлыки
+
+Пользователь расширил задачу до чтения всей логики Blatant, prediction и
+Rocket через REA; затем попросил обновить ярлык, журнал и skill. Ручной прыжок
+и возврат оружия оставлены. Итог и ограничения:
+research/codex/full-parity-20261101/RESULT.md; таблицы функций и полный Evidence
+в avoid/, rocket/, timing/. Все owned REA-сессии закрыты, checkpoint39 records.
+
+Подтверждённые исправления: predicted source без fallback; zero sentinels и
+anchors; удалена придуманная фильтрация Direction/Hook; pure Assist strict-Dot
+elision с побайтным сравнением. В speculative KRX worlds восстановлены
+Death/Teles, character teleport policy, projectile alive/retirement,
+weapon teleport, telegun/air helpers/post-tiles consumer, источник силы взрыва
+и длины пробного хука. Ordinary prediction не получает KRX-флаг.
+
+Критическая настройка: оригинал cl_prediction_margin default/min20/max300,
+порт default10/min1 разрешал8. Оба промаха имели поиск около10.5ms >8;
+задержка броска1тик воспроизводит реальные hook states. Прямого отрицательного
+ack нужного старого пакета нет. Восстановлены20/20/300; config8->20 и effective20
+подтверждены на isolated live. Порядок SendInput->OnPredict совпал. Добавлены
+каждые input-send/input-timing строки с uncached time_get_impl: cached time_get
+давал нулевые длительности внутри кадра. Clock policy не меняли.
+
+12 native suites ONLY sshhome — exit0, включая648 boundaries,108 controlled+
+288 real full/elided comparisons,48 tile cases, projectile/Rocket/Fire/restore.
+Final isolated live:1manual rescue/1authoritative shot/return hammer/no freeze/
+exit0;91send/91reply без late.34source hashes и remote binary совпали.
+dist/OpenKRX SHA256 `1e5c5f1284125defe2788a6dd9f2960b86fa137b1f5ad1821af8a449ca8faca9`.
+Оба ярлыка обновлены build hash, validate и desktop database passed.
+
+Обновлён openkrx-project SKILL с реальными ловушками margin/Fire/timing и
+GameOnly; quick_validate passed. Предыдущий skill сохранён в backup144453.
+Бэкапы кода/сборки141313,143043 и checkpoint144453. Личный конфиг не переписан,
+пользовательский процесс не закрывали. Нужен restart. Коммита/релиза нет.
+
+Полную1:1 не заявлять: native original A/B отсутствует, optional FastInput1 /
+TAS / other agents не перенесены; весь cross-version physics contract не
+проверен. Два дополнения и Fire-sync намеренно отличаются.20ms не гарантируют
+отсутствие любых будущих фризов.
+
+
+## 2026-11-01 — публикация исходников после аудита
+
+Пользователь явно разрешил commit и push текущего кода на GitHub. Целевая
+ветка main репозитория eqsit/openkrx; удалённая main перед отправкой совпадала
+с локальной базой 006b384. Включены исходники и отслеживаемые AGENTS/HANDOFF/
+JOURNAL. Игнорируемые research, dist, пользовательские логи и конфиги
+в публикацию не включаются. Сохранены локальные Evidence и бэкапы.
+
+Перед commit повторно сверены 34 source hashes установленной и проверенной
+сборки, сводка 12 успешных native suites и git diff --check. Сборка не менялась.
+GitHub-релиз и бинарные вложения не запрашивались и не создаются.
