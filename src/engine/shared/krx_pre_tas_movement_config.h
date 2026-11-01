@@ -1,0 +1,10 @@
+// Recovered GoodCrack/KRX registry. This file is deliberately included repeatedly.
+MACRO_CONFIG_INT(ClFastInput, cl_fast_input, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Fast input")
+MACRO_CONFIG_INT(ClFastInputOthers, cl_fast_input_others, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Fast input others")
+MACRO_CONFIG_INT(KrxAutoEdge, krx_autoedge, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto edge bot")
+MACRO_CONFIG_INT(KrxGhostMove, krx_ghostmove, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Ghost Move Bot")
+MACRO_CONFIG_INT(KrxGhostMoveDirection, krx_ghostmovedirection, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Ghost Move direction")
+MACRO_CONFIG_INT(KrxGhostMoveJump, krx_ghostmovejump, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Ghost Move jump")
+MACRO_CONFIG_INT(KrxGhostMoveHook, krx_ghostmovehook, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Ghost Move hook")
+MACRO_CONFIG_INT(KrxGhostMoveHookClosest, krx_ghostmovehookclosest, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Ghost Move hook closest tee")
+MACRO_CONFIG_INT(KrxFindTunes, krx_findtunes, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Finds tunes if server is faking them")

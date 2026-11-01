@@ -1,3 +1,38 @@
+# Текущее: перенос функций 1–33 до TAS, 2026-11-01
+
+Пункты FEATURE_ESTIMATES.md от Teleport Prediction Menu до Find Tunes
+включительно восстановлены по REA и интегрированы. Детальный статус каждого:
+research/pre-tas-20261101/PORT_STATUS.md; итог и проверки: RESULT.md и
+verification.json в том же каталоге. Menus Misc/Visuals/Settings восстановлены
+по исходным251090/255740/25fdd0, без придуманной карточки console-only flags.
+
+Новые компоненты krx_misc_pre_tas, krx_movement_pre_tas, krx_visuals_pre_tas;
+config macro headers krx_pre_tas_*_config.h; исходные данные krx_name_data.h и
+data/krx/killsays.json. Killsays включён в CMake data manifest.
+Buildremote включает Discord SDK динамически наLinux (SDKрядомсbinary),
+наWindows DISCORDON/DYNAMICOFF и соответствующийDLL.
+
+Проверки наhome:34prediction,20018misc,movement,checksum packetdispatch;
+3hashlib;GDB602observations/6FastInputmain/dummy/Otherscases/errors0;
+privateFastInput+visuals+Rocket1rescue/1shot/returnhammer/nofreeze/exit0;
+RPCfixtureSDK;раскрытоеменю.1724sourcehashes сверены. Оба ярлыка обновлены.
+Нужен перезапуск пользователя. Личныйконфиг не меняли. Бэкап:
+/home/a/backups/openkrx-before-pre-tas-20261101-155937.
+
+Не заявлятьполную1:1: nativeoriginalAB/pixelAB нет. TrackPoint/AimbESP25/26
+вbounded originalxrefsearchнеимеютconsumer;PathESP27принадлежитFentвнеобъёма.
+SendAds8толькосбрасываетфлаг,benchmark18имеетchecksumconsumer. Новых
+BlatantESPнепридумывали. TAS/Pathfinding/Fent/Legit/Basicнепортировались.
+Оригинальные особенностисохранять:FastInputextra visualtickсоткатоммира,
+порядокDummyFirst,process-staticGhostMove/FindTunes,RNGMSVCдляслов/shuffle,
+notificationmutex/killmessagesrestore,64playerlimitsвновыхoriginalconsumers.
+
+Пользователь затем явно разрешил commit/push и релизWindows+Linuxv0.1.4.
+На момент этойсводки релизготовится; финальныеcommit/assets/hashсмотреть
+вконцеJOURNAL иresearch/pre-tas-20261101/release.json,когдаонпоявится.
+
+Ниже история; если противоречит верхнейсводке,этостароесостояние.
+
 # Актуальная сборка: аудит Blatant/Rocket/timing, 2026-11-01
 
 Итог: `research/codex/full-parity-20261101/RESULT.md`. Таблицы функций и REA

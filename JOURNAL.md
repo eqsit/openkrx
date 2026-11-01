@@ -1904,3 +1904,45 @@ https://github.com/eqsit/openkrx/releases/tag/v0.1.3
 Digest обоих ассетов в API совпал с локальными файлами. v0.1.2 оставлен.
 Windows не запускался под wine: runtime-проверка PE не проводилась, только
 совпадение маркеров с проверенным Linux-бинарником.
+
+
+## 2026-11-01 — начат перенос функций 1–33 до TAS
+
+Пользователь запросил полный перенос пунктов 1–33 FEATURE_ESTIMATES.md с
+восстановлением исходной логики через REA-agents, без приблизительных замен.
+TAS и пункты после него не входят. Перед любыми изменениями сохранены код
+(1891 файл, включая untracked FEATURE_ESTIMATES.md), HEAD/status/patch и
+полная история Git в /home/a/backups/openkrx-before-pre-tas-20261101-155937.
+Архив source.tar.gz проверен; SHA256
+f4372b8827c98cf1bd983c396ea8d38016d13c28ae2a328d30d6fb93b2e6fcf9.
+Исследование/матрица переноса: research/pre-tas-20261101/. Работа начата;
+эта запись не означает завершения переноса или доказанного совпадения.
+
+
+## 2026-11-01 — промежуточная установка по запросу пользователя
+
+Пользователь попросил обновить ярлык на проверенное текущее состояние и
+продолжить работу. Оба локальных ярлыка проверены desktop-file-validate и
+обновлены на dist/OpenKRX SHA256 81d26b868cac4993be56d255c914304495f2eb2ab40594da345aa460739d03ca.
+Бинарник совпал с home build/DDNet; launcher прежний scripts/openkrx.sh.
+Код функций 1–33 добавлен, но точное меню и последние исправления review
+ещё в работе и не входят в эту сборку. Проверки: 34 prediction, movement,
+20011 misc, isolated live FastInput+visuals+Rocket (один выстрел, возврат),
+checksum dispatch+3 hashlib, RPC через fixture SDK. Исходный live originalAB
+не получен; полной 1:1 эту промежуточную сборку не считать. Конфиг не меняли,
+текущий пользовательский процесс не закрывали; для обновления нужен restart.
+См. research/pre-tas-20261101/INSTALLED-INTERIM.json. Работа продолжается.
+
+
+## 2026-11-01 — завершён перенос pre-TAS и запрошен релиз v0.1.4
+
+Объём1–33FEATURE_ESTIMATES включительно,менюGoodCrack; итог/матрица/
+Evidence research/pre-tas-20261101/. Сборканаhome,34prediction,20018misc,
+movement,checksumdispatch+3hashlib;6GDBFastInputmain/dummy/Otherscases,
+602observations/errors0;privateRocket+visuals1shot/returnhammer/nofreeze.
+Все1724sourcehashes сверенысhome,localbinary совпал. Оба ярлыкаобновлены.
+Тестовыепроцессы/REAworkersзакрыты,конфигнепереписан. НативногоoriginalAB
+нет.25/26originalnorefconsumer,27Fentdependency,8/18исходныенооп/metadata
+оговоренывPORT_STATUS;невыдаватьза33самостоятельныхновыхсистемы.
+Пользовательявнопопросилcommit/pushиWindows/LinuxReleases. Подготавливается
+v0.1.4;послеэтойзаписибудутточныеcommit/assets иverificationrelease.

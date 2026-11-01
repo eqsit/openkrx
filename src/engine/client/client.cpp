@@ -1984,6 +1984,8 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket, int Conn, bool Dummy)
 			{
 				return;
 			}
+			if(!g_Config.m_KrxSendChecksum)
+				return;
 			int ResultCheck = HandleChecksum(Conn, *pUuid, &Unpacker);
 			if(ResultCheck)
 			{
@@ -3000,6 +3002,9 @@ void CClient::Update()
 					SendInput();
 				}
 			}
+
+			if(g_Config.m_ClFastInput && GameClient()->OnUpdateFastInput())
+				Repredict = true;
 
 			// only do sane predictions
 			if(Repredict)
@@ -4436,13 +4441,39 @@ int CClient::HandleChecksum(int Conn, CUuid Uuid, CUnpacker *pUnpacker)
 {
 	int Start = pUnpacker->GetInt();
 	int Length = pUnpacker->GetInt();
+	// Original 2bb060 logs decimal byte values separated by comma + space.
+	const auto Log = [&](int Result, const SHA256_DIGEST *pDigest = nullptr) {
+		if(g_Config.m_KrxChecksumLog)
+		{
+			char aLine[512];
+			const auto Print = [&](const char *pLabel, int Value) {
+				str_format(aLine, sizeof(aLine), "Checksum | %s: %d", pLabel, Value);
+				m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Checksum", aLine);
+			};
+			const auto Bytes = [&](const char *pLabel, const unsigned char *pBytes, size_t Size) {
+				std::string Text;
+				for(size_t Index = 0; Index < Size; ++Index)
+				{
+					if(Index) Text += ", ";
+					Text += std::to_string(pBytes[Index]);
+				}
+				str_format(aLine, sizeof(aLine), "Checksum | %s: %s", pLabel, Text.c_str());
+				m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Checksum", aLine);
+			};
+			if(Result != 1) { Print("Start", Start); Print("Length", Length); }
+			Bytes("UUID", reinterpret_cast<const unsigned char *>(&Uuid), sizeof(Uuid));
+			if(Result == 0 && pDigest) Bytes("SHA256_digest", reinterpret_cast<const unsigned char *>(pDigest), sizeof(*pDigest));
+			else if(Result != 0) Print("Error", Result);
+		}
+		return Result;
+	};
 	if(pUnpacker->Error())
 	{
-		return 1;
+		return Log(1);
 	}
 	if(Start < 0 || Length < 0 || Start > std::numeric_limits<int>::max() - Length)
 	{
-		return 2;
+		return Log(2);
 	}
 	int End = Start + Length;
 	int ChecksumBytesEnd = std::min(End, (int)sizeof(m_Checksum.m_aBytes));
@@ -4488,11 +4519,11 @@ int CClient::HandleChecksum(int Conn, CUuid Uuid, CUnpacker *pUnpacker)
 		// Own executable not available.
 		if(m_OwnExecutableSize < 0)
 		{
-			return 3;
+			return Log(3);
 		}
 		if(End - (int)sizeof(m_Checksum.m_aBytes) > m_OwnExecutableSize)
 		{
-			return 4;
+			return Log(4);
 		}
 	}
 
@@ -4512,7 +4543,7 @@ int CClient::HandleChecksum(int Conn, CUuid Uuid, CUnpacker *pUnpacker)
 		unsigned char aBuf[2048];
 		if(io_seek(m_OwnExecutable, FileStart - sizeof(m_Checksum.m_aBytes), EIoSeekOrigin::START))
 		{
-			return 5;
+			return Log(5);
 		}
 		for(int i = FileStart; i < End; i += sizeof(aBuf))
 		{
@@ -4527,7 +4558,7 @@ int CClient::HandleChecksum(int Conn, CUuid Uuid, CUnpacker *pUnpacker)
 	Msg.AddRaw(&Sha256, sizeof(Sha256));
 	SendMsg(Conn, &Msg, MSGFLAG_VITAL);
 
-	return 0;
+	return Log(0, &Sha256);
 }
 
 void CClient::ConchainWindowScreen(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
@@ -5229,6 +5260,8 @@ int main(int argc, const char **argv)
 	{
 		pConsole->ExecuteFile(AUTOEXEC_FILE, IConsole::CLIENT_ID_UNSPECIFIED);
 	}
+
+	pDiscord->Initialize();
 
 	if(g_Config.m_ClConfigVersion < 1)
 	{

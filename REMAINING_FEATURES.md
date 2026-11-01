@@ -1,36 +1,12 @@
-- Teleport Prediction Menu
-- Version Spoofer
-- Change Name on Finish
-- Killsay / Deathsay
-- Fancy Chat Font
-- Chat Repeater
-- Mass Mention Spam
-- Send Ads
-- Send Checksum
-- Checksum Logging
-- Auto Vote Kick
-- Discord RPC
-- Notifications
-- Tile Outlines
-- Mod Detector
-- Auto Verify
-- KoG Frozen HUD
-- Prediction Benchmark
-- Advanced Prediction Settings
-- Prediction Players Settings
-- Prediction Death Tile Settings
-- Prediction Move Restrictions Settings
-- Prediction Heart Settings
-- Avoid AFK Protection
-- Avoid Track Point ESP
-- Avoid Aimbot ESP
-- Avoid Path ESP
-- Fast Input Others
-- Fast Input
-- Auto Edge
-- Ghost Move
-- Trajectory ESP
-- Find Tunes
+# Остаток после переноса pre-TAS (2026-11-01)
+
+Пункты1–33 исходного списка перенесены/исследованы. Подробности сохраняются
+в FEATURE_ESTIMATES.md (исходная оценка) и PRE_TAS_PORT.md (результат).
+TrackPoint/Aimbot ESP: в исследованных прямых ссылках original нет renderer;
+Path ESP относится к Fent ниже. Флаги сохранены без придуманной отрисовки.
+Send Ads в оригинале сбрасывает флаг; Prediction Benchmark — checksum metadata.
+Полное native original A/B ещё не проведено.
+
 - TAS TPS
 - TAS Tick Control Pause
 - TAS Tick Control Tick Count

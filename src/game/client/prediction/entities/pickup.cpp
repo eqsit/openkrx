@@ -4,6 +4,8 @@
 
 #include "character.h"
 
+#include <engine/shared/config.h>
+
 #include <generated/protocol.h>
 
 #include <game/client/pickup_data.h>
@@ -32,10 +34,10 @@ void CPickup::Tick()
 			switch(m_Type)
 			{
 			case POWERUP_FREEZE:
-				if(!GameWorld()->m_WorldConfig.m_PredictDDRace)
+				if(!GameWorld()->m_WorldConfig.m_PredictDDRace || !g_Config.m_KrxPredictionHeart)
 					continue;
-				if(pChr->Freeze())
-					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_HEALTH, pChr->GetCid());
+				// 21bb90/218310 only changes the freeze state for heart pickups.
+				pChr->Freeze();
 				break;
 
 			case POWERUP_ARMOR:

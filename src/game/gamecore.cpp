@@ -194,7 +194,8 @@ void CCharacterCore::Reset()
 
 void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 {
-	m_MoveRestrictions = m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos);
+	m_MoveRestrictions = !m_pWorld || !m_pWorld->m_IsClientPrediction || g_Config.m_KrxPredictionMoveRestriction ?
+		m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos) : 0;
 	m_TriggeredEvents = 0;
 
 	// get ground state
@@ -464,7 +465,8 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 
 void CCharacterCore::TickDeferred()
 {
-	if(m_pWorld)
+	// 242c60 gates the deferred player loop, not hook/player intersection.
+	if(m_pWorld && (!m_pWorld->m_IsClientPrediction || g_Config.m_KrxPredictionPlayers))
 	{
 		for(int i = 0; i < MAX_CLIENTS; i++)
 		{
@@ -569,7 +571,7 @@ void CCharacterCore::Move()
 
 	m_Vel.x = m_Vel.x * (1.0f / RampValue);
 
-	if(m_pWorld && (m_Super || (m_Tuning.m_PlayerCollision && !m_CollisionDisabled && !m_Solo)))
+	if(m_pWorld && (!m_pWorld->m_IsClientPrediction || g_Config.m_KrxPredictionPlayers) && (m_Super || (m_Tuning.m_PlayerCollision && !m_CollisionDisabled && !m_Solo)))
 	{
 		// check player collision
 		float Distance = distance(m_Pos, NewPos);

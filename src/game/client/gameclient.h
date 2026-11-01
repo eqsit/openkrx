@@ -56,6 +56,9 @@
 #include "components/infomessages.h"
 #include "components/items.h"
 #include "components/key_binder.h"
+#include "components/krx_movement_pre_tas.h"
+#include "components/krx_misc_pre_tas.h"
+#include "components/krx_visuals_pre_tas.h"
 #include "components/local_server.h"
 #include "components/mapimages.h"
 #include "components/maplayers.h"
@@ -198,6 +201,9 @@ public:
 	OpenKrx::CMediumBots m_MediumBots;
 	OpenKrx::CRescueBots m_RescueBots;
 	OpenKrx::CMediumVisuals m_MediumVisuals;
+	CKrxMovementPreTas m_KrxMovementPreTas;
+	CKrxMiscPreTas m_KrxMiscPreTas;
+	OpenKrx::CPreTasVisuals m_PreTasVisuals;
 
 	CMapLayers m_MapLayersBackground = CMapLayers{ERenderType::RENDERTYPE_BACKGROUND};
 	CMapLayers m_MapLayersForeground = CMapLayers{ERenderType::RENDERTYPE_FOREGROUND};
@@ -638,6 +644,7 @@ public:
 	void InvalidateSnapshot() override;
 	void OnNewSnapshot(bool DummySwapped) override;
 	void OnPredict() override;
+	bool OnUpdateFastInput() override { return m_KrxMovementPreTas.UpdateFastInput(); }
 	void OnActivateEditor() override;
 	void OnDummySwap() override;
 	int OnSnapInput(int *pData, bool Dummy, bool Force) override;
@@ -731,6 +738,7 @@ public:
 
 	CGameWorld m_GameWorld;
 	CGameWorld m_PredictedWorld;
+	CGameWorld m_FastInputWorld;
 	CGameWorld m_PrevPredictedWorld;
 
 	std::vector<SSwitchers> &Switchers() { return m_GameWorld.m_Core.m_vSwitchers; }

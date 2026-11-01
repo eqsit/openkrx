@@ -539,6 +539,7 @@ void CItems::OnRender()
 			bool Inactive = !IsSuper && Data.m_SwitchNumber > 0 && Data.m_SwitchNumber < (int)aSwitchers.size() && !aSwitchers[Data.m_SwitchNumber].m_aStatus[SwitcherTeam];
 			if(Inactive && (Data.m_Explosive ? BlinkingProjEx : BlinkingProj))
 				continue;
+			GameClient()->m_KrxMovementPreTas.ObserveProjectile(Data.m_StartTick);
 			if(UsePredicted)
 
 			{

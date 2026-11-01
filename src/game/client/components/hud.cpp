@@ -624,6 +624,12 @@ void CHud::RenderCursor()
 		CurWeapon = std::max(0, GameClient()->m_aClients[GameClient()->m_Snap.m_LocalClientId].m_Predicted.m_ActiveWeapon);
 		TargetPos = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
 	}
+	else if(g_Config.m_ClCursorInSpec && Client()->State() != IClient::STATE_DEMOPLAYBACK &&
+		!GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_SpecInfo.m_SpectatorId == SPEC_FREEVIEW)
+	{
+		CurWeapon = WEAPON_GUN;
+		TargetPos = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
+	}
 	else
 	{
 		// Render spec cursor

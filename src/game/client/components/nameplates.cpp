@@ -707,7 +707,7 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 	}
 	if(Data.m_ShowDirection)
 	{
-		if(Client()->State() != IClient::STATE_DEMOPLAYBACK &&
+		if(!g_Config.m_KrxGhostMove && Client()->State() != IClient::STATE_DEMOPLAYBACK &&
 			pPlayerInfo->m_ClientId == GameClient()->m_aLocalIds[!g_Config.m_ClDummy])
 		{
 			const auto &InputData = GameClient()->m_Controls.m_aInputData[!g_Config.m_ClDummy];
@@ -715,7 +715,7 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 			Data.m_DirJump = InputData.m_Jump == 1;
 			Data.m_DirRight = InputData.m_Direction == 1;
 		}
-		else if(Client()->State() != IClient::STATE_DEMOPLAYBACK && pPlayerInfo->m_Local) // Always render local input when not in demo playback
+		else if(!g_Config.m_KrxGhostMove && Client()->State() != IClient::STATE_DEMOPLAYBACK && pPlayerInfo->m_Local) // Always render local input when not in demo playback
 		{
 			const auto &InputData = GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy];
 			Data.m_DirLeft = InputData.m_Direction == -1;

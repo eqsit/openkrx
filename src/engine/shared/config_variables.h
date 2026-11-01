@@ -758,7 +758,16 @@ MACRO_CONFIG_INT(AvoidDrawPath, krx_drawavoidpath, 1, 0, 1, CFGFLAG_CLIENT | CFG
 MACRO_CONFIG_INT(AvoidDebug, openkrx_avoid_debug, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Record detailed Avoid decisions; save freeze reports to dumps/openkrx-avoid (manual: openkrx_avoid_dump)")
 MACRO_CONFIG_INT(AvoidApply, openkrx_avoid_apply, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legacy compatibility setting; both values use recovered KRX SnapInput ordering")
 MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto grenade save on/off")
+#include "krx_pre_tas_misc_config.h"
+#include "krx_pre_tas_movement_config.h"
+#include "krx_pre_tas_visuals_config.h"
 MACRO_CONFIG_INT(KrxPredictionTeleports, krx_predictionteleports, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction teleport support on/off")
+MACRO_CONFIG_INT(KrxPredictionAdvancedSettings, krx_predictionadvancedsettings, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show advanced prediction settings")
+MACRO_CONFIG_INT(KrxPredictionPlayers, krx_predictionplayers, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction player collision loop on/off")
+MACRO_CONFIG_INT(KrxPredictionDeathTile, krx_predictiondeathtile, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction death tile support on/off")
+MACRO_CONFIG_INT(KrxPredictionMoveRestriction, krx_predictionmoverestriction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction move restrictions on/off")
+MACRO_CONFIG_INT(KrxPredictionHeart, krx_predictionheart, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction heart pickup freeze support on/off")
+MACRO_CONFIG_INT(KrxPredBenchmark, krx_predbenchmark, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Prediction benchmark on/off")
 MACRO_CONFIG_INT(RocketPreserveJump, openkrx_rocket_preserve_jump, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Keep a manually held jump suppressed by Avoid when Rocket Save can rescue it (0 = original KRX input ordering)")
 MACRO_CONFIG_INT(RocketRestoreWeapon, openkrx_rocket_restore_weapon, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Return to the previous weapon after a confirmed Rocket Save shot")
 // Simple KRX features. Source registry: research/easy-port-20261030/config-map-shell.json.

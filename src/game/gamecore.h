@@ -171,6 +171,8 @@ public:
 
 	class CCharacterCore *m_apCharacters[MAX_CLIENTS];
 	CPrng *m_pPrng;
+	// Set by client prediction worlds. Server physics always uses its own rules.
+	bool m_IsClientPrediction = false;
 
 	void InitSwitchers(int HighestSwitchNumber);
 	std::vector<SSwitchers> m_vSwitchers;

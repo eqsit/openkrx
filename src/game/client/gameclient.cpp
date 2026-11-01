@@ -90,7 +90,7 @@ using namespace std::chrono_literals;
 const char *CGameClient::Version() const { return GAME_VERSION; }
 const char *CGameClient::NetVersion() const { return GAME_NETVERSION; }
 const char *CGameClient::NetVersion7() const { return GAME_NETVERSION7; }
-int CGameClient::DDNetVersion() const { return DDNET_VERSION_NUMBER; }
+int CGameClient::DDNetVersion() const { return g_Config.m_KrxSpoofVersion ? g_Config.m_KrxSpoofVersionNr : 18091; }
 const char *CGameClient::DDNetVersionStr() const { return m_aDDNetVersionStr; }
 int CGameClient::ClientVersion7() const { return CLIENT_VERSION7; }
 const char *CGameClient::GetItemName(int Type) const { return m_NetObjHandler.GetObjName(Type); }
@@ -152,6 +152,9 @@ void CGameClient::OnConsoleInit()
 					      &m_DamageInd,
 					      &m_Hud,
 					      &m_MediumVisuals,
+					      &m_KrxMovementPreTas,
+					      &m_KrxMiscPreTas,
+					      &m_PreTasVisuals,
 					      &m_Spectator,
 					      &m_Emoticon,
 					      &m_InfoMessages,
@@ -498,6 +501,7 @@ void CGameClient::OnUpdate()
 	}
 
 	m_LocalServer.Update();
+	m_KrxMiscPreTas.AfterComponentsUpdate();
 }
 
 void CGameClient::OnInput(const IInput::CEvent &Event)
@@ -691,6 +695,7 @@ void CGameClient::OnReset()
 	m_ReceivedDDNetPlayerFinishTimesMillis = false;
 
 	m_Teams.Reset();
+	m_FastInputWorld.Clear();
 	m_GameWorld.Clear();
 	m_GameWorld.m_WorldConfig.m_InfiniteAmmo = true;
 	m_PredictedWorld.CopyWorld(&m_GameWorld);
@@ -1481,6 +1486,7 @@ void CGameClient::ProcessEvents()
 			const CNetEvent_Explosion *pEvent = (const CNetEvent_Explosion *)Item.m_pData;
 
 			vec2 ExplosionPos = vec2(pEvent->m_X, pEvent->m_Y);
+			m_KrxMovementPreTas.ObserveExplosion(ExplosionPos, m_GameWorld.GameTick());
 			if(!m_PredictedWorld.CheckPredictedEventHandled(CGameWorld::CPredictedEvent(Item.m_Type, ExplosionPos, -1, Client()->GameTick(g_Config.m_ClDummy))))
 			{
 				m_Effects.Explosion(ExplosionPos, Alpha);
@@ -1743,6 +1749,7 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 {
 	auto &&Evolve = [this](CNetObj_Character *pCharacter, int Tick) {
 		CWorldCore TempWorld;
+		TempWorld.m_IsClientPrediction = true;
 		CCharacterCore TempCore = CCharacterCore();
 		CTeamsCore TempTeams = CTeamsCore();
 		TempCore.Init(&TempWorld, Collision(), &TempTeams);
@@ -2687,10 +2694,20 @@ void CGameClient::OnPredict()
 	if(PredictDummy())
 		pDummyChar = m_PredictedWorld.GetCharacterById(m_aLocalIds[!g_Config.m_ClDummy]);
 
-	int PredictionTick = Client()->GetPredictionTick();
+	const int EndTick = Client()->PredGameTick(g_Config.m_ClDummy) + g_Config.m_ClFastInput;
+	const int PredictionTick = g_Config.m_ClFastInput ?
+		Client()->PredGameTick(g_Config.m_ClDummy) + g_Config.m_ClFastInputOthers : Client()->GetPredictionTick();
+	bool SavedFastInputWorld = false;
 	// predict
-	for(int Tick = Client()->GameTick(g_Config.m_ClDummy) + 1; Tick <= Client()->PredGameTick(g_Config.m_ClDummy); Tick++)
+	for(int Tick = Client()->GameTick(g_Config.m_ClDummy) + 1; Tick <= EndTick; Tick++)
 	{
+		if(g_Config.m_ClFastInput && Tick == EndTick)
+		{
+			// Keep speculative input out of the world consumed by Avoid/Rocket.
+			m_FastInputWorld.CopyWorldIsolated(&m_PredictedWorld);
+			SavedFastInputWorld = true;
+		}
+
 		// fetch the previous characters
 		if(Tick == PredictionTick)
 		{
@@ -2699,12 +2716,12 @@ void CGameClient::OnPredict()
 					m_aClients[i].m_PrevPredicted = pChar->GetCore();
 		}
 
-		if(Tick == Client()->PredGameTick(g_Config.m_ClDummy))
+		if(Tick == EndTick)
 		{
 			m_PredictedPrevChar = pLocalChar->GetCore();
 			m_aClients[m_Snap.m_LocalClientId].m_PrevPredicted = pLocalChar->GetCore();
 
-			if(pDummyChar)
+			if(pDummyChar && !g_Config.m_ClFastInput)
 				m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_PrevPredicted = pDummyChar->GetCore();
 		}
 
@@ -2713,9 +2730,11 @@ void CGameClient::OnPredict()
 			pLocalChar->m_CanMoveInFreeze = true;
 
 		// apply inputs and tick
-		CNetObj_PlayerInput *pInputData = (CNetObj_PlayerInput *)Client()->GetInput(Tick, m_IsDummySwapping);
+		const CNetObj_PlayerInput *pInputData = (CNetObj_PlayerInput *)Client()->GetInput(Tick, m_IsDummySwapping);
 		CNetObj_PlayerInput *pDummyInputData = !pDummyChar ? nullptr : (CNetObj_PlayerInput *)Client()->GetInput(Tick, m_IsDummySwapping ^ 1);
 		bool DummyFirst = pInputData && pDummyInputData && pDummyChar->GetCid() < pLocalChar->GetCid();
+		if(g_Config.m_ClFastInput && Tick == EndTick)
+			pInputData = &m_KrxMovementPreTas.FastInput();
 
 		if(DummyFirst)
 			pDummyChar->OnDirectInput(pDummyInputData);
@@ -2746,12 +2765,12 @@ void CGameClient::OnPredict()
 					m_aClients[i].m_Predicted = pChar->GetCore();
 		}
 
-		if(Tick == Client()->PredGameTick(g_Config.m_ClDummy))
+		if(Tick == EndTick)
 		{
 			m_PredictedChar = pLocalChar->GetCore();
 			m_aClients[m_Snap.m_LocalClientId].m_Predicted = pLocalChar->GetCore();
 
-			if(pDummyChar)
+			if(pDummyChar && !g_Config.m_ClFastInput)
 				m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted = pDummyChar->GetCore();
 		}
 
@@ -2800,6 +2819,9 @@ void CGameClient::OnPredict()
 
 		HandlePredictedEvents(Tick);
 	}
+
+	if(SavedFastInputWorld)
+		m_PredictedWorld.CopyWorldIsolated(&m_FastInputWorld);
 
 	// detect mispredictions of other players and make corrections smoother when possible
 	if(g_Config.m_ClAntiPingSmooth && Predict() && AntiPingPlayers() && m_NewTick && m_PredictedTick >= MIN_TICK && absolute(m_PredictedTick - Client()->PredGameTick(g_Config.m_ClDummy)) <= 1 && absolute(Client()->GameTick(g_Config.m_ClDummy) - Client()->PrevGameTick(g_Config.m_ClDummy)) <= 2)
@@ -3941,6 +3963,7 @@ void CGameClient::DetectStrongHook()
 		ToCharCur.Read(&m_Snap.m_aCharacters[ToPlayer].m_Cur);
 
 		CWorldCore World;
+		World.m_IsClientPrediction = true;
 
 		for(int Direction = 0; Direction < 2; Direction++)
 		{

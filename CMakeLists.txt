@@ -1656,6 +1656,7 @@ set(EXPECTED_DATA
   gui_icons.png
   gui_logo.png
   hud.png
+  krx/killsays.json
   languages/README.txt
   languages/arabic.txt
   languages/azerbaijani.txt
@@ -2372,6 +2373,9 @@ set_src(ENGINE_SHARED GLOB_RECURSE src/engine/shared
   jsonwriter.cpp
   jsonwriter.h
   kernel.cpp
+  krx_pre_tas_misc_config.h
+  krx_pre_tas_movement_config.h
+  krx_pre_tas_visuals_config.h
   linereader.cpp
   linereader.h
   localization.h
@@ -2698,6 +2702,13 @@ if(CLIENT)
     components/items.h
     components/key_binder.cpp
     components/key_binder.h
+    components/krx_misc_pre_tas.cpp
+    components/krx_misc_pre_tas.h
+    components/krx_movement_pre_tas.cpp
+    components/krx_movement_pre_tas.h
+    components/krx_name_data.h
+    components/krx_visuals_pre_tas.cpp
+    components/krx_visuals_pre_tas.h
     components/local_server.cpp
     components/local_server.h
     components/mapimages.cpp
