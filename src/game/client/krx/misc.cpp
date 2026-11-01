@@ -121,6 +121,11 @@ namespace OpenKrx
 				if(!aOccupied[Team])
 					aEmpty[NumEmpty++] = Team;
 			State.m_LastTeamAttempt = Now;
+			if(!NumEmpty)
+			{
+				pGameClient->m_KrxMiscPreTas.Notify(1, "AutoTeam", "AutoTeam: No empty team found!");
+				pGameClient->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "AutoTeam", "AutoTeam: No empty team found!");
+			}
 			if(NumEmpty)
 			{
 				const int Preferred = g_Config.m_KrxAutoTeamPreferred;
@@ -156,6 +161,7 @@ namespace OpenKrx
 			pGameClient->SendKill();
 		}
 		State.m_WasFrozen = g_Config.m_KrxKillOnFreeze && Frozen;
+		pGameClient->m_KrxMovementPreTas.FindTunes();
 
 		// 0x1402bb4d0: move the mouse by independent uniform [1,50] steps,
 		// alternating positive/negative after each configured time interval.

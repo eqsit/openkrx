@@ -271,6 +271,7 @@ namespace OpenKrx
 	{
 		const float Width = 300.f * Graphics()->ScreenAspect();
 		Graphics()->MapScreen(CScreenRect(0, 0, Width, 300));
+		float y = 35;
 		if(g_Config.m_KrxFeaturesHud)
 		{
 			std::vector<const char *> Enabled;
@@ -295,7 +296,6 @@ namespace OpenKrx
 			Add(g_Config.m_KrxIdStealer, "ID Stealer");
 			const float Size = g_Config.m_KrxFeaturesHudFontSize;
 			std::stable_sort(Enabled.begin(), Enabled.end(), [&](const char *a, const char *b) { return TextRender()->TextWidth(Size, a) > TextRender()->TextWidth(Size, b); });
-			float y = 35;
 			for(const char *Name : Enabled)
 			{
 				const float w = TextRender()->TextWidth(Size, Name);
@@ -304,6 +304,17 @@ namespace OpenKrx
 				GradientText(Width - w - 5, y, Size, Name, g_Config.m_KrxFeaturesHudGradientStartColor, g_Config.m_KrxFeaturesHudGradientEndColor, g_Config.m_KrxFeaturesHudGradientRainbow, g_Config.m_KrxFeaturesHudSegmented, g_Config.m_KrxFeaturesHudGradientSpeed, m_HudPhase);
 				y += Size + 3;
 			}
+		}
+		const char *pDetection = GameClient()->m_KrxMiscPreTas.ModeratorDetected()                                   ? "Mod Detected" :
+					 g_Config.m_KrxModDetectorWarn && GameClient()->m_KrxMiscPreTas.SuspiciousDetected() ? "Warn Detected" :
+															       nullptr;
+		if(g_Config.m_KrxModDetector && pDetection)
+		{
+			const float Size = g_Config.m_KrxFeaturesHudFontSize;
+			const float w = TextRender()->TextWidth(Size, pDetection);
+			CUIRect Rect{Width - w - 6, y - 1, w + 2, Size + 2};
+			Rect.Draw(ColorRGBA(0, 0, 0, g_Config.m_KrxFeaturesHudOpacity / 100.f), IGraphics::CORNER_ALL, 1);
+			GradientText(Width - w - 5, y, Size, pDetection, g_Config.m_KrxFeaturesHudGradientStartColor, g_Config.m_KrxFeaturesHudGradientEndColor, g_Config.m_KrxFeaturesHudGradientRainbow, g_Config.m_KrxFeaturesHudSegmented, g_Config.m_KrxFeaturesHudGradientSpeed, m_HudPhase);
 		}
 		if(g_Config.m_KrxWatermark)
 		{

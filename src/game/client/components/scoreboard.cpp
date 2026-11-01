@@ -856,13 +856,27 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 				{
 					NameColor = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClAuthedPlayerColor));
 				}
-				Player.m_Name.Render(TextRender(), vec2(NameOffset, TextY), NameColor);
+				float PrefixWidth = 0;
+				if(g_Config.m_KrxModDetector)
+				{
+					const bool Mod = GameClient()->m_KrxMiscPreTas.IsModerator(pInfo->m_ClientId);
+					const bool Warn = g_Config.m_KrxModDetectorWarn && GameClient()->m_KrxMiscPreTas.IsSuspicious(pInfo->m_ClientId);
+					if(Mod || Warn)
+					{
+						const char *pTag = Mod ? "[MOD] " : "[WARN] ";
+						TextRender()->TextColor(Mod ? ColorRGBA(1, .5f, .5f, 1) : ColorRGBA(1, .8f, 0, 1));
+						TextRender()->Text(NameOffset, TextY, FontSize, pTag);
+						PrefixWidth = TextRender()->TextWidth(FontSize, pTag);
+						TextRender()->TextColor(TextColor);
+					}
+				}
+				Player.m_Name.Render(TextRender(), vec2(NameOffset + PrefixWidth, TextY), NameColor);
 
 				// ready / watching
 				if(Client()->IsSixup() && Client()->m_TranslationContext.m_aClients[pInfo->m_ClientId].m_PlayerFlags7 & protocol7::PLAYERFLAG_READY)
 				{
 					Player.m_ReadyMark.Update(TextRender(), "✓", FontSize);
-					Player.m_ReadyMark.Render(TextRender(), vec2(NameOffset + Player.m_Name.Width(), TextY), ColorRGBA(0.1f, 1.0f, 0.1f, TextColor.a));
+					Player.m_ReadyMark.Render(TextRender(), vec2(NameOffset + PrefixWidth + Player.m_Name.Width(), TextY), ColorRGBA(0.1f, 1.0f, 0.1f, TextColor.a));
 				}
 			}
 

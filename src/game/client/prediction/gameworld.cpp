@@ -29,6 +29,7 @@
 //////////////////////////////////////////////////
 CGameWorld::CGameWorld()
 {
+	m_Core.m_IsClientPrediction = true;
 	std::fill(std::begin(m_apFirstEntityTypes), std::end(m_apFirstEntityTypes), nullptr);
 	std::fill(std::begin(m_apCharacters), std::end(m_apCharacters), nullptr);
 	m_pCollision = nullptr;

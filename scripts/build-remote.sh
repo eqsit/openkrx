@@ -11,10 +11,11 @@ rsync -a --exclude='/build/' --exclude='/dist/' --exclude='/research/' \
   --exclude='/test-server/' --exclude='/.git/' \
   "$project_root/" "$build_host:$remote_root/source/"
 ssh -o BatchMode=yes "$build_host" \
-  'cmake -S /home/a/openkrx-build/source -B /home/a/openkrx-build/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTOOLS=OFF -DSERVER=ON -DDOWNLOAD_GTEST=OFF && cmake --build /home/a/openkrx-build/build --target DDNet DDNet-Server -j10' \
+  'cmake -S /home/a/openkrx-build/source -B /home/a/openkrx-build/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTOOLS=OFF -DSERVER=ON -DDOWNLOAD_GTEST=OFF -DDISCORD=ON -DDISCORD_DYNAMIC=ON && cmake --build /home/a/openkrx-build/build --target DDNet DDNet-Server -j10' \
   2>&1 | tee "$project_root/research/build-remote.log"
 rsync -a "$build_host:$remote_root/build/DDNet" "$project_root/dist/OpenKRX"
 rsync -a "$build_host:$remote_root/build/DDNet-Server" "$project_root/dist/DDNet-Server"
+rsync -a "$build_host:$remote_root/build/discord_game_sdk.so" "$project_root/dist/discord_game_sdk.so"
 {
   printf 'source_commit='
   git -C "$project_root" rev-parse HEAD

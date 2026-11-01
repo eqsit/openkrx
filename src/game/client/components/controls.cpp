@@ -283,6 +283,7 @@ void CControls::OnMessage(int Msg, void *pRawMsg)
 
 int CControls::SnapInput(int *pData)
 {
+	GameClient()->m_KrxMiscPreTas.BeforeSnapInput();
 	// Original 23e670 runs AutoTeam before rebuilding player flags.
 	GameClient()->m_KrxMisc.AutoTeam(GameClient());
 	CNetObj_PlayerInput TraceRaw = {};
@@ -437,19 +438,24 @@ int CControls::SnapInput(int *pData)
 		// prediction can be ahead by several ticks and release the hook early.
 		CCharacter *pKrxCharacter = GameClient()->m_GameWorld.GetCharacterById(KrxClientId);
 		const CCharacterCore *pKrxCore = pKrxCharacter ? pKrxCharacter->Core() : nullptr;
-		m_aKrxInput[KrxSlot].ApplyEarly(m_aInputData[KrxSlot], m_aLastData[KrxSlot],
-			m_aInputDirectionLeft[KrxSlot] != 0, m_aInputDirectionRight[KrxSlot] != 0,
-			pKrxCore ? pKrxCore->HookedPlayer() : -1, pKrxCore ? pKrxCore->m_HookTick : 0,
-			g_Config.m_KrxMoonwalk, g_Config.m_KrxAutoFire, g_Config.m_KrxAutoRehook,
-			g_Config.m_KrxHookSpam, pKrxCharacter != nullptr);
-		GameClient()->m_KrxMisc.BeforeAvoid(GameClient());
+		GameClient()->m_PreTasVisuals.PredictTrajectory();
+		m_aKrxInput[KrxSlot].ApplyMoonwalk(m_aInputData[KrxSlot], m_aLastData[KrxSlot],
+			m_aInputDirectionLeft[KrxSlot] != 0, m_aInputDirectionRight[KrxSlot] != 0, g_Config.m_KrxMoonwalk);
+		GameClient()->m_KrxMovementPreTas.GhostMove(m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.HookRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.HookNearest(GameClient(), m_aInputData[KrxSlot]);
+		GameClient()->m_KrxMisc.BeforeAvoid(GameClient());
+		m_aKrxInput[KrxSlot].ApplyAutoFire(m_aInputData[KrxSlot], g_Config.m_KrxAutoFire);
+		m_aKrxInput[KrxSlot].ApplyAutoRehook(m_aInputData[KrxSlot],
+			pKrxCore ? pKrxCore->HookedPlayer() : -1, pKrxCore ? pKrxCore->m_HookTick : 0,
+			g_Config.m_KrxAutoRehook, pKrxCharacter != nullptr);
 		GameClient()->m_RescueBots.AdjustDummyFly(GameClient());
+		GameClient()->m_KrxMiscPreTas.VoteBeforeHookSpam();
+		m_aKrxInput[KrxSlot].ApplyHookSpam(m_aInputData[KrxSlot], g_Config.m_KrxHookSpam);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoShotgun(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.JetRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoAled(GameClient(), m_aInputData[KrxSlot], KrxClientId);
-		GameClient()->m_MediumVisuals.UpdateIdentity();
+		GameClient()->m_KrxMovementPreTas.AutoEdge(m_aInputData[KrxSlot]);
 		// Main aimbot refreshes its private candidates even with master disabled,
 		// before Avoid consumes the cache, following the recovered coordinator.
 		auto AimbotSettings = CurrentKrxAimbotSettings();
@@ -460,6 +466,8 @@ int CControls::SnapInput(int *pData)
 		m_aInputData[KrxSlot] = AimDecision.m_Input;
 		if(AimDecision.m_ChangeVisibleAim)
 			m_aMousePos[KrxSlot] = AimDecision.m_VisibleAim;
+		GameClient()->m_MediumVisuals.UpdateIdentity();
+		GameClient()->m_KrxMiscPreTas.BeforeInput();
 		TracePipelineStart = g_Config.m_AvoidDebug ? time_get_nanoseconds().count() : 0;
 		TraceRaw = m_aInputData[g_Config.m_ClDummy];
 		TraceEvaluated = true;

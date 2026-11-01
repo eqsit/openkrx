@@ -16,16 +16,19 @@ namespace OpenKrx
 		bool m_RehookPending = false;
 		bool m_PixelWalkLatch = false;
 
-		void ApplyEarly(CNetObj_PlayerInput &Input, const CNetObj_PlayerInput &Last,
-			bool Left, bool Right, int HookedPlayer, int HookTick,
-			bool Moonwalk, bool AutoFire, bool AutoRehook, bool HookSpam, bool CharacterAvailable = true)
+		void ApplyMoonwalk(CNetObj_PlayerInput &Input, const CNetObj_PlayerInput &Last, bool Left, bool Right, bool Enabled)
 		{
-			if(Moonwalk && Left && Right)
+			if(Enabled && Left && Right)
 				Input.m_Direction = Last.m_Direction ? -Last.m_Direction : 1;
-			// KRX tests the requested weapon, not the currently equipped weapon.
-			if(AutoFire && (unsigned)Input.m_WantedWeapon < 3 && (Input.m_Fire & 1))
+		}
+		void ApplyAutoFire(CNetObj_PlayerInput &Input, bool Enabled)
+		{
+			if(Enabled && (unsigned)Input.m_WantedWeapon < 3 && (Input.m_Fire & 1))
 				Input.m_Fire = Input.m_Fire > 62 ? 1 : Input.m_Fire + 2;
-			if(AutoRehook && CharacterAvailable)
+		}
+		void ApplyAutoRehook(CNetObj_PlayerInput &Input, int HookedPlayer, int HookTick, bool Enabled, bool CharacterAvailable)
+		{
+			if(Enabled && CharacterAvailable)
 			{
 				if(m_RehookPending)
 				{
@@ -38,7 +41,10 @@ namespace OpenKrx
 					Input.m_Hook = 0;
 				}
 			}
-			if(HookSpam)
+		}
+		void ApplyHookSpam(CNetObj_PlayerInput &Input, bool Enabled)
+		{
+			if(Enabled)
 			{
 				if(++m_HookSpamCounter > 3)
 				{
@@ -56,6 +62,15 @@ namespace OpenKrx
 				m_HookSpamCounter = -1;
 				Input.m_Hook = 0;
 			}
+		}
+		void ApplyEarly(CNetObj_PlayerInput &Input, const CNetObj_PlayerInput &Last,
+			bool Left, bool Right, int HookedPlayer, int HookTick,
+			bool Moonwalk, bool AutoFire, bool AutoRehook, bool HookSpam, bool CharacterAvailable = true)
+		{
+			ApplyMoonwalk(Input, Last, Left, Right, Moonwalk);
+			ApplyAutoFire(Input, AutoFire);
+			ApplyAutoRehook(Input, HookedPlayer, HookTick, AutoRehook, CharacterAvailable);
+			ApplyHookSpam(Input, HookSpam);
 		}
 
 		void ApplyLate(CNetObj_PlayerInput &Input, float VelocityX, bool CanMove, bool Grounded,

@@ -4,12 +4,15 @@
 
 #include <base/str.h>
 
+#include <engine/client.h>
+#include <engine/font_icons.h>
 #include <engine/shared/config.h>
 
 #include <game/client/components/key_binder.h>
 #include <game/client/gameclient.h>
 #include <game/client/ui.h>
 #include <game/client/ui_scrollregion.h>
+#include <game/editor/editor.h>
 #include <game/localization.h>
 
 #include <algorithm>
@@ -66,7 +69,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	CUIRect Left, Right, Body, Row;
 	MainView.VSplitMid(&Left, &Right);
 	Right.VMargin(10.0f, &Right);
-	const auto Card = [&](CUIRect &Column, float Height, const char *pTitle) {
+	const auto Card = [&](CUIRect &Column, float Height, const char *pTitle, const char *pHelpUrl = nullptr) {
 		Column.HSplitTop(10.0f, nullptr, &Column);
 		CUIRect Panel, Header;
 		Column.HSplitTop(Height, &Panel, &Column);
@@ -76,15 +79,25 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		Panel.VMargin(10.0f, &Body);
 		Body.HSplitTop(5.0f, nullptr, &Body);
 		Body.HSplitTop(30.0f, &Header, &Body);
+		if(pHelpUrl)
+		{
+			CUIRect Help;
+			Header.VSplitRight(40.0f, &Header, &Help);
+			static CButtonContainer s_aHelp[6];
+			if(Ui()->DoButton_FontIcon(&s_aHelp[g_Config.m_KrxMenuTab], FontIcon::BOOK, 0, &Help, BUTTONFLAG_LEFT))
+				Client()->ViewLink(pHelpUrl);
+		}
 		Ui()->DoLabel(&Header, Localize(pTitle), 20.0f, TEXTALIGN_ML);
 		return true;
 	};
-	const auto Check = [&](int &Value, const char *pText, bool Indent = false) {
+	const auto Check = [&](int &Value, const char *pText, bool Indent = false, const char *pTip = nullptr) {
 		Body.HSplitTop(20.0f, &Row, &Body);
 		if(Indent)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
 		if(DoButton_CheckBox(&Value, Localize(pText), Value, &Row))
 			Value ^= 1;
+		if(pTip)
+			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};
 	const auto Later = [&](const char *pText) {
 		Body.HSplitTop(20.0f, &Row, &Body);
@@ -95,12 +108,53 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		Ui()->DoLabel(&Badge, Localize("Later"), 10.0f, TEXTALIGN_MR);
 		TextRender()->TextColor(TextRender()->DefaultTextColor());
 	};
-	const auto Slider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false) {
+	const auto Slider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false, const char *pTip = nullptr) {
 		Body.HSplitTop(20.0f, &Row, &Body);
 		if(Indent)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
 		Ui()->DoScrollbarOption(&Value, &Value, &Row, Localize(pText), Min, Max,
 			&CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
+		if(pTip)
+			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
+	};
+	const auto Text = [&](char *pValue, size_t Size, const char *pText, int Index, const char *pEmpty = nullptr) {
+		static CLineInput s_aInputs[6];
+		Body.HSplitTop(20.0f, &Row, &Body);
+		CUIRect Label;
+		if(pText && *pText)
+		{
+			Row.VSplitLeft(85.0f, &Label, &Row);
+			Ui()->DoLabel(&Label, Localize(pText), 13.0f, TEXTALIGN_ML);
+		}
+		s_aInputs[Index].SetBuffer(pValue, Size);
+		s_aInputs[Index].SetEmptyText(pEmpty ? Localize(pEmpty) : "");
+		Ui()->DoClearableEditBox(&s_aInputs[Index], &Row, 13.0f);
+	};
+	const auto Pair = [&](int &First, const char *pFirst, int &Second, const char *pSecond,
+				  const char *pFirstTip = nullptr, const char *pSecondTip = nullptr) {
+		Body.HSplitTop(20.0f, &Row, &Body);
+		CUIRect LeftRow, RightRow;
+		Row.VSplitLeft(200.0f, &LeftRow, &RightRow);
+		if(DoButton_CheckBox(&First, Localize(pFirst), First, &LeftRow))
+			First ^= 1;
+		if(DoButton_CheckBox(&Second, Localize(pSecond), Second, &RightRow))
+			Second ^= 1;
+		if(pFirstTip)
+			Ui()->DoToolTip(&First, &LeftRow, Localize(pFirstTip));
+		if(pSecondTip)
+			Ui()->DoToolTip(&Second, &RightRow, Localize(pSecondTip));
+	};
+	const auto FlatSlider = [&](int &Value, const char *pText, int Min, int Max, const char *pTip = nullptr) {
+		Body.HSplitTop(20.0f, &Row, &Body);
+		CUIRect Label;
+		Row.VSplitMid(&Label, &Row);
+		char aLabel[256];
+		str_format(aLabel, sizeof(aLabel), "%s: %d", Localize(pText), Value);
+		Ui()->DoLabel(&Label, aLabel, 13.0f, TEXTALIGN_ML);
+		const float Position = Ui()->DoScrollbarH(&Value, &Row, (Value - Min) / (float)(Max - Min));
+		Value = Min + (int)(Position * (Max - Min) + .1f);
+		if(pTip)
+			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};
 	static CButtonContainer s_aColorReset[32];
 	const auto Color = [&](unsigned &Value, const char *pText, int Index, unsigned Default) {
@@ -114,8 +168,11 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(Indent)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
 		CUIRect Label;
-		Row.VSplitLeft(80.0f, &Label, &Row);
-		Ui()->DoLabel(&Label, Localize(pText), 13.0f, TEXTALIGN_ML);
+		if(pText && *pText)
+		{
+			Row.VSplitLeft(80.0f, &Label, &Row);
+			Ui()->DoLabel(&Label, Localize(pText), 13.0f, TEXTALIGN_ML);
+		}
 		s_aDropDowns[Index].m_SelectionPopupContext.m_pScrollRegion = &s_aDropDownScrolls[Index];
 		Value = Ui()->DoDropDown(&Row, Value, ppNames, Count, s_aDropDowns[Index]);
 	};
@@ -146,7 +203,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		const float MainHeight = (g_Config.m_KrxAimbotTargetGlow ? 200.0f : 145.0f) + (g_Config.m_KrxAimbotAdvancedSettings ? 40.0f : 0.0f);
 		if(Card(Left, MainHeight, "Main"))
 		{
-			Check(g_Config.m_KrxAimbot, "Enab");
+			Check(g_Config.m_KrxAimbot, "Enable");
 			Check(g_Config.m_KrxAimbotDrawFov, "Draw FOV");
 			Check(g_Config.m_KrxAimbotTargetBox, "Target Box");
 			Check(g_Config.m_KrxAimbotTargetGlow, "Target Glow");
@@ -185,7 +242,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			const auto &Weapon = aWeapons[Index];
 			if(Card(Right, *Weapon.m_pEnable ? (Index == 0 || Index == 4 ? 165.0f : 145.0f) : 65.0f, Weapon.m_pName))
 			{
-				Check(*Weapon.m_pEnable, "Enab");
+				Check(*Weapon.m_pEnable, "Enable");
 				if(*Weapon.m_pEnable)
 				{
 					Slider(*Weapon.m_pFov, "FOV", 1, 315);
@@ -202,32 +259,39 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	}
 	else if(g_Config.m_KrxMenuTab == 1)
 	{
-		if(Card(Left, 225.0f + 20.0f * (g_Config.m_KrxQuickStop + g_Config.m_KrxAutoJumpSave), "Bots"))
+		if(Card(Left, 225.0f + 20.0f * g_Config.m_KrxQuickStop, "Bots", "https://krxclient.gitbook.io/docs/features/misc"))
 		{
 			Check(g_Config.m_KrxMoonwalk, "Moonwalk");
 			Check(g_Config.m_KrxAutoFire, "Auto Fire");
 			Check(g_Config.m_KrxAutoRehook, "Auto Rehook");
-			Check(g_Config.m_KrxAutoJumpSave, "Auto jump save");
-			if(g_Config.m_KrxAutoJumpSave)
-			{
-				const char *apModes[] = {"Simple", "Advanced - No Velocity", "Advanced - Velocity"};
-				Choice(g_Config.m_KrxAutoJumpSaveMode, "Mode", apModes, 3, 0, true);
-			}
-			Check(g_Config.m_KrxGrenadeSaver, "Auto grenade save");
+			Check(g_Config.m_KrxAutoJumpSave, "Auto jump save", false, "Automatically jumps when it can save you");
+			Check(g_Config.m_KrxGrenadeSaver, "Auto grenade save", false, "Automatically shoots a grenade to try and save you");
 			Check(g_Config.m_KrxQuickStop, "Quick Stop");
 			if(g_Config.m_KrxQuickStop)
 				Check(g_Config.m_KrxQuickStopGrounded, "Ground Only", true);
-			Check(g_Config.m_KrxDummyFly, "Dummy Fly");
-			Check(g_Config.m_KrxJetRide, "Jet Ride");
-			Check(g_Config.m_KrxAutoAled, "Auto Aled");
+			Check(g_Config.m_KrxDummyFly, "Dummy Fly", false, "Makes the dummy hammer + hook too");
+			Check(g_Config.m_KrxJetRide, "Jet Ride", false, "Works like hook ride bot but with jetpack");
+			Check(g_Config.m_KrxAutoAled, "Auto Aled", false, "Auto hammers when an aled is possible");
 		}
-		if(Card(Left, 85.0f, "Protections"))
+		if(Card(Left, g_Config.m_KrxSpoofVersion ? 105.0f : 85.0f, "Protections"))
 		{
 			Check(g_Config.m_KrxRandomTimeoutSeed, "Random Timeout Seed");
-			Later("Version Spoofer");
+			Check(g_Config.m_KrxSpoofVersion, "Version Spoofer");
+			if(g_Config.m_KrxSpoofVersion)
+				Slider(g_Config.m_KrxSpoofVersionNr, "Version", 10000, 20000, true);
 		}
-		if(Card(Left, 65.0f, "Mod Detector"))
-			Later("Enable");
+		if(Card(Left, g_Config.m_KrxModDetector ? 105.0f : 65.0f, "Mod Detector"))
+		{
+			Check(g_Config.m_KrxModDetector, "Enable");
+			if(g_Config.m_KrxModDetector)
+			{
+				Pair(g_Config.m_KrxModDetectorNames, "Detect Names", g_Config.m_KrxModDetectorWarn, "Detect Suspicious", nullptr,
+					"Warns you in F1 console and in HUD, if a suspicous player is detected");
+				Pair(g_Config.m_KrxModDetectorLeave, "Leave on Mod", g_Config.m_KrxModDetectorWarnLeave, "Leave on Suspicious",
+					"Will leave when a mod is detected",
+					"Will leave when a suspicious player is detected(Suggestion: keep this off unless you want to be very stealthy)");
+			}
+		}
 		if(Card(Left, 65.0f + 20.0f * g_Config.m_KrxAutoShotgun + (g_Config.m_KrxAutoShotgun && g_Config.m_KrxAutoShotgunAdvanced ? 120.0f : 0.0f), "Auto Shotgun"))
 		{
 			Check(g_Config.m_KrxAutoShotgun, "Enable");
@@ -271,33 +335,51 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxFakeAimSendAlways, "Send always");
 				Check(g_Config.m_KrxFakeAimVisible, "Visible");
 				const char *apModes[] = {"Mouse pos", "Robot aim", "Spinbot", "Random", "Fake angles", "Aimbot troll aim"};
-				Choice(g_Config.m_KrxFakeAimMode, "Mode", apModes, 6, 1);
+				Choice(g_Config.m_KrxFakeAimMode, "", apModes, 6, 1);
 				if(g_Config.m_KrxFakeAimMode == 2)
 					Slider(g_Config.m_KrxFakeAimSpeed, "Speed", -50, 50);
 			}
 		}
-		if(Card(Right, 205.0f + 20.0f * (g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk), "Other"))
+		const int NameField = g_Config.m_KrxChangeNameOnFinish && !g_Config.m_KrxChangeNameOnFinishRandom;
+		if(Card(Right, 185.0f + 20.0f * (g_Config.m_KrxChangeNameOnFinish + NameField + g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk + g_Config.m_ClFastInput), "Other"))
 		{
-			Later("Change name on finish");
-			Check(g_Config.m_KrxAutoTeam, "Auto team");
+			Check(g_Config.m_KrxChangeNameOnFinish, "Change name on finish", false, "Changes name on finish");
+			if(g_Config.m_KrxChangeNameOnFinish)
+			{
+				if(!g_Config.m_KrxChangeNameOnFinishRandom)
+					Text(g_Config.m_KrxChangeNameOnFinishName, sizeof(g_Config.m_KrxChangeNameOnFinishName), "", 0, "ILoveKRX!");
+				Check(g_Config.m_KrxChangeNameOnFinishRandom, "Random name", true, "Creates a random name on finish");
+			}
+			Check(g_Config.m_KrxAutoTeam, "Auto team", false, "Automatically joins a team and locks it");
 			if(g_Config.m_KrxAutoTeam)
-				Slider(g_Config.m_KrxAutoTeamPreferred, "Team", 1, 63, true);
+				FlatSlider(g_Config.m_KrxAutoTeamPreferred, "Team", 0, 63, "Preferred team number");
 			Check(g_Config.m_KrxAntiAfk, "Anti afk");
 			if(g_Config.m_KrxAntiAfk)
-				Slider(g_Config.m_KrxAntiAfkSeconds, "Seconds", 1, 300, true);
-			Check(g_Config.m_KrxKillOnFreeze, "Kill on freeze");
-			Later("Fast input");
-			Later("Fast input others");
+				Slider(g_Config.m_KrxAntiAfkSeconds, "Seconds", 1, 300, true, "Duration in seconds for getting afk on a server");
+			Check(g_Config.m_KrxKillOnFreeze, "Kill on freeze", false, "Automatically kills when you get frozen");
+			Check(g_Config.m_ClFastInput, "Fast input", false, "1 tick faster visual input delay");
+			if(g_Config.m_ClFastInput)
+				Check(g_Config.m_ClFastInputOthers, "Fast input others", true, "Makes dragging other tees easier(increases other tees visual latency");
 			Check(g_Config.m_KrxHideBubble, "Hide Chat Bubble");
-			Later("Auto Verify");
+			Body.HSplitTop(20.0f, &Row, &Body);
+			CUIRect VerifyButton;
+			Row.VSplitLeft(200.0f, &Row, &VerifyButton);
+			if(DoButton_CheckBox(&g_Config.m_ClAutoVerify, "Auto Verify", g_Config.m_ClAutoVerify, &Row))
+				g_Config.m_ClAutoVerify ^= 1;
+			Ui()->DoToolTip(&g_Config.m_ClAutoVerify, &Row, Localize("Will verify you for DDOS protected servers (visits the site ger10.ddnet.tw)"));
+			static CButtonContainer s_ManualVerify;
+			if(DoButton_Menu(&s_ManualVerify, Localize("Manual Verify"), 0, &VerifyButton))
+				Client()->ViewLink("https://ger10.ddnet.tw/");
 		}
-		if(Card(Right, 145.0f, "Troll"))
+		if(Card(Right, g_Config.m_KrxChatRepeater ? 165.0f : 145.0f, "Troll"))
 		{
 			Check(g_Config.m_KrxEmoteSpam, "Emote Spam");
-			Later("Killsay/Deathsay");
-			Later("Fancy Chat Font");
-			Later("Mass Mention Spam");
-			Later("Chat Repeater");
+			Check(g_Config.m_KrxKillsay, "Killsay/Deathsay");
+			Check(g_Config.m_KrxFancyChatFont, "Fancy Chat Font");
+			Check(g_Config.m_KrxMassMentionSpam, "Mass Mention Spam");
+			Check(g_Config.m_KrxChatRepeater, "Chat Repeater");
+			if(g_Config.m_KrxChatRepeater)
+				FlatSlider(g_Config.m_KrxChatRepeaterLength, "Min Message Length", 1, 20);
 		}
 		if(Card(Right, g_Config.m_KrxIdStealer ? 205.0f : 65.0f, "ID Stealer"))
 		{
@@ -310,23 +392,48 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxIdStealerSkin, "Steal Skin");
 				Check(g_Config.m_KrxIdStealerFlag, "Steal Flag");
 				Check(g_Config.m_KrxIdStealerEmote, "Steal Eye Emote");
-				Slider(g_Config.m_KrxIdStealerSpeed, "Stealer Speed", 5, 60);
+				FlatSlider(g_Config.m_KrxIdStealerSpeed, "Stealer Speed", 5, 60);
 			}
 		}
-		if(Card(Right, 65.0f, "Ghost Move"))
-			Later("Enable");
-		if(Card(Right, 125.0f, "Auto Vote Kick"))
+		if(Card(Right, g_Config.m_KrxGhostMove ? 145.0f : 65.0f, "Ghost Move"))
 		{
-			Later("Enable");
-			Later("Mode: Random Target");
-			Later("Kick Reason:");
+			Check(g_Config.m_KrxGhostMove, "Enable", false, "Makes it so others don't see your arrows for direction, jump, ...");
+			if(g_Config.m_KrxGhostMove)
+			{
+				Check(g_Config.m_KrxGhostMoveDirection, "Direction", false, "Makes it so others don't see your arrows for direction");
+				Check(g_Config.m_KrxGhostMoveJump, "Jump", false, "Makes it so others don't see your arrows for jump");
+				Check(g_Config.m_KrxGhostMoveHook, "Hook", false, "Makes it so others don't see your hook");
+				Check(g_Config.m_KrxGhostMoveHookClosest, "Hook closest", false, "Makes it so you hook the closest tee, others don't see you changing aim at all and the hook is invisible to them");
+			}
+		}
+		if(Card(Right, g_Config.m_KrxAutoVoteKickMode == 1 ? 150.0f : 125.0f, "Auto Vote Kick"))
+		{
+			Check(g_Config.m_KrxAutoVoteKick, "Enable");
+			Check(g_Config.m_KrxAutoVoteKickMode, g_Config.m_KrxAutoVoteKickMode ? "Mode: Specific Target" : "Mode: Random Target");
+			if(g_Config.m_KrxAutoVoteKickMode == 1)
+			{
+				const int Target = g_Config.m_KrxAutoVoteKickTarget;
+				char aTarget[128];
+				if(GameClient()->m_Snap.m_pLocalInfo && Target >= 0 && Target < MAX_CLIENTS && GameClient()->m_aClients[Target].m_Active)
+					str_format(aTarget, sizeof(aTarget), "%s: %s", Localize("Target Player"), GameClient()->m_aClients[Target].m_aName);
+				else
+					str_format(aTarget, sizeof(aTarget), "%s: %d", Localize("Target Player ID"), Target);
+				Body.HSplitTop(20.0f, &Row, &Body);
+				CUIRect Label;
+				Row.VSplitMid(&Label, &Row);
+				Ui()->DoLabel(&Label, aTarget, 13.0f, TEXTALIGN_ML);
+				g_Config.m_KrxAutoVoteKickTarget = std::clamp((int)(Ui()->DoScrollbarH(&g_Config.m_KrxAutoVoteKickTarget, &Row, Target / 63.0f) * 63), 0, 63);
+			}
+			Body.HSplitTop(20.0f, &Row, &Body);
+			Ui()->DoLabel(&Row, Localize("Kick Reason:"), 13.0f, TEXTALIGN_ML);
+			Text(g_Config.m_KrxAutoVoteKickReason, sizeof(g_Config.m_KrxAutoVoteKickReason), "", 1, "Enter reason here...");
 		}
 	}
 	else if(g_Config.m_KrxMenuTab == 2)
 	{
-		if(Card(Left, g_Config.m_KrxFeaturesHud ? 260.0f : 105.0f, "HUD"))
+		if(Card(Left, g_Config.m_KrxFeaturesHud ? 260.0f : 105.0f, "HUD", "https://krxclient.gitbook.io/docs/features/visuals-hud"))
 		{
-			Check(g_Config.m_KrxFeaturesHud, "Features HUD");
+			Check(g_Config.m_KrxFeaturesHud, "Features HUD", false, "Hides the HUD with features (Aimbot, Avoid, ...)");
 			if(g_Config.m_KrxFeaturesHud)
 			{
 				Check(g_Config.m_KrxFeaturesHudSegmented, "Segmented");
@@ -337,7 +444,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Color(g_Config.m_KrxFeaturesHudGradientEndColor, "End", 9, 0x55ff42);
 				Check(g_Config.m_KrxFeaturesHudGradientRainbow, "Rainbow");
 			}
-			Later("Notifications");
+			Check(g_Config.m_KrxNotifications, "Notifications", false, "Shows notifications in top right corner from bots");
 			Later("TAS HUD");
 		}
 		if(Card(Left, g_Config.m_KrxWatermark ? 180.0f : 65.0f, "Watermark"))
@@ -362,42 +469,74 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxRainbowMenu, "Rainbow");
 			}
 		}
-		if(Card(Left, 65.0f, "Tile Outlines"))
-			Later("Enable");
-		if(Card(Left, 210.0f, "KoG"))
+		if(Card(Left, g_Config.m_ClOutline ? 415.0f : 65.0f, "Tile Outlines"))
 		{
-			Later("Show Frozen HUD");
-			Later("Use Skins Instead of Ninja Tees");
-			Later("Only Show After Joining a Team");
-			Later("Max Rows");
-			Later("Tee Size");
-			Later("Tees Right Alive Text");
-			Later("Count Frozen Tees");
-			Later("Show Cursor in Free Spectate");
+			Check(g_Config.m_ClOutline, "Enable");
+			if(g_Config.m_ClOutline)
+			{
+				Check(g_Config.m_ClOutlineInEntities, "Only in entities");
+				Check(g_Config.m_ClOutlineFreeze, "Freeze");
+				Check(g_Config.m_ClOutlineSolid, "Walls");
+				Check(g_Config.m_ClOutlineTele, "Teleports");
+				Check(g_Config.m_ClOutlineUnfreeze, "Unfreeze");
+				Check(g_Config.m_ClOutlineKill, "Death");
+				Slider(g_Config.m_ClOutlineWidth, "Outline width", 1, 16);
+				Slider(g_Config.m_ClOutlineAlpha, "Outline alpha", 1, 100);
+				Slider(g_Config.m_ClOutlineAlphaSolid, "Outline alpha(walls)", 1, 100);
+				Color(g_Config.m_ClOutlineColorFreeze, "Freeze outline color", 13, 0);
+				Color(g_Config.m_ClOutlineColorSolid, "Walls outline color", 17, 0);
+				Color(g_Config.m_ClOutlineColorTele, "Teleports outline color", 16, 0);
+				Color(g_Config.m_ClOutlineColorUnfreeze, "Unfreeze outline color", 15, 0);
+				Color(g_Config.m_ClOutlineColorKill, "Death outline color", 14, 0);
+			}
 		}
-		if(Card(Right, g_Config.m_KrxDrawAimLines ? 185.0f : 65.0f, "Aim Lines"))
+		if(Card(Left, g_Config.m_ClLastNotify ? 250.0f : 210.0f, "KoG"))
+		{
+			Check(g_Config.m_ClFrozenTeesHud, "Show Frozen HUD");
+			Check(g_Config.m_ClFrozenTeesHudSkins, "Use Skins Instead of Ninja Tees");
+			Check(g_Config.m_ClFrozenTeesOnlyInteam, "Only Show After Joining a Team");
+			FlatSlider(g_Config.m_ClFrozenTeesMaxRows, "Max Rows", 1, 6);
+			// Original visual slider spans 8..27 although registry clamps at20.
+			FlatSlider(g_Config.m_ClFrozenTeesSize, "Tee Size", 8, 27);
+			Body.HSplitTop(20.0f, &Row, &Body);
+			CUIRect CountFrozen;
+			Row.VSplitMid(&Row, &CountFrozen);
+			if(DoButton_CheckBox(&g_Config.m_ClFrozenTeesText, Localize("Tees Right Alive Text"), g_Config.m_ClFrozenTeesText > 0, &Row))
+				g_Config.m_ClFrozenTeesText = g_Config.m_ClFrozenTeesText < 1;
+			static CButtonContainer s_CountFrozen;
+			if(g_Config.m_ClFrozenTeesText && DoButton_CheckBox(&s_CountFrozen, Localize("Count Frozen Tees"), g_Config.m_ClFrozenTeesText == 2, &CountFrozen))
+				g_Config.m_ClFrozenTeesText = (g_Config.m_ClFrozenTeesText != 2) + 1;
+			Check(g_Config.m_ClLastNotify, "Show When You Are Last");
+			if(g_Config.m_ClLastNotify)
+			{
+				Text(g_Config.m_ClLastNotifyText, sizeof(g_Config.m_ClLastNotifyText), "", 3, "Last!");
+				Color(g_Config.m_ClLastNotifyColor, "Notification Color", 21, 0x100);
+			}
+			Check(g_Config.m_ClCursorInSpec, "Show Cursor in Free Spectate");
+		}
+		if(Card(Right, g_Config.m_KrxDrawAimLines ? 180.0f : 65.0f, "Aim Lines"))
 		{
 			Check(g_Config.m_KrxDrawAimLines, "Draw Aim Lines");
 			if(g_Config.m_KrxDrawAimLines)
 			{
 				Check(g_Config.m_KrxDrawAimLinesSelfOnly, "Self Only");
+				Check(g_Config.m_KrxDrawAimLinesGun, "Pistol");
 				Check(g_Config.m_KrxDrawAimLinesShotgun, "Shotgun");
-				Check(g_Config.m_KrxDrawAimLinesGun, "Gun");
 				Check(g_Config.m_KrxDrawAimLinesGrenade, "Grenade");
 				Check(g_Config.m_KrxDrawAimLinesLaser, "Laser");
-				Slider(g_Config.m_KrxDrawAimLinesAlpha, "Alpha", 0, 100);
+				FlatSlider(g_Config.m_KrxDrawAimLinesAlpha, "Alpha", 0, 100);
 			}
 		}
-		if(Card(Right, g_Config.m_KrxDrawBulletLines ? 165.0f : 65.0f, "Bullet Lines"))
+		if(Card(Right, g_Config.m_KrxDrawBulletLines ? 160.0f : 65.0f, "Bullet Lines"))
 		{
 			Check(g_Config.m_KrxDrawBulletLines, "Draw Bullet Lines");
 			if(g_Config.m_KrxDrawBulletLines)
 			{
 				Check(g_Config.m_KrxDrawBulletLinesSelfOnly, "Self Only");
-				Check(g_Config.m_KrxDrawBulletLinesGun, "Gun");
-				Check(g_Config.m_KrxDrawBulletLinesGrenade, "Grenade");
+				Check(g_Config.m_KrxDrawBulletLinesGun, "Pistol");
 				Check(g_Config.m_KrxDrawBulletLinesShotgun, "Shotgun");
-				Slider(g_Config.m_KrxDrawBulletLinesAlpha, "Alpha", 0, 100);
+				Check(g_Config.m_KrxDrawBulletLinesGrenade, "Grenade");
+				FlatSlider(g_Config.m_KrxDrawBulletLinesAlpha, "Alpha", 0, 100);
 			}
 		}
 		const bool Rainbow = (g_Config.m_KrxCustomColorTee && g_Config.m_KrxCustomColorTeeRainbow) ||
@@ -432,25 +571,41 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			if(g_Config.m_KrxCustomFreezeColorTee)
 				Color(g_Config.m_KrxCustomFreezeColorTeeCol, "Color", 5, 0x55ff80);
 		}
-		if(Card(Right, 65.0f, "Trajectory"))
-			Later("Enable");
-		if(Card(Right, g_Config.m_KrxTrail ? 130.0f : 65.0f, "Trail"))
+		if(Card(Right, g_Config.m_KrxTrajectoryEsp ? 240.0f : 65.0f, "Trajectory"))
+		{
+			Check(g_Config.m_KrxTrajectoryEsp, "Enable");
+			if(g_Config.m_KrxTrajectoryEsp)
+			{
+				Check(g_Config.m_KrxTrajectoryEspSelfOnly, "Self only");
+				Slider(g_Config.m_KrxTrajectoryEspTicks, "Ticks", 1, 50, false, "Trajectory will predict this much ticks");
+				Slider(g_Config.m_KrxTrajectoryEspPathThickness, "Path thickness", 1, 10, false, "Thickness of dots or line.");
+				const char *apModes[] = {"Full line", "Dotted"};
+				Choice(g_Config.m_KrxTrajectoryEspPathMode, "", apModes, 2, 5);
+				Body.HSplitTop(5.0f, nullptr, &Body);
+				Color(g_Config.m_KrxTrajectoryEspPathColor, "Local color", 18, 0x55ff80);
+				Body.HSplitTop(5.0f, nullptr, &Body);
+				Color(g_Config.m_KrxTrajectoryEspPathColorFrozen, "Frozen color", 19, 0x1ff80);
+				Body.HSplitTop(5.0f, nullptr, &Body);
+				Color(g_Config.m_KrxTrajectoryEspPathColorOthers, "Others color", 20, 0x80ff80);
+			}
+		}
+		if(Card(Right, g_Config.m_KrxTrail ? 140.0f : 65.0f, "Trail"))
 		{
 			Check(g_Config.m_KrxTrail, "Enable");
 			if(g_Config.m_KrxTrail)
 			{
-				const char *apModes[] = {"Smoke", "Bullet", "Shine", "Sparkle"};
-				Choice(g_Config.m_KrxTrailMode, "Mode", apModes, 4, 2);
+				const char *apModes[] = {"Smoke trail", "Bullet trail", "Powerup trail", "Sparkle trail"};
+				Choice(g_Config.m_KrxTrailMode, "", apModes, 4, 2);
 				Color(g_Config.m_KrxTrailColor, "Color", 12, 0xb3ff18);
 				Check(g_Config.m_KrxTrailColorRainbow, "Rainbow");
 			}
 		}
 		if(Card(Right, g_Config.m_KrxSmoothCam ? 105.0f : 85.0f, "Cam"))
 		{
-			Check(g_Config.m_KrxSmoothCam, "Smooth cam");
+			Check(g_Config.m_KrxSmoothCam, "Smooth cam", false, "Smooth camera for in-game or demo. Mostly useful in demo");
 			if(g_Config.m_KrxSmoothCam)
-				Slider(g_Config.m_KrxSmoothCamSmoothness, "Smoothness", 1, 100, true);
-			Check(g_Config.m_KrxSuperDyncam, "Super dyncam");
+				Slider(g_Config.m_KrxSmoothCamSmoothness, "Smoothness", 1, 100, true, "Smoothness of smooth cam(lower = faster)");
+			Check(g_Config.m_KrxSuperDyncam, "Super dyncam", false, "Enables super zoom when using dyncam");
 		}
 	}
 	else if(g_Config.m_KrxMenuTab == 4)
@@ -508,19 +663,59 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Key(6, "Quick Stop:", "toggle krx_quickstop 1 0");
 			Key(7, "Hook Ride (risky):", "toggle krx_hookride 1 0");
 			Key(8, "Avoid Freeze:", "toggle krx_avoidfreeze 1 0");
-			Later("Auto Edge");
+			Key(9, "Auto Edge:", "toggle krx_autoedge 1 0");
 			Body.HSplitTop(2.0f, nullptr, &Body);
 			Key(10, "Laser Unfreeze Bot:", "toggle krx_unfreezebot 1 0");
 		}
-		if(Card(Right, 125.0f, "Settings"))
+		if(Card(Right, g_Config.m_KrxPredictionAdvancedSettings ? 225.0f : 125.0f, "Settings"))
 		{
-			Later("Teleport prediction");
-			Later("Advanced settings");
+			Check(g_Config.m_KrxPredictionTeleports, "Teleport prediction", false, "Enables global teleport support, when disabled teles are treated like freeze");
+			Check(g_Config.m_KrxPredictionAdvancedSettings, "Advanced settings", false, "Shows advanced prediction settings");
+			if(g_Config.m_KrxPredictionAdvancedSettings)
+			{
+				Check(g_Config.m_KrxPredictionDeathTile, "Death tile prediction", false, "Enables global death tile support, when disabled death tile isn't predicted by client");
+				Check(g_Config.m_KrxPredictionHeart, "Heart tile prediction", false, "Enables global heart tile support, disable when heart tile doesn't freeze");
+				Check(g_Config.m_KrxPredictionMoveRestriction, "Move restrictions prediction", false, "Recommended for speed: OFF | When off removes predicting the stopper tiles");
+				Check(g_Config.m_KrxPredictionPlayers, "Player loop", false, "Recommended for speed: OFF | When off removes checking player collisions");
+				Slider(g_Config.m_ClPredictionMargin, "Prediction margin", 20, 300, false, "Minimum 20 margin is required for bots to work properly");
+			}
 			Slider(g_Config.m_KrxBalanceBotOffset, "Balance Bot Offset", 1, 10);
 			Slider(g_Config.m_KrxHookNearestFov, "Hook Nearest Fov", 1, 360);
 		}
-		if(Card(Right, 85.0f, "Discord RPC"))
-			Later("Enable");
+		static int s_InitialRpcId = g_Config.m_KrxDiscordRpcId;
+		const bool RpcChanged = s_InitialRpcId != g_Config.m_KrxDiscordRpcId;
+		const float RpcHeight = g_Config.m_KrxDiscordRpc ? (RpcChanged ? 110.0f : 90.0f) + (g_Config.m_KrxDiscordRpcId == 3 ? 25.0f : 0.0f) : 65.0f;
+		if(Card(Right, RpcHeight, "Discord RPC"))
+		{
+			Check(g_Config.m_KrxDiscordRpc, "Enable", false, "Enables Discord RPC");
+			if(g_Config.m_KrxDiscordRpc)
+			{
+				Body.HSplitTop(5.0f, nullptr, &Body);
+				const char *apRpcIds[] = {"KRX", "DDNet", "TClient", "Custom"};
+				Choice(g_Config.m_KrxDiscordRpcId, "", apRpcIds, 4, 6);
+				if(g_Config.m_KrxDiscordRpcId == 3)
+				{
+					Body.HSplitTop(5.0f, nullptr, &Body);
+					Text(g_Config.m_KrxDiscordRpcCustom, sizeof(g_Config.m_KrxDiscordRpcCustom), "", 2, "Enter Custom RPC ID");
+				}
+				if(s_InitialRpcId != g_Config.m_KrxDiscordRpcId)
+				{
+					Body.HSplitTop(5.0f, nullptr, &Body);
+					Body.HSplitTop(20.0f, &Row, &Body);
+					CUIRect Restart;
+					Row.VSplitRight(100.0f, &Row, &Restart);
+					Ui()->DoLabel(&Row, Localize("You must restart the game for all settings to take effect."), 14.0f, TEXTALIGN_ML);
+					static CButtonContainer s_RestartRpc;
+					if(DoButton_Menu(&s_RestartRpc, Localize("Restart"), 0, &Restart))
+					{
+						if(Client()->State() == IClient::STATE_ONLINE || GameClient()->Editor()->HasUnsavedData())
+							m_Popup = POPUP_RESTART;
+						else
+							Client()->Restart();
+					}
+				}
+			}
+		}
 		// Explicit OpenKRX additions remain separate from recovered KRX cards.
 		if(Card(Left, 100.0f, "OpenKRX"))
 		{

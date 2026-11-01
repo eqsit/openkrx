@@ -69,6 +69,12 @@ namespace OpenKrx
 															  "not_playing";
 			return Input;
 		}
+		// 2cc7a0 is an early gate; it preserves the saved planner state.
+		if(pGameClient->m_PreTasVisuals.ShouldSuspendAvoid())
+		{
+			m_Diagnostic.m_pGate = "afk_protection";
+			return Input;
+		}
 		// A respawn/dummy switch must not consume another tee's stored NSIF plan.
 		if(m_LastClientId != ClientId || m_LastSlot != g_Config.m_ClDummy)
 		{

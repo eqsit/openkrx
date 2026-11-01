@@ -700,9 +700,10 @@ int CCharacter::Team()
 
 void CCharacter::HandleSkippableTiles(int Index)
 {
-	// 237e60: death is a terminal frozen state in KRX speculative worlds,
-	// selected by the active Avoid agent's Death option. The live world is untouched.
-	if(GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath && !m_Core.m_Super)
+	// 237e60: death is a terminal frozen state for global death prediction,
+	// AutoEdge, or the active speculative Avoid world's Death option.
+	if((g_Config.m_KrxPredictionDeathTile || g_Config.m_KrxAutoEdge ||
+		(GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath)) && !m_Core.m_Super)
 	{
 		for(const vec2 Offset : {vec2(GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
 			vec2(GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f),
@@ -817,7 +818,8 @@ void CCharacter::HandleTiles(int Index)
 	int MapIndex = Index;
 	m_TileIndex = Collision()->GetTileIndex(MapIndex);
 	m_TileFIndex = Collision()->GetFrontTileIndex(MapIndex);
-	m_MoveRestrictions = Collision()->GetMoveRestrictions(IsSwitchActiveCb, this, m_Pos, 18.0f, MapIndex);
+	m_MoveRestrictions = g_Config.m_KrxPredictionMoveRestriction ?
+		Collision()->GetMoveRestrictions(IsSwitchActiveCb, this, m_Pos, 18.0f, MapIndex) : 0;
 
 	if(!GameWorld()->m_WorldConfig.m_PredictTiles)
 		return;
@@ -1103,7 +1105,8 @@ void CCharacter::HandleTiles(int Index)
 		if(NewJumps != m_Core.m_Jumps)
 			m_Core.m_Jumps = NewJumps;
 	}
-	if(GameWorld()->m_WorldConfig.m_KrxPrediction)
+	// 238420 applies the global teleport option to every prediction world.
+	// The Avoid-specific Teles policy additionally marks tele-ins as hazards.
 	{
 		// 238420: without teleport prediction (the reference default), or
 		// with Avoid Teles, every character tele-in is a terminal hazard.

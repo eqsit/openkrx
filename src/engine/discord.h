@@ -11,6 +11,7 @@ class IDiscord : public IInterface
 {
 	MACRO_INTERFACE("discord")
 public:
+	virtual void Initialize() {}
 	virtual void Update() = 0;
 
 	virtual void ClearGameInfo() = 0;
