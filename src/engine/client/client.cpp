@@ -5261,7 +5261,7 @@ int main(int argc, const char **argv)
 		pConsole->ExecuteFile(AUTOEXEC_FILE, IConsole::CLIENT_ID_UNSPECIFIED);
 	}
 
-	pDiscord->Initialize();
+	pDiscord->Initialize(g_Config.m_KrxDiscordRpc != 0, g_Config.m_KrxDiscordRpcId, g_Config.m_KrxDiscordRpcCustom);
 
 	if(g_Config.m_ClConfigVersion < 1)
 	{
