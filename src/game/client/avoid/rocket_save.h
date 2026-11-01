@@ -65,16 +65,25 @@ namespace OpenKrx
 				m_Target = Seen;
 		}
 		// The saver just selected the grenade; its choice is temporary now.
+		// A short grace period keeps the grenade selected while the generated
+		// press is still being released in the same few ticks.
 		void Begin(int GameTick)
 		{
 			m_Pending = m_Target != 0;
 			m_Deadline = GameTick + 200;
+			m_NotBefore = GameTick + 6;
+		}
+		// Called every tick while the saver keeps asking for the grenade: the
+		// restore must not restart its grace window.
+		void Extend(int GameTick)
+		{
+			if(m_Pending)
+				m_Deadline = GameTick + 200;
 		}
 		bool Pending() const { return m_Pending; }
 		int Target() const { return m_Target; }
-		// Returns true while the restore owns the selection. A grenade release
-		// that is still queued keeps the grenade selected.
-		bool Steals(int GameTick, int Active, bool ShotPending)
+		// Returns true while the restore owns the selection.
+		bool Steals(int GameTick, int Active)
 		{
 			if(!m_Pending)
 				return false;
@@ -83,7 +92,7 @@ namespace OpenKrx
 				m_Pending = false;
 				return false;
 			}
-			return !ShotPending;
+			return GameTick >= m_NotBefore;
 		}
 		// The player picked another weapon himself; nothing to restore.
 		void PlayerPicked(int Wanted)
@@ -96,6 +105,7 @@ namespace OpenKrx
 		int m_Target = 0;
 		bool m_Pending = false;
 		int m_Deadline = 0;
+		int m_NotBefore = 0;
 	};
 
 	class CRocketSave
