@@ -762,6 +762,7 @@ MACRO_CONFIG_INT(AvoidKeepDirection, openkrx_avoid_keep_direction, 1, 0, 1, CFGF
 MACRO_CONFIG_INT(AvoidApply, openkrx_avoid_apply, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legacy compatibility setting; both values use recovered KRX SnapInput ordering")
 MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto grenade save on/off")
 MACRO_CONFIG_INT(RocketPreserveJump, openkrx_rocket_preserve_jump, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Keep a manually held jump suppressed by Avoid when Rocket Save can rescue it (0 = original KRX input ordering)")
+MACRO_CONFIG_INT(RocketRestoreWeapon, openkrx_rocket_restore_weapon, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Switch back to the weapon selected before a rocket save shot (0 = original KRX, keeps the grenade)")
 // Simple KRX features. Source registry: research/easy-port-20261030/config-map-shell.json.
 MACRO_CONFIG_INT(KrxMenuTab, krx_menu_tab, 0, 0, 5, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Last KRX settings tab")
 MACRO_CONFIG_INT(KrxAutoFire, krx_autofire, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto Fire Bot")
