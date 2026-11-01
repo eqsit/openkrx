@@ -119,6 +119,8 @@ public:
 	}
 	int GetJumped() const { return m_Core.m_Jumped; }
 	int GetAttackTick() const { return m_AttackTick; }
+	int GetLastHammerHitClientId() const { return m_LastHammerHitClientId; }
+	void ClearLastHammerHitClientId() { m_LastHammerHitClientId = -1; }
 	int GetStrongWeakId() const { return m_StrongWeakId; }
 
 	CCharacter(CGameWorld *pGameWorld, int Id, CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtended = nullptr);
@@ -151,6 +153,7 @@ private:
 	// weapon info
 	int m_aHitObjects[MAX_CLIENTS];
 	int m_NumObjectsHit;
+	int m_LastHammerHitClientId = -1;
 
 	int m_LastWeapon;
 	int m_QueuedWeapon;

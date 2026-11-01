@@ -19,6 +19,16 @@ public:
 	const vec2 &GetFrom() const { return m_From; }
 	const int &GetOwner() const { return m_Owner; }
 	const int &GetEvalTick() const { return m_EvalTick; }
+	int GetBounces() const { return m_Bounces; }
+	float GetEnergy() const { return m_Energy; }
+	int GetHitClientId() const { return m_HitClientId; }
+	int GetWeaponType() const { return m_Type; }
+	void SetHitClientIdObserver(int *pResult)
+	{
+		m_pHitClientIdObserver = pResult;
+		if(pResult && m_HitClientId >= 0)
+			*pResult = m_HitClientId;
+	}
 	CLaser(CGameWorld *pGameWorld, int Id, const CLaserData *pLaser);
 	bool Match(CLaser *pLaser);
 	CLaserData GetData() const;
@@ -32,6 +42,9 @@ private:
 	vec2 m_Dir;
 	float m_Energy;
 	int m_Bounces;
+	// Result metadata for isolated KRX weapon probes; this does not alter hits.
+	int m_HitClientId = -1;
+	int *m_pHitClientIdObserver = nullptr;
 	int m_EvalTick;
 	int m_Owner;
 	bool m_ZeroEnergyBounceInLastTick;

@@ -730,6 +730,8 @@ void CClient::Connect(const char *pAddress, const char *pPassword)
 	m_aInputtimeMarginGraphs[CONN_MAIN].Init(-150.0f, 150.0f);
 	m_aGametimeMarginGraphs[CONN_MAIN].Init(-150.0f, 150.0f);
 
+	if(g_Config.m_KrxRandomTimeoutSeed)
+		GenerateTimeoutSeed();
 	GenerateTimeoutCodes(aConnectAddrs, NumConnectAddrs);
 }
 

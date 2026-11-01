@@ -45,6 +45,9 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 
 	if(!pHit || (pHit == pOwnerChar && GameWorld()->m_WorldConfig.m_OldLaser) || (pHit != pOwnerChar && pOwnerChar ? (pOwnerChar->LaserHitDisabled() && m_Type == WEAPON_LASER) || (pOwnerChar->ShotgunHitDisabled() && m_Type == WEAPON_SHOTGUN) : !g_Config.m_SvHit))
 		return false;
+	m_HitClientId = pHit->GetCid();
+	if(m_pHitClientIdObserver)
+		*m_pHitClientIdObserver = m_HitClientId;
 	m_From = From;
 	m_Pos = At;
 	m_Energy = -1;

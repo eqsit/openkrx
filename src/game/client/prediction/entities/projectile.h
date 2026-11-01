@@ -37,6 +37,13 @@ public:
 	const vec2 &GetDirection() const { return m_Direction; }
 	const int &GetOwner() const { return m_Owner; }
 	const int &GetStartTick() const { return m_StartTick; }
+	int GetHitClientId() const { return m_HitClientId; }
+	void SetHitClientIdObserver(int *pResult)
+	{
+		m_pHitClientIdObserver = pResult;
+		if(pResult && m_HitClientId >= 0)
+			*pResult = m_HitClientId;
+	}
 	CProjectile(CGameWorld *pGameWorld, int Id, const CProjectileData *pProj);
 
 private:
@@ -48,6 +55,10 @@ private:
 	float m_Force;
 	int m_StartTick;
 	bool m_Explosive;
+	// Optional isolated-probe result sink survives deletion at the end of Tick.
+	// Live entities leave the observer null; the probe owns the sink lifetime.
+	int m_HitClientId = -1;
+	int *m_pHitClientIdObserver = nullptr;
 
 	// DDRace
 

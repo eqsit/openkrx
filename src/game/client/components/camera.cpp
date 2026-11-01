@@ -31,6 +31,7 @@ CCamera::CCamera()
 
 	std::fill(std::begin(m_aLastPos), std::end(m_aLastPos), vec2(0.0f, 0.0f));
 	m_PrevCenter = vec2(0, 0);
+	m_KrxSmoothPosition = vec2(0, 0);
 	m_Center = vec2(0, 0);
 
 	m_PrevSpecId = -1;
@@ -115,6 +116,8 @@ void CCamera::ResetAutoSpecCamera()
 
 void CCamera::UpdateCamera()
 {
+	UpdateKrxSuperDyncam(g_Config.m_KrxSuperDyncam &&
+			     (Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK));
 	// use hardcoded smooth camera for spectating unless player explicitly turn it off
 	bool CanUseCameraInfo = !GameClient()->m_MultiViewActivated;
 	if(Client()->State() == IClient::STATE_DEMOPLAYBACK)
@@ -217,7 +220,7 @@ void CCamera::UpdateCamera()
 	vec2 TargetPos = CanUseCameraInfo ? GameClient()->m_CursorInfo.Target() : GameClient()->m_Controls.m_aMousePos[g_Config.m_ClDummy];
 	int Smoothness = CanUseCameraInfo ? 50 : g_Config.m_ClDyncamSmoothness;
 	int Stabilizing = CanUseCameraInfo ? 50 : g_Config.m_ClDyncamStabilizing;
-	bool IsDyncam = CanUseCameraInfo ? true : g_Config.m_ClDyncam;
+	bool IsDyncam = CanUseCameraInfo ? true : (g_Config.m_ClDyncam || g_Config.m_KrxSuperDyncam);
 
 	float DeltaTime = Client()->RenderFrameTime();
 
@@ -290,6 +293,8 @@ void CCamera::UpdateCamera()
 
 void CCamera::OnRender()
 {
+	UpdateKrxSuperDyncam(g_Config.m_KrxSuperDyncam &&
+			     (Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK));
 	if(m_CameraSmoothing)
 	{
 		if(!GameClient()->m_Snap.m_SpecInfo.m_Active)
@@ -406,6 +411,17 @@ void CCamera::OnRender()
 
 	// demo always count as spectating
 	m_WasSpectating = GameClient()->m_Snap.m_SpecInfo.m_Active;
+
+	// Recovered 0x140237cc6: smooth the player position itself, after the
+	// ordinary camera calculation, rather than smoothing the mouse offset.
+	if(g_Config.m_KrxSmoothCam && !GameClient()->m_Snap.m_SpecInfo.m_Active &&
+		GameClient()->m_Snap.m_LocalClientId >= 0)
+	{
+		const float FrameTime = Client()->State() == IClient::STATE_DEMOPLAYBACK ? 0.002f : Client()->RenderFrameTime();
+		const float Speed = (1.0f - g_Config.m_KrxSmoothCamSmoothness / 100.0f) * 50.5f + 0.5f;
+		m_KrxSmoothPosition += (GameClient()->m_LocalCharacterPos - m_KrxSmoothPosition) * std::min(Speed * FrameTime, 1.0f);
+		m_Center = m_KrxSmoothPosition;
+	}
 }
 
 void CCamera::OnConsoleInit()
@@ -421,12 +437,50 @@ void CCamera::OnConsoleInit()
 
 void CCamera::OnReset()
 {
+	UpdateKrxSuperDyncam(false);
 	m_CameraSmoothing = false;
 
 	m_Zoom = CCamera::ZoomStepsToValue(g_Config.m_ClDefaultZoom - 10);
 	m_Zooming = false;
 	m_AutoSpecCameraZooming = false;
 	m_UserZoomTarget = CCamera::ZoomStepsToValue(g_Config.m_ClDefaultZoom - 10);
+}
+
+void CCamera::UpdateKrxSuperDyncam(bool Enable)
+{
+	// KRX 0x1402362c0 temporarily forces these settings. The server's show
+	// others request and every rendering consumer must see the same values.
+	int *apSettings[] = {&g_Config.m_ClDyncam, &g_Config.m_ClDyncamDeadzone,
+		&g_Config.m_ClShowOthers, &g_Config.m_ClShowOthersAlpha};
+	const int aForced[] = {1, 0, 1, 100};
+	for(int Index = 0; Index < 4; ++Index)
+	{
+		int &Value = *apSettings[Index];
+		if(Enable)
+		{
+			// Remember edits made through the console/settings while enabled,
+			// so disabling the override restores the user's latest choice.
+			if(!m_KrxSuperDyncamActive || Value != aForced[Index])
+				m_aKrxCameraSettings[Index] = Value;
+			Value = aForced[Index];
+		}
+		else if(m_KrxSuperDyncamActive && Value == aForced[Index])
+		{
+			Value = m_aKrxCameraSettings[Index];
+		}
+	}
+	m_KrxSuperDyncamActive = Enable;
+}
+
+void CCamera::OnStateChange(int NewState, int /*OldState*/)
+{
+	if(NewState != IClient::STATE_ONLINE && NewState != IClient::STATE_DEMOPLAYBACK)
+		UpdateKrxSuperDyncam(false);
+}
+
+void CCamera::OnShutdown()
+{
+	UpdateKrxSuperDyncam(false);
 }
 
 void CCamera::ConZoomPlus(IConsole::IResult *pResult, void *pUserData)
@@ -622,12 +676,16 @@ bool CCamera::ZoomAllowed() const
 
 int CCamera::Deadzone() const
 {
+	// KRX's Super DynCam forces dynamic camera and zero deadzone. Keep these
+	// as effective values so toggling it does not overwrite the saved camera.
+	if(g_Config.m_KrxSuperDyncam)
+		return 0;
 	return g_Config.m_ClDyncam ? g_Config.m_ClDyncamDeadzone : g_Config.m_ClMouseDeadzone;
 }
 
 int CCamera::FollowFactor() const
 {
-	return g_Config.m_ClDyncam ? g_Config.m_ClDyncamFollowFactor : g_Config.m_ClMouseFollowfactor;
+	return (g_Config.m_ClDyncam || g_Config.m_KrxSuperDyncam) ? g_Config.m_ClDyncamFollowFactor : g_Config.m_ClMouseFollowfactor;
 }
 
 bool CCamera::CanUseAutoSpecCamera() const

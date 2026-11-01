@@ -696,9 +696,15 @@ void CGameWorld::CopyWorld(CGameWorld *pFrom)
 		{
 			CEntity *pCopy = nullptr;
 			if(Type == ENTTYPE_PROJECTILE)
+			{
 				pCopy = new CProjectile(*((CProjectile *)pEnt));
+				static_cast<CProjectile *>(pCopy)->SetHitClientIdObserver(nullptr);
+			}
 			else if(Type == ENTTYPE_LASER)
+			{
 				pCopy = new CLaser(*((CLaser *)pEnt));
+				static_cast<CLaser *>(pCopy)->SetHitClientIdObserver(nullptr);
+			}
 			else if(Type == ENTTYPE_DRAGGER)
 				pCopy = new CDragger(*((CDragger *)pEnt));
 			else if(Type == ENTTYPE_CHARACTER)
@@ -751,9 +757,15 @@ void CGameWorld::CopyWorldIsolated(const CGameWorld *pFrom)
 		{
 			CEntity *pCopy = nullptr;
 			if(Type == ENTTYPE_PROJECTILE)
+			{
 				pCopy = new CProjectile(*((CProjectile *)pEnt));
+				static_cast<CProjectile *>(pCopy)->SetHitClientIdObserver(nullptr);
+			}
 			else if(Type == ENTTYPE_LASER)
+			{
 				pCopy = new CLaser(*((CLaser *)pEnt));
+				static_cast<CLaser *>(pCopy)->SetHitClientIdObserver(nullptr);
+			}
 			else if(Type == ENTTYPE_DRAGGER)
 				pCopy = new CDragger(*((CDragger *)pEnt));
 			else if(Type == ENTTYPE_CHARACTER)

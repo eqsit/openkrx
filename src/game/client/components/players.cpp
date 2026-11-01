@@ -17,15 +17,42 @@
 #include <generated/protocol.h>
 
 #include <game/client/animstate.h>
+#include <game/client/avoid/rocket_save.h>
 #include <game/client/components/controls.h>
 #include <game/client/components/effects.h>
 #include <game/client/components/flow.h>
 #include <game/client/components/skins.h>
 #include <game/client/components/sounds.h>
 #include <game/client/gameclient.h>
+#include <game/client/prediction/entities/character.h>
 #include <game/collision.h>
 #include <game/gamecore.h>
 #include <game/mapitems.h>
+
+// KRX 0x14024b2db/0x14024bc89/0x14024c8f6: these are local render
+// overrides. They never change the skin or color announced to the server.
+static ColorRGBA KrxPlayerColor(unsigned Packed, bool Rainbow, float LocalTime)
+{
+	const ColorHSLA Color = Rainbow ?
+					ColorHSLA(std::fmod(LocalTime * g_Config.m_KrxCustomColorRainbowSpeed / 100.0f, 1.0f), 1.0f, 0.5f) :
+					ColorHSLA(Packed);
+	return color_cast<ColorRGBA>(Color);
+}
+
+static void KrxTintTee(CTeeRenderInfo &Info, ColorRGBA Color)
+{
+	Info.m_CustomColoredSkin = true;
+	Info.m_ColorBody = Info.m_ColorFeet = Info.m_BloodColor = Color;
+	// The base renderer also supports native 0.7 skins. Apply the same visible
+	// tint to their colorable parts without modifying the saved skin settings.
+	auto &Sixup = Info.m_aSixup[g_Config.m_ClDummy];
+	for(int Part = 0; Part < protocol7::NUM_SKINPARTS; ++Part)
+	{
+		Sixup.m_aUseCustomColors[Part] = true;
+		Sixup.m_aColors[Part] = Color.WithAlpha(Sixup.m_aColors[Part].a);
+	}
+	Sixup.m_BloodColor = Color;
+}
 
 static float CalculateHandAngle(vec2 Dir, float AngleOffset)
 {
@@ -100,6 +127,11 @@ float CPlayers::GetPlayerTargetAngle(
 	int ClientId,
 	float Intra)
 {
+	if(g_Config.m_KrxFakeAim && g_Config.m_KrxFakeAimVisible && ClientId == GameClient()->m_aLocalIds[g_Config.m_ClDummy] && !GameClient()->m_Snap.m_SpecInfo.m_Active)
+	{
+		const auto &Input = GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy];
+		return angle(vec2(Input.m_TargetX, Input.m_TargetY));
+	}
 	if(GameClient()->PredictDummy() && GameClient()->m_aLocalIds[!g_Config.m_ClDummy] == ClientId)
 	{
 		const CNetObj_PlayerInput &Input = g_Config.m_ClDummyHammer ? GameClient()->m_HammerInput : GameClient()->m_DummyInput;
@@ -538,7 +570,10 @@ void CPlayers::RenderHook(
 	Graphics()->QuadsSetRotation(angle(Dir) + pi);
 	// render head
 	int QuadOffset = NUM_WEAPONS * 2 + 2;
-	Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
+	ColorRGBA HookColor(1.0f, 1.0f, 1.0f, Alpha);
+	if(g_Config.m_KrxCustomColorHook && ClientId >= 0 && ClientId == GameClient()->m_aLocalIds[g_Config.m_ClDummy])
+		HookColor = KrxPlayerColor(g_Config.m_KrxCustomColorHookCol, g_Config.m_KrxCustomColorHookRainbow, Client()->LocalTime()).WithAlpha(Alpha);
+	Graphics()->SetColor(HookColor);
 	Graphics()->RenderQuadContainerAsSprite(m_WeaponEmoteQuadContainerIndex, QuadOffset, HookPos.x, HookPos.y);
 
 	// render chain
@@ -592,6 +627,28 @@ void CPlayers::RenderPlayer(
 	float Alpha = (OtherTeam || ClientId < 0) ? g_Config.m_ClShowOthersAlpha / 100.0f : 1.0f;
 	if(ClientId == -2) // ghost
 		Alpha = g_Config.m_ClRaceGhostAlpha / 100.0f;
+	const bool KrxLocal = ClientId >= 0 && ClientId == GameClient()->m_aLocalIds[g_Config.m_ClDummy];
+	if(g_Config.m_KrxCustomColorTee && KrxLocal)
+		KrxTintTee(RenderInfo, KrxPlayerColor(g_Config.m_KrxCustomColorTeeCol, g_Config.m_KrxCustomColorTeeRainbow, Client()->LocalTime()));
+	if(g_Config.m_KrxCustomFreezeColorTee && !KrxLocal && in_range(ClientId, MAX_CLIENTS - 1))
+	{
+		if(OpenKrx::IsKrxCharacterFrozen(GameClient(), ClientId))
+			KrxTintTee(RenderInfo, KrxPlayerColor(g_Config.m_KrxCustomFreezeColorTeeCol, false, Client()->LocalTime()));
+	}
+	if(g_Config.m_KrxAimbot && g_Config.m_KrxAimbotTargetGlow && in_range(ClientId, MAX_CLIENTS - 1))
+	{
+		unsigned Glow = 0;
+		if(g_Config.m_KrxAimbotWeaponHook && ClientId == GameClient()->m_Aimbot.HookTarget())
+			Glow = g_Config.m_KrxAimbotTargetGlowHookColor;
+		if(ClientId == GameClient()->m_Aimbot.WeaponTarget() && (ClientId != GameClient()->m_Aimbot.HookTarget() || !g_Config.m_KrxAimbotWeaponHook))
+			Glow = g_Config.m_KrxAimbotTargetGlowWeaponColor;
+		if(Glow)
+		{
+			ColorHSLA Hsl(Glow);
+			Hsl.l = Hsl.l * .5f + .5f;
+			KrxTintTee(RenderInfo, color_cast<ColorRGBA>(Hsl));
+		}
+	}
 	// TODO: snd_game_volume_others
 	const float Volume = 1.0f;
 
@@ -689,7 +746,10 @@ void CPlayers::RenderPlayer(
 	{
 		if(!(RenderInfo.m_TeeRenderFlags & TEE_NO_WEAPON))
 		{
-			Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
+			ColorRGBA WeaponColor(1.0f, 1.0f, 1.0f, Alpha);
+			if(g_Config.m_KrxCustomColorWeapon && KrxLocal)
+				WeaponColor = KrxPlayerColor(g_Config.m_KrxCustomColorWeaponCol, g_Config.m_KrxCustomColorWeaponRainbow, Client()->LocalTime()).WithAlpha(Alpha);
+			Graphics()->SetColor(WeaponColor);
 
 			// normal weapons
 			int CurrentWeapon = std::clamp(Player.m_Weapon, 0, NUM_WEAPONS - 1);

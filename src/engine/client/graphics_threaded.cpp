@@ -11,6 +11,7 @@
 #include <base/str.h>
 #include <base/time.h>
 
+#include <engine/client.h>
 #include <engine/engine.h>
 #include <engine/gfx/image_loader.h>
 #include <engine/gfx/image_manipulation.h>
@@ -1208,8 +1209,46 @@ int CGraphics_Threaded::CreateRectQuadContainer(float x, float y, float w, float
 	return ContainerIndex;
 }
 
+// KRX rectangle color adapter (0x140273ab0). Only neutral fills are themed;
+// status colors and text retain their own colors.
+static ColorRGBA KrxMenuColor(ColorRGBA Color, float FrameTime)
+{
+	if(!g_Config.m_KrxCustomTheme)
+		return Color;
+	const bool White = Color.r == 1.0f && Color.g == 1.0f && Color.b == 1.0f;
+	const bool Black = Color.r == 0.0f && Color.g == 0.0f && Color.b == 0.0f;
+	if(g_Config.m_KrxRainbowMenu)
+	{
+		// Recovered helper 0x1402b8960 updates on each rectangle call, even
+		// for black fills. Its argument supplies both lightness and alpha.
+		static float s_SmoothedFrameTime = 0.0f;
+		static float s_Hue = 0.0f;
+		s_SmoothedFrameTime = s_SmoothedFrameTime * 0.9f + std::max(FrameTime, 0.000001f) * 0.1f;
+		const int Fps = std::max(1, (int)(1.0f / s_SmoothedFrameTime + 0.5f));
+		s_Hue += 0.001f / Fps;
+		if(s_Hue > 1.0f)
+			s_Hue = 0.0f;
+		if(White)
+		{
+			Color = color_cast<ColorRGBA>(ColorHSLA(s_Hue, 1.0f, Color.a + 0.25f, Color.a + 0.25f));
+		}
+		else if(Black)
+			Color.a += 0.25f;
+	}
+	else if(White || Black)
+		Color = color_cast<ColorRGBA>(ColorHSLA(White ? g_Config.m_KrxCustomAccentColor : g_Config.m_KrxCustomBgColor)).WithAlpha(Color.a);
+	return Color;
+}
+
 void CGraphics_Threaded::DrawRect(float x, float y, float w, float h, ColorRGBA Color, int Corners, float Rounding)
 {
+	// Native KRX themes the single-color graphics rectangle entrypoint,
+	// including direct graphics consumers. Four-corner gradients are unmodified.
+	if(g_Config.m_KrxCustomTheme)
+	{
+		IClient *pClient = Kernel() ? Kernel()->RequestInterface<IClient>() : nullptr;
+		Color = KrxMenuColor(Color, pClient ? pClient->RenderFrameTime() : 1.0f / 60.0f);
+	}
 	TextureClear();
 	QuadsBegin();
 	SetColor(Color);

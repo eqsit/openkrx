@@ -30,6 +30,7 @@ public:
 	vec2 Position() const override;
 	float HookLength() const override;
 	std::optional<vec2> HookPoint(vec2 Aim) const override;
+	std::optional<vec2> DragAim() const override;
 
 	void CopyFrom(const CGameWorld &SourceWorld, int LocalClientId);
 	// User-authorized coupling fix: a pending Rocket press is not a promise

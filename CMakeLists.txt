@@ -2642,14 +2642,14 @@ if(CLIENT)
     assets.cpp
     avoid/avoid.cpp
     avoid/avoid.h
-    avoid/trace.cpp
-    avoid/trace.h
     avoid/blatant.cpp
     avoid/blatant.h
     avoid/rocket_save.cpp
     avoid/rocket_save.h
     avoid/simulation.cpp
     avoid/simulation.h
+    avoid/trace.cpp
+    avoid/trace.h
     component.cpp
     component.h
     components/background.cpp
@@ -2761,6 +2761,17 @@ if(CLIENT)
     components/voting.h
     gameclient.cpp
     gameclient.h
+    krx/aimbot.cpp
+    krx/aimbot.h
+    krx/bots.cpp
+    krx/bots.h
+    krx/misc.cpp
+    krx/misc.h
+    krx/rescue.cpp
+    krx/rescue.h
+    krx/visuals.cpp
+    krx/visuals.h
+    krx_input.h
     laser_data.cpp
     laser_data.h
     lineinput.cpp
