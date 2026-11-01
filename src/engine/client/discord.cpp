@@ -4,7 +4,6 @@
 #include <base/time.h>
 
 #include <engine/discord.h>
-#include <engine/shared/config.h>
 
 #include <string>
 #if defined(CONF_DISCORD)
@@ -30,14 +29,14 @@ public:
 		if(m_pCore)
 			m_pCore->destroy(m_pCore);
 	}
-	void Initialize() override
+	void Initialize(bool Enabled, int ApplicationId, const char *pCustomId) override
 	{
 		if(m_Initialized)
 			return;
 		m_Initialized = true;
-		m_Enabled = g_Config.m_KrxDiscordRpc != 0;
+		m_Enabled = Enabled;
 		static constexpr int64_t aIds[] = {0x1267790b24401065LL, 0x0a703aca7c800033LL, 0x1264a1386802001fLL};
-		const int64_t Id = g_Config.m_KrxDiscordRpcId == 3 ? std::stoll(g_Config.m_KrxDiscordRpcCustom) : aIds[g_Config.m_KrxDiscordRpcId];
+		const int64_t Id = ApplicationId == 3 ? std::stoll(pCustomId) : aIds[ApplicationId];
 		DiscordCreateParams Params;
 		DiscordCreateParamsSetDefault(&Params);
 		Params.client_id = Id;
