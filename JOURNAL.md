@@ -1614,3 +1614,22 @@ dist собран ТОЛЬКО ssh home: SHA256
 отсутствие цели (только граната), дедлайн, ниндзя. errors=0.
 
 Исходники запушены в https://github.com/eqsit/openkrx (main, коммит 9d1d24d).
+
+## 2026-11-01 — откат возврата оружия, релиз v0.1.0
+
+Возврат оружия после rocket save пришлось откатить: обёртка AdjustInput
+могла вернуть прежнее оружие на тиках между решением сейва и реальным
+переключением на гранату, из-за чего сейв перестал вооружаться и не
+срабатывал (подтверждено пользователем в живой игре). rocket_save.{h,cpp}
+возвращены к 318a501, коммит отката c7b0394.
+
+Переделывать возврат нужно иначе: только после реального выстрела, с
+отдельным конфиг-флагом, и с логом в openkrx_avoid_debug, чтобы проверять
+на живой игре.
+
+Релиз: https://github.com/eqsit/openkrx/releases/tag/v0.1.0
+- OpenKRX-linux-x86_64 (stripped, 6.6 МБ)
+- OpenKRX-windows-x86_64.zip (exe + 18 bundled DLL, 12.6 МБ, mingw64 сборка на home)
+Заметки: research/release-notes-20261101.md. Windows-сборка требует
+~/.cargo/bin первым в PATH (rustup target x86_64-pc-windows-gnu) и
+-DCMAKE_DISABLE_FIND_PACKAGE_GTest=ON, цель называется DDNet.exe.
