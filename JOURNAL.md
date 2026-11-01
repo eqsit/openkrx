@@ -1633,3 +1633,22 @@ dist собран ТОЛЬКО ssh home: SHA256
 Заметки: research/release-notes-20261101.md. Windows-сборка требует
 ~/.cargo/bin первым в PATH (rustup target x86_64-pc-windows-gnu) и
 -DCMAKE_DISABLE_FIND_PACKAGE_GTest=ON, цель называется DDNet.exe.
+
+## 2026-11-01 — возврат оружия, вторая реализация (v0.1.1)
+
+Первая попытка (коммит 0a284ca) ломала сейв и была откачена (c7b0394).
+Вторая сделана так, чтобы не влиять на взведение:
+- CRocketWeaponRestore запоминает последнее негранатовое оружие (Wanted или
+  текущее активное), ниндзя/граната не годятся.
+- OnShot вызывается только при реальном Decision.m_Fired.
+- Обёртка возвращает оружие только когда: прошло >4 тиков после выстрела,
+  активное оружие именно граната, сейв в этом тике не просит гранату
+  (Out.m_WantedWeapon != GRENADE+1), не истекли 150 тиков.
+- Выключатель openkrx_rocket_restore_weapon (по умолчанию 1), лог в
+  openkrx_avoid_debug.
+
+Проверки: krx_rocket_weapon_restore, avoid_pending_rocket_test errors=0,
+blatant_hook_timing_test failures=0.
+
+Релиз v0.1.1: Linux + Windows (windows exe собран на home, содержит строку
+"restore weapon=" в отладочном сообщении; символы класса инлайнятся).
