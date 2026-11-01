@@ -425,11 +425,16 @@ namespace OpenKrx
 		{
 			// Selecting the grenade is temporary: hand the previous weapon back
 			// as soon as the saver stops asking for one.
-			m_WeaponRestore.Begin(GameTick);
+			if(m_WeaponRestore.Pending())
+				m_WeaponRestore.Extend(GameTick);
+			else
+				m_WeaponRestore.Begin(GameTick);
 		}
-		else if(m_WeaponRestore.Steals(GameTick, ActiveSelection, m_ReleaseModulo != 0))
+		else if(m_WeaponRestore.Steals(GameTick, ActiveSelection))
 		{
 			Out.m_WantedWeapon = m_WeaponRestore.Target();
+			if(g_Config.m_AvoidDebug)
+				dbg_msg("rocket-save", "restore weapon=%d cid=%d tick=%d active=%d", Out.m_WantedWeapon, ClientId, GameTick, ActiveSelection);
 		}
 		return Out;
 	}
