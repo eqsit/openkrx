@@ -1,0 +1,76 @@
+- Teleport Prediction Menu
+- Version Spoofer
+- Change Name on Finish
+- Killsay / Deathsay
+- Fancy Chat Font
+- Chat Repeater
+- Mass Mention Spam
+- Send Ads
+- Send Checksum
+- Checksum Logging
+- Auto Vote Kick
+- Discord RPC
+- Notifications
+- Tile Outlines
+- Mod Detector
+- Auto Verify
+- KoG Frozen HUD
+- Prediction Benchmark
+- Advanced Prediction Settings
+- Prediction Players Settings
+- Prediction Death Tile Settings
+- Prediction Move Restrictions Settings
+- Prediction Heart Settings
+- Avoid AFK Protection
+- Avoid Track Point ESP
+- Avoid Aimbot ESP
+- Avoid Path ESP
+- Fast Input Others
+- Fast Input
+- Auto Edge
+- Ghost Move
+- Trajectory ESP
+- Find Tunes
+- TAS TPS
+- TAS Tick Control Pause
+- TAS Tick Control Tick Count
+- TAS Tick Control Step
+- TAS Respawn
+- TAS Player Prediction
+- TAS Recording
+- TAS Pause
+- TAS Playback
+- TAS Clear Replay
+- TAS Save Replay
+- TAS Load Replay
+- TAS Delete Replay
+- TAS Replay Description
+- TAS Auto Save Replay
+- TAS Auto Replay
+- TAS Restart on Freeze
+- TAS Kill on Replay End
+- TAS Sound
+- TAS Effects
+- TAS Show Real Aim
+- TAS HUD
+- TAS Recorded Path ESP
+- TAS Predicted Path ESP
+- TAS Start and End Position ESP
+- TAS Fake Aim
+- TAS Rewind
+- TAS Forward
+- TAS Auto Rewind
+- TAS Auto Forward
+- TAS Replay Vault
+- TAS Replay Vault Auto Sync
+- Pathfinding
+- Pathfinding Reset Goal
+- Pathfinding Flow Field
+- Pathfinding Tunnel Editor
+- Pathfinding Tunnel Rendering
+- Pathfinding Clear Tunnels
+- Pathfinding Auto Tunnel from TAS
+- Pathfinding Auto Tunnel Width
+- Avoid Fent
+- Avoid Legit
+- Avoid Basic
