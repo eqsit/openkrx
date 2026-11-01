@@ -26,6 +26,10 @@ private:
 	int m_CamType;
 	vec2 m_aLastPos[NUM_DUMMIES];
 	vec2 m_PrevCenter;
+	vec2 m_KrxSmoothPosition;
+	bool m_KrxSuperDyncamActive = false;
+	int m_aKrxCameraSettings[4] = {};
+	void UpdateKrxSuperDyncam(bool Enable);
 
 	int m_PrevSpecId;
 	bool m_WasSpectating;
@@ -91,6 +95,8 @@ public:
 
 	void OnConsoleInit() override;
 	void OnReset() override;
+	void OnStateChange(int NewState, int OldState) override;
+	void OnShutdown() override;
 
 	void SetView(ivec2 Pos, bool Relative = false);
 	void GotoSwitch(int Number, int Offset = -1);

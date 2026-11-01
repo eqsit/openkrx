@@ -1439,3 +1439,156 @@ server_input_timing_valid/tick/age_ms/local_match иserver_input_time_left_ms.
 Ярлык прежний, нужно перезапустить клиент. Полный Avoid/KRX ещё не объявлять
 доделанным; точная причина hookdeliverycorrection открыта до новых ackданных.
 
+
+## 2026-10-31 — простые KRX misc: реализация перед сборкой
+
+На существующих REA Evidence из research/easy-port-20261030 реализован
+CMiscFeatures: AutoTeam (beb90), KillOnFreeze (26d2d0/b4450), AntiAFK
+(2bb4d0). Полные ссылки/ограничения — MISC-IMPLEMENTATION.md.
+AutoTeam предпочитает свободную preferred team, иначе равномерную свободную
+1..63; /team и /lock. Явная адаптация интеграции: retry не чаще 3 секунд.
+Kill использует существующий authoritative freeze predicate, один пакет на
+непрерывную заморозку выбранного подключения. AntiAFK меняет mouse pos
+на независимые uniform1..50 шаги, знак чередуется, затем обычный clamp.
+Таймер не сбрасывается реальным движением мыши, как в восстановленном коде.
+Контекст раздельный по слотам/cid; OnReset очищает. Update вызывается после
+UpdatePositions перед render компонентов. git diff--check пройден.
+Компиляция и runtime пока НЕ выполнены — общую сборку только sshhome
+проводит основной агент. Это не утверждение live parity с KRX.
+
+Emote Spam дополнен в CMiscFeatures по shell disassembly2bf890..2bf962
+(carrier.asm, не новое REA Evidence). Оригинал random inclusive0..16 и
+raw vitalCL_EMOTICON каждый update. Явная адаптация современному клиенту:
+только валидные0..NUM_EMOTICONS-1, не чаще нового GameTick, через существующий
+Emoticon::Emote (включая обычное cl_dummy_copy_moves). Отсутствующий индекс16
+и частота по game tick не выдаются за точное поведенческое совпадение.
+Проверкаgitdiff--check пройдена, компиляцию выполняет родитель наsshhome.
+
+
+## 2026-10-31 — проверенный пакет простых KRX функций и меню
+
+Новый запрос: переносить простые Goodcrack/KRX функции, сложные позже;
+структура меню как в оригинале; сборка исключительно ssh home.
+Реализован и проверен пакет: Moonwalk, Auto Fire, Auto Rehook, Hook Spam,
+Pixel Walk, Quick Stop/Ground Only, Hide Chat Bubble, AutoTeam/lock,
+AntiAFK, Kill on Freeze, Emote Spam, Random Timeout Seed; цвета тии/хука/
+оружия/замороженных других игроков/Rainbow, SmoothCam/SuperDynCam,
+Custom Menu. Шесть вкладок Aimbot/Misc/Visuals & HUD/Avoid/TAS/Settings,
+равная ширина,20высота,4радиус, исходный порядок карточек. Сложные Later.
+Прежние пользовательские коррекции — KRX > Settings > OpenKRX.
+
+Полный отчёт/ограничения: research/easy-port-20261030/RESULT.md.
+Нельзя объявлять полной копией всех функций/пикселей: native KRX UI A/B
+не получен; TAS/Aimbot deferred subpanels частичные. Простые функции
+перенесены по REA+shell consumers с явно описанными адаптациями lifecycle/
+tick-rate/modern0.7. Avoid/Rocket исходники не менялись.
+
+Сборка dist только home SHA2566538fe066143a5f98614d9f5bea669de78f68124097e38eabba70aab1bc13805.
+17productionfiles совпали с home; source.sha256 отделяет изменения от
+basecommit в BUILD.txt. 704C++ cases+stateboundaries passed, Avoidplanner/
+400trace и Rocketreadyregressions passed. Шесть вкладок clicked/save passed.
+Private live: fire/moon/pixel/spam/AntiAFK, team5lock, SuperDynrestore,
+kill-freeze confirmed. Final colors/chatflags/timeout passed, exit0.
+Все fixtureпроцессы очищены; пользовательскийconfig не меняли. Старый
+ярлык указывает на новыйdist; запущенныйклиент нужно перезапустить.
+Бэкап dist до изменений /home/a/backups/openkrx-before-easy-20261031.
+Код не коммитили. REA tool session сейчас closed, всеqueryrecords сохранены.
+
+
+Ошибки и уточнения: первая сборка выявила GetCharacter вместо API
+GetCharacterById — исправлено в controls/players. Регистрация четырёх
+color-enable toggles ошибочно определилась как COLORdefault1 — исправлены
+на INTdefault0range0..1 по исходной регистрации. Frozen-other tint после
+проверки assembly24bde1 переведён на общий IsKrxCharacterFrozen (server
+name/FNG predicate), а не GameInfoPredictDDRace. Standaloneheader test
+нашёл cstdinttransitive dependency — добавлен прямой include. ПервыеGUI
+координаты не соответствовали MainViewx40; исправлены после screenshot.
+Первый liveprobe ошибочно делал console ExecuteLine(+fire/+left), который
+посылает press+release сразу; окончательные проверки используют XTestheld
+keys/mouse. Failedfixtures сохранены, не названы passed.
+
+
+## 2026-10-31 — глубокий аудит, AutoRehook и исходныйpipeline
+
+Пользователь усомнился в AutoRehook и явно попросил углубить реверс каждой
+перенесённой функции, дополнительно читать документацию KRX.
+Подробный итог: research/deep-audit-20261031/RESULT.md +INPUT.md/MISC.md,
+38REArecords в evidence.json, новая checkpoint.snap; сессия штатно закрыта.
+
+AutoRehook в ЭТОМ бинарнике сам не меняет прицел: pendingglobal63a901
+ссылается только из его handlerbeae0. Документы Misc обещают release/re-hook,
+не автонаведение. Physicsfixtureдвухтии: toward=>regrab, away/up=>miss,
+aimне меняется. Это реконструкция порта, НЕ исполнение оригинальногоKRX.
+Пользователь НЕ попросил добавлять новое cursor-independentавтонаведение.
+Исправлена действительная ошибка: чтениеHookTick из predictedworld вместо
+authoritative; pending теперь сохраняется при off/нетcharacter как в leaf.
+
+Полная цепочка Snap23e670->2700b0->26d2d0 доказала, что это НЕ OnRender
+cadence (исправление прежнего предположения). PixelWalk/QuickStop перенесены
+послеAvoid, QuickStop sharedFNG/nameFrozen+renderPosground+predCharvelocity.
+Misc сняты сOnRender:AutoTeamдоflags,EmoteдоAvoid,Kill/AntiAFKпослеAvoid.
+AntiAFKnormalizeполныйmouseMax+truncate,nextinputeffect; KillsharedSendKill
+учитываетcopyMoves. HiddenBubbleсохраняетпредыдущиеflagsкакoriginal.
+Themeперенесена изCUIRect вgraphicsDrawRect,Draw4неизменён. SmoothCam
+лишнийpLocalCharactergateснят. Tee/hook/weapon полныеconsumerпроверены.
+Уже разрешённые корректировки Avoid/Rocket не менялись.
+
+distсобранТОЛЬКОsshhome SHA2565acc6032a6f620ef513501dccbb4283ea39e817fe3176765f23471c8b8f069ef.
+15productionfilesmanifestсовпалисhome. 704boundary,deepquantize/pending/late
+fixtures,двухтииhookphysics,Avoidplanner400trace,Rocketguard,privatekeys/
+AntiAFK/AutoTeam/SuperRestore,walls,шестьменютабов,colors/chat/seed passed.
+Бэкапdist /home/a/backups/openkrx-before-deep-audit-20261031. Запущенныйклиент
+перезапуститьпрежнимярлыком. Пользовательскийconfigнетронут,fixturesочищены.
+
+Нельзяобъявлятьполной1:1копией:originalnativeABнеполучен;отдельныеlifecycle/
+emoteвалидность/ticklimit/teamretry/oncefreeze/deadzonerestoreадаптацииявные;
+функцииLaterнеперенесены. Документацияможетбытьновееданногобинарника.
+
+
+## 2026-11-01 — средний пакет: сборка дожата, хук-овнершип
+
+Прошлая сессия Codex (rollout 2026-10-31T21-20-58, форк от 30.10) оборвалась
+на лимите использования посреди интеграции среднего пакета: исходники
+krx/{aimbot,bots,rescue,visuals} и меню были уже в дереве, но сборка не шла.
+
+Сборка на ssh home (scripts/build-remote.sh) падала на четырёх местах, все
+исправлены:
+- menus_settings_krx.cpp: лямбда Choice принимала `const char *const *`, а
+  CUi::DoDropDown требует `const char **`.
+- krx/aimbot.h: `MAX_CLIENTS` без include <engine/shared/protocol.h>.
+- krx/bots.cpp: `GetCharacterById` на `const CGameWorld` (lookup только читает
+  массив персонажей, взят const_cast с комментарием).
+- krx/visuals.cpp: `MapScreen(x,y,w,h)` заменён на актуальный CScreenRect API.
+
+Фикстуры (только ssh home, run-native-test.py):
+- krx_bots_test: simple_jump=38 advanced_jump=38 balance[-1,0,1]=129/128/31,
+  errors=0.
+- krx_aimbot_physics_test: 5/5 оружий стреляют и попадают, errors=0.
+  Первый прогон падал на gun: в фикстурном мире `m_Core.m_Jetpack=1`, потому
+  что CTuningParams по умолчанию даёт jetpack_strength=400, а DDNetCharacter
+  отсутствует. Продакшн обнуляет это поле (gameclient.cpp:1087). Это дефект
+  фикстуры, не движка; Tuning теперь обнуляется в фикстуре.
+
+Хук-овнершип (жалоба пользователя): автоматические хуки Avoid не должны
+подчиняться аимботу. В пайплайне Avoid.AdjustInput стоит ДО m_Aimbot, и
+аимбот переписывал aim у уже выставленного хука (включая AutoHook из
+Hook Nearest и Hook Spam/Rehook). В оригинале аимбот шёл раньше Avoid,
+поэтому направление автоматического хука всегда оставалось за Avoid.
+Добавлено CAimbotSettings::m_HookIsAutomated: в CControls::SnapInput он
+взводится, когда hook нажат без физического нажатия (m_aPhysicalHook==0)
+или Avoid владеет хуком (Diagnostic().m_OwnedHookAfter). При этом флаге
+аимбот не трогает aim (и hook-ассист не запускается) ни для хука, ни для
+оружия; собственный AutoHook аимбота (m_AutoHookIssued) продолжает вести
+цель.
+
+Регрессия research/medium-port-20261031/fixtures/aimbot_hook_ownership_test.cpp:
+manual hook steered (382,-116); automated hook untouched; weapon aim
+untouched для автоматического и steered для ручного; собственный auto hook
+аимбота продолжает наводить. errors=0.
+
+dist собран ТОЛЬКО ssh home: SHA256
+96f47ae32e4d358c9b21e2abaa84197261377d9c32939d8dbb7cb5688cc90798
+(built_at_utc=2026-11-01T06:30:47Z). Ярлык openkrx.desktop (меню и рабочий
+стол) указывает на scripts/openkrx.sh -> dist/OpenKRX, обновлён.
+Не заявлять полную 1:1 копию: Later-функции не перенесены, native A/B
+оригинала нет.

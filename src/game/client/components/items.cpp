@@ -84,6 +84,7 @@ void CItems::RenderProjectile(const CProjectileData *pCurrent, int ItemId, const
 		}
 	}
 
+	GameClient()->m_MediumVisuals.RenderBulletLines(*pCurrent, Curvature, Speed, Ct);
 	vec2 Pos = CalcPos(pCurrent->m_StartPos, pCurrent->m_StartVel, Curvature, Speed, Ct);
 	if(!ScreenRect.Inside(Pos))
 		return;

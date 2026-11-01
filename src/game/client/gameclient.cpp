@@ -151,6 +151,7 @@ void CGameClient::OnConsoleInit()
 					      &m_FreezeBars,
 					      &m_DamageInd,
 					      &m_Hud,
+					      &m_MediumVisuals,
 					      &m_Spectator,
 					      &m_Emoticon,
 					      &m_InfoMessages,
@@ -623,6 +624,10 @@ void CGameClient::OnReset()
 	m_Avoid.m_Trace.Reset();
 	m_Avoid.OnReset();
 	m_RocketSave.OnReset();
+	m_KrxMisc.OnReset();
+	m_Aimbot.OnReset();
+	m_MediumBots.OnReset();
+	m_RescueBots.OnReset();
 
 	m_EditorMovementDelay = 5;
 

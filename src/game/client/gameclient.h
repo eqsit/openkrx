@@ -20,6 +20,11 @@
 
 #include <game/client/avoid/avoid.h>
 #include <game/client/avoid/rocket_save.h>
+#include <game/client/krx/aimbot.h>
+#include <game/client/krx/bots.h>
+#include <game/client/krx/misc.h>
+#include <game/client/krx/rescue.h>
+#include <game/client/krx/visuals.h>
 #include <game/client/prediction/gameworld.h>
 #include <game/client/race.h>
 #include <game/collision.h>
@@ -188,6 +193,11 @@ public:
 	CMapImages m_MapImages;
 	OpenKrx::CAvoid m_Avoid;
 	OpenKrx::CRocketSave m_RocketSave;
+	OpenKrx::CMiscFeatures m_KrxMisc;
+	OpenKrx::CAimbot m_Aimbot;
+	OpenKrx::CMediumBots m_MediumBots;
+	OpenKrx::CRescueBots m_RescueBots;
+	OpenKrx::CMediumVisuals m_MediumVisuals;
 
 	CMapLayers m_MapLayersBackground = CMapLayers{ERenderType::RENDERTYPE_BACKGROUND};
 	CMapLayers m_MapLayersForeground = CMapLayers{ERenderType::RENDERTYPE_FOREGROUND};

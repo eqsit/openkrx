@@ -1,3 +1,68 @@
+# Последнее обновление — глубокий аудит простых функций KRX (2026-10-31)
+
+Пользователь усомнился в AutoRehook и явно попросил углубить реверс каждой
+перенесённой функции, дополнительно читать документацию KRX.
+Подробный итог: research/deep-audit-20261031/RESULT.md +INPUT.md/MISC.md,
+38REArecords в evidence.json, новая checkpoint.snap; сессия штатно закрыта.
+
+AutoRehook в ЭТОМ бинарнике сам не меняет прицел: pendingglobal63a901
+ссылается только из его handlerbeae0. Документы Misc обещают release/re-hook,
+не автонаведение. Physicsfixtureдвухтии: toward=>regrab, away/up=>miss,
+aimне меняется. Это реконструкция порта, НЕ исполнение оригинальногоKRX.
+Пользователь НЕ попросил добавлять новое cursor-independentавтонаведение.
+Исправлена действительная ошибка: чтениеHookTick из predictedworld вместо
+authoritative; pending теперь сохраняется при off/нетcharacter как в leaf.
+
+Полная цепочка Snap23e670->2700b0->26d2d0 доказала, что это НЕ OnRender
+cadence (исправление прежнего предположения). PixelWalk/QuickStop перенесены
+послеAvoid, QuickStop sharedFNG/nameFrozen+renderPosground+predCharvelocity.
+Misc сняты сOnRender:AutoTeamдоflags,EmoteдоAvoid,Kill/AntiAFKпослеAvoid.
+AntiAFKnormalizeполныйmouseMax+truncate,nextinputeffect; KillsharedSendKill
+учитываетcopyMoves. HiddenBubbleсохраняетпредыдущиеflagsкакoriginal.
+Themeперенесена изCUIRect вgraphicsDrawRect,Draw4неизменён. SmoothCam
+лишнийpLocalCharactergateснят. Tee/hook/weapon полныеconsumerпроверены.
+Уже разрешённые корректировки Avoid/Rocket не менялись.
+
+distсобранТОЛЬКОsshhome SHA2565acc6032a6f620ef513501dccbb4283ea39e817fe3176765f23471c8b8f069ef.
+15productionfilesmanifestсовпалисhome. 704boundary,deepquantize/pending/late
+fixtures,двухтииhookphysics,Avoidplanner400trace,Rocketguard,privatekeys/
+AntiAFK/AutoTeam/SuperRestore,walls,шестьменютабов,colors/chat/seed passed.
+Бэкапdist /home/a/backups/openkrx-before-deep-audit-20261031. Запущенныйклиент
+перезапуститьпрежнимярлыком. Пользовательскийconfigнетронут,fixturesочищены.
+
+Нельзяобъявлятьполной1:1копией:originalnativeABнеполучен;отдельныеlifecycle/
+emoteвалидность/ticklimit/teamretry/oncefreeze/deadzonerestoreадаптацииявные;
+функцииLaterнеперенесены. Документацияможетбытьновееданногобинарника.
+
+# Последнее обновление — простые функции и меню KRX (2026-10-31)
+
+Новый запрос: переносить простые Goodcrack/KRX функции, сложные позже;
+структура меню как в оригинале; сборка исключительно ssh home.
+Реализован и проверен пакет: Moonwalk, Auto Fire, Auto Rehook, Hook Spam,
+Pixel Walk, Quick Stop/Ground Only, Hide Chat Bubble, AutoTeam/lock,
+AntiAFK, Kill on Freeze, Emote Spam, Random Timeout Seed; цвета тии/хука/
+оружия/замороженных других игроков/Rainbow, SmoothCam/SuperDynCam,
+Custom Menu. Шесть вкладок Aimbot/Misc/Visuals & HUD/Avoid/TAS/Settings,
+равная ширина,20высота,4радиус, исходный порядок карточек. Сложные Later.
+Прежние пользовательские коррекции — KRX > Settings > OpenKRX.
+
+Полный отчёт/ограничения: research/easy-port-20261030/RESULT.md.
+Нельзя объявлять полной копией всех функций/пикселей: native KRX UI A/B
+не получен; TAS/Aimbot deferred subpanels частичные. Простые функции
+перенесены по REA+shell consumers с явно описанными адаптациями lifecycle/
+tick-rate/modern0.7. Avoid/Rocket исходники не менялись.
+
+Сборка dist только home SHA2566538fe066143a5f98614d9f5bea669de78f68124097e38eabba70aab1bc13805.
+17productionfiles совпали с home; source.sha256 отделяет изменения от
+basecommit в BUILD.txt. 704C++ cases+stateboundaries passed, Avoidplanner/
+400trace и Rocketreadyregressions passed. Шесть вкладок clicked/save passed.
+Private live: fire/moon/pixel/spam/AntiAFK, team5lock, SuperDynrestore,
+kill-freeze confirmed. Final colors/chatflags/timeout passed, exit0.
+Все fixtureпроцессы очищены; пользовательскийconfig не меняли. Старый
+ярлык указывает на новыйdist; запущенныйклиент нужно перезапустить.
+Бэкап dist до изменений /home/a/backups/openkrx-before-easy-20261031.
+Код не коммитили. REA tool session сейчас closed, всеqueryrecords сохранены.
+
 # Последнее обновление — реальная готовность Rocket и время доставки ввода (2026-10-29)
 
 Запрос: разобрать два новых промаха18:52:39/18:53:19. Пользовательское
@@ -372,3 +437,25 @@ Launcher сохраняет новые реальные сессии в `researc
 `/home/a/backups/openkrx-pre-corridor-20261029-124916` (старый установленный
 бинарник+текущие на тот момент ещё не собранные исходники Avoid).
 Оригинальные данные REA/ZIP/исследования не удалять. Код не коммитили.
+
+## Состояние на 2026-11-01
+
+Средний пакет (Aimbot, Auto Unfreeze/Shotgun/Aled, Dummy Fly, Hook Nearest,
+Balance, Auto Jump Save, Fake Aim, Hook/Jet Ride, HUD/Aim lines/Trail, ID
+Stealer) собран на `ssh home`, dist обновлён и лежит в `dist/OpenKRX`
+(SHA256 `96f47ae3...`, built_at_utc 2026-11-01T06:30:47Z).
+
+Автоматические хуки KRX/Avoid не подчиняются аимботу:
+`CAimbotSettings::m_HookIsAutomated` взводится в `CControls::SnapInput`, когда
+hook нажат без физического нажатия или им владеет Avoid; при этом флаге
+аимбот не меняет aim. Регрессия —
+`research/medium-port-20261031/fixtures/aimbot_hook_ownership_test.cpp`.
+
+Фикстуры среднего пакета (`krx_bots_test`, `krx_aimbot_physics_test`,
+`krx_hook_ownership_test`) проходят на `home` с errors=0. Запуск:
+`python3 run-native-test.py <name> --map` из `/home/a/openkrx-build`.
+
+Меню KRX: шесть вкладок Aimbot / Misc / Visuals & HUD / Avoid / TAS /
+Settings; Avoid-дропдаун Basic/Legit/Blatant/Fent, страница Blatant рисует
+Main, Settings, Hotkeys, Tiles, Aimb, Visuals. Скриншоты и интерактивный
+пробник: `research/medium-port-20261031/menu-probe.py` (start/shot/click/stop).

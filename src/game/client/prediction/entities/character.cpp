@@ -312,6 +312,7 @@ void CCharacter::FireWeapon()
 	{
 	case WEAPON_HAMMER:
 	{
+		m_LastHammerHitClientId = -1;
 		if(m_Core.m_HammerHitDisabled)
 			break;
 
@@ -370,6 +371,7 @@ void CCharacter::FireWeapon()
 			pTarget->TakeDamage(Force, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
 				GetCid(), m_Core.m_ActiveWeapon);
 			pTarget->Unfreeze();
+			m_LastHammerHitClientId = pTarget->GetCid();
 
 			Hits++;
 

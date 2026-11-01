@@ -11,6 +11,7 @@
 #include <generated/protocol.h>
 
 #include <game/client/component.h>
+#include <game/client/krx_input.h>
 
 class CControls : public CComponent
 {
@@ -44,6 +45,7 @@ public:
 	int m_aInputDirectionLeft[NUM_DUMMIES];
 	int m_aInputDirectionRight[NUM_DUMMIES];
 	int m_aShowHookColl[NUM_DUMMIES];
+	OpenKrx::CSimpleInputState m_aKrxInput[NUM_DUMMIES];
 
 	CControls();
 	int Sizeof() const override { return sizeof(*this); }

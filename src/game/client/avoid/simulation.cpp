@@ -1,6 +1,7 @@
 #include "simulation.h"
 
 #include <engine/engine.h>
+#include <engine/shared/config.h>
 #include <engine/shared/jobs.h>
 
 #include <game/client/gameclient.h>
@@ -237,4 +238,11 @@ std::unique_ptr<IBlatantSimulation> CreateSimulation(CGameClient *pGameClient, i
 		pResult->LimitPendingAutomaticFire(AllowImmediateShot);
 	return pResult;
 }
+}
+
+std::optional<vec2> OpenKrx::CGameWorldSimulation::DragAim() const
+{
+ if(!m_pGameClient || !m_pLocal) return std::nullopt;
+ return m_pGameClient->m_Aimbot.FindDragAim(m_World, m_LocalClientId, m_pGameClient,
+  m_pGameClient->m_Controls.m_aMousePos[g_Config.m_ClDummy]);
 }

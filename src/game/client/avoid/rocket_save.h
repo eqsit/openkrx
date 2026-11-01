@@ -37,6 +37,67 @@ namespace OpenKrx
 		int m_BestLife = -1;
 	};
 
+	// The saver selects the grenade to fire its rescue shot and, like the
+	// original, left it selected afterwards. Remember the weapon the player had
+	// before that switch and put it back once the generated shot is over.
+	// Values are protocol weapon selections: weapon + 1, 0 = none.
+	class CRocketWeaponRestore
+	{
+	public:
+		static bool Eligible(int Selection)
+		{
+			return Selection > 0 && Selection <= NUM_WEAPONS && Selection != WEAPON_GRENADE + 1 &&
+			       Selection != WEAPON_NINJA + 1;
+		}
+		void Reset()
+		{
+			m_Target = 0;
+			m_Pending = false;
+			m_Deadline = 0;
+		}
+		// Called every tick before the saver may override the selection. A value
+		// that is not the grenade is the player's own weapon, so it becomes the
+		// restore target.
+		void Observe(int Wanted, int Active)
+		{
+			const int Seen = Eligible(Wanted) ? Wanted : Eligible(Active) ? Active : 0;
+			if(Seen != 0)
+				m_Target = Seen;
+		}
+		// The saver just selected the grenade; its choice is temporary now.
+		void Begin(int GameTick)
+		{
+			m_Pending = m_Target != 0;
+			m_Deadline = GameTick + 200;
+		}
+		bool Pending() const { return m_Pending; }
+		int Target() const { return m_Target; }
+		// Returns true while the restore owns the selection. A grenade release
+		// that is still queued keeps the grenade selected.
+		bool Steals(int GameTick, int Active, bool ShotPending)
+		{
+			if(!m_Pending)
+				return false;
+			if(Active == m_Target || GameTick > m_Deadline)
+			{
+				m_Pending = false;
+				return false;
+			}
+			return !ShotPending;
+		}
+		// The player picked another weapon himself; nothing to restore.
+		void PlayerPicked(int Wanted)
+		{
+			if(m_Pending && Eligible(Wanted) && Wanted != m_Target)
+				m_Pending = false;
+		}
+
+	private:
+		int m_Target = 0;
+		bool m_Pending = false;
+		int m_Deadline = 0;
+	};
+
 	class CRocketSave
 	{
 		int m_ReleaseModulo = 0;
@@ -44,6 +105,8 @@ namespace OpenKrx
 		int m_GeneratedClientId = -1;
 		int m_GeneratedSlot = -1;
 		int m_AttackTickOnIssue = -1;
+		CRocketWeaponRestore m_WeaponRestore;
+		CNetObj_PlayerInput AdjustInputCore(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump);
 		static CRocketSaveDecision SearchShots(const IRocketSaveProbe &Probe, CNetObj_PlayerInput Input, float MouseRadius, int BaselineLife);
 
 	public:
@@ -51,7 +114,9 @@ namespace OpenKrx
 		{
 			m_ReleaseModulo = 0;
 			m_GeneratedFire = m_GeneratedClientId = m_GeneratedSlot = m_AttackTickOnIssue = -1;
+			m_WeaponRestore.Reset();
 		}
+		const CRocketWeaponRestore &WeaponRestore() const { return m_WeaponRestore; }
 		bool OwnsPendingFire(int Fire, int ClientId, int Slot) const
 		{
 			return m_ReleaseModulo != 0 && (Fire & 1) && Fire == m_GeneratedFire &&
