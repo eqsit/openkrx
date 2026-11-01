@@ -412,26 +412,6 @@ namespace OpenKrx
 
 	CNetObj_PlayerInput CRocketSave::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
 	{
-		const int GameTick = pGameClient->m_GameWorld.GameTick();
-		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		const int ActiveSelection = pAuthoritative ? pAuthoritative->GetActiveWeapon() + 1 : 0;
-		m_WeaponRestore.Observe(Input.m_WantedWeapon, ActiveSelection);
-		CNetObj_PlayerInput Out = AdjustInputCore(pGameClient, Input, ClientId, ManualJump);
-		// Never interfere while the saver is asking for the grenade: it owns the
-		// selection until its shot is actually out.
-		if(!g_Config.m_RocketRestoreWeapon || Out.m_WantedWeapon == WEAPON_GRENADE + 1)
-			return Out;
-		const int Restore = m_WeaponRestore.Next(GameTick, ActiveSelection);
-		if(Restore == 0)
-			return Out;
-		Out.m_WantedWeapon = Restore;
-		if(g_Config.m_AvoidDebug)
-			dbg_msg("rocket-save", "restore weapon=%d cid=%d tick=%d active=%d", Restore, ClientId, GameTick, ActiveSelection);
-		return Out;
-	}
-
-	CNetObj_PlayerInput CRocketSave::AdjustInputCore(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
-	{
 		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
 		const auto *pPredicted = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
 		const bool CoupledForecast = g_Config.m_AvoidRocketPulsePrediction && pGameClient->m_Avoid.Active() &&
@@ -513,9 +493,6 @@ namespace OpenKrx
 			m_GeneratedClientId = ClientId;
 			m_GeneratedSlot = g_Config.m_ClDummy;
 			m_AttackTickOnIssue = pPredicted->GetAttackTick();
-			// The rescue shot is out: the grenade selection is no longer needed
-			// and the previous weapon can come back a few ticks later.
-			m_WeaponRestore.OnShot(pGameClient->m_GameWorld.GameTick());
 			std::random_device Seed;
 			std::mt19937 Generator(Seed());
 			m_ReleaseModulo = std::uniform_int_distribution<int>(1, 5)(Generator);
