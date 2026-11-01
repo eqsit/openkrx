@@ -412,35 +412,6 @@ namespace OpenKrx
 
 	CNetObj_PlayerInput CRocketSave::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
 	{
-		const int GameTick = pGameClient->m_GameWorld.GameTick();
-		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		const int ActiveSelection = pAuthoritative ? pAuthoritative->GetActiveWeapon() + 1 : 0;
-		// The weapon the player had before the rescue is what he gets back after
-		// the generated shot. Active is a fallback for players who never send an
-		// explicit selection on this tick.
-		m_WeaponRestore.Observe(Input.m_WantedWeapon, ActiveSelection);
-		m_WeaponRestore.PlayerPicked(Input.m_WantedWeapon);
-		CNetObj_PlayerInput Out = AdjustInputCore(pGameClient, Input, ClientId, ManualJump);
-		if(Out.m_WantedWeapon == WEAPON_GRENADE + 1)
-		{
-			// Selecting the grenade is temporary: hand the previous weapon back
-			// as soon as the saver stops asking for one.
-			if(m_WeaponRestore.Pending())
-				m_WeaponRestore.Extend(GameTick);
-			else
-				m_WeaponRestore.Begin(GameTick);
-		}
-		else if(m_WeaponRestore.Steals(GameTick, ActiveSelection))
-		{
-			Out.m_WantedWeapon = m_WeaponRestore.Target();
-			if(g_Config.m_AvoidDebug)
-				dbg_msg("rocket-save", "restore weapon=%d cid=%d tick=%d active=%d", Out.m_WantedWeapon, ClientId, GameTick, ActiveSelection);
-		}
-		return Out;
-	}
-
-	CNetObj_PlayerInput CRocketSave::AdjustInputCore(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
-	{
 		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
 		const auto *pPredicted = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
 		const bool CoupledForecast = g_Config.m_AvoidRocketPulsePrediction && pGameClient->m_Avoid.Active() &&
