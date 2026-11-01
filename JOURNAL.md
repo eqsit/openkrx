@@ -1652,3 +1652,17 @@ blatant_hook_timing_test failures=0.
 
 Релиз v0.1.1: Linux + Windows (windows exe собран на home, содержит строку
 "restore weapon=" в отладочном сообщении; символы класса инлайнятся).
+
+## 2026-11-01 — возврат оружия убран полностью (v0.1.2)
+
+Пользователь попросил убрать фичу совсем. Из дерева удалены:
+CRocketWeaponRestore, обёртка AdjustInput/AdjustInputCore и конфиг
+openkrx_rocket_restore_weapon. rocket_save.{h,cpp} = состояние 318a501,
+dist/OpenKRX снова 94372464 байта (как до фичи).
+
+Проверки на home: avoid_pending_rocket_test errors=0,
+blatant_hook_timing_test failures=0.
+
+GitHub: main = cba7c37. Старые релизы v0.1.0 и v0.1.1 удалены вместе с тегами,
+опубликован один актуальный v0.1.2 (Linux + Windows), бинарники без фичи
+(в exe нет строки "restore weapon=").
