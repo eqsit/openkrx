@@ -1877,3 +1877,30 @@ JOURNAL. Игнорируемые research, dist, пользовательски
 Перед commit повторно сверены 34 source hashes установленной и проверенной
 сборки, сводка 12 успешных native suites и git diff --check. Сборка не менялась.
 GitHub-релиз и бинарные вложения не запрашивались и не создаются.
+
+
+## 2026-11-01 — релиз v0.1.3 (Linux + Windows)
+
+Пользователь запросил публикацию Windows/Linux сборок в Releases eqsit/openkrx.
+Собрано на ssh home из текущего кода (20aef22, после него только docs-коммит
+76a6d8f): Linux — cmake RelWithDebInfo, цель DDNet/DDNet-Server (ninja
+"no work to do", т.е. уже собранная проверенная сборка), Windows — build-win
+mingw64 Release, цель DDNet.exe, PATH с ~/.cargo/bin.
+
+Артефакты:
+- dist/OpenKRX-linux-x86_64: stripped копия dist/OpenKRX, SHA256
+  3c733530abc6227d31f5887d8ef0340b30ea0a9cec8a35c1efa75bd3cece81d0
+  (до strip 1e5c5f1284125defe2788a6dd9f2960b86fa137b1f5ad1821af8a449ca8faca9 =
+  побайтно проверенная в аудите сборка). Smoke-прогон под Xvfb с изолированными
+  XDG-каталогами: старт OK, "version 20.3 on linux amd64", exit по таймауту,
+  без крашей; личный конфиг не тронут.
+- dist/OpenKRX-windows-x86_64.zip: OpenKRX/ с OpenKRX.exe (23332864 байта,
+  PE32+ x86-64, "version 20.3 on win64 amd64") и 18 DLL из build-win, SHA256
+  d5c0d179baab0363752dec98cb25499d67d6cd61b3c922b2ecc2b7f9a2ae7061.
+  Заметки: research/release-notes-20261101-v013.md.
+
+Тег v0.1.3 поставлен на 20aef22 (точный исходник сборки), релиз:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.3
+Digest обоих ассетов в API совпал с локальными файлами. v0.1.2 оставлен.
+Windows не запускался под wine: runtime-проверка PE не проводилась, только
+совпадение маркеров с проверенным Linux-бинарником.
