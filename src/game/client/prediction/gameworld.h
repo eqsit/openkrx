@@ -85,6 +85,12 @@ public:
 		bool m_NoWeakHookAndBounce;
 		bool m_PredictEvents;
 		bool m_OldLaser;
+		// Recovered KRX speculative physics; ordinary client prediction is unchanged.
+		bool m_KrxPrediction = false;
+		bool m_KrxAvoidDeath = false;
+		bool m_KrxAvoidTeles = false;
+		bool m_KrxExplosionStrengthValid = false;
+		float m_KrxExplosionStrength = 0.0f;
 	} m_WorldConfig;
 
 	bool m_IsValidCopy;

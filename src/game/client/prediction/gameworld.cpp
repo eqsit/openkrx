@@ -369,7 +369,9 @@ void CGameWorld::CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage,
 		l = 1 - std::clamp((l - InnerRadius) / (Radius - InnerRadius), 0.0f, 1.0f);
 		float Strength;
 		CCharacter *pOwnerChar = GetCharacterById(Owner);
-		if(Owner == -1 || !pOwnerChar)
+		if(m_WorldConfig.m_KrxPrediction && m_WorldConfig.m_KrxExplosionStrengthValid)
+			Strength = m_WorldConfig.m_KrxExplosionStrength;
+		else if(m_WorldConfig.m_KrxPrediction || Owner == -1 || !pOwnerChar)
 			Strength = GlobalTuning()->m_ExplosionStrength;
 		else
 			Strength = pOwnerChar->GetTuning(pOwnerChar->GetOverriddenTuneZone())->m_ExplosionStrength;

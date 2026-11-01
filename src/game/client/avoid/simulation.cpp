@@ -124,6 +124,11 @@ std::unique_ptr<IBlatantSimulation> CGameWorldSimulation::Clone() const
 void CGameWorldSimulation::CopyFrom(const CGameWorld &SourceWorld, int LocalClientId)
 {
 	m_World.CopyWorldIsolated(&SourceWorld);
+	// Avoid and Rocket share the recovered KRX speculative projectile rules.
+	// The live DDNet world keeps its normal rules unless explicitly opted in.
+	m_World.m_WorldConfig.m_KrxPrediction = true;
+	m_World.m_WorldConfig.m_KrxAvoidDeath = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantDeath;
+	m_World.m_WorldConfig.m_KrxAvoidTeles = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantTeles;
 	m_LocalClientId = LocalClientId;
 	m_pLocal = LocalClientId >= 0 ? m_World.GetCharacterById(LocalClientId) : nullptr;
 	m_pGameClient = nullptr;
@@ -136,6 +141,12 @@ void CGameWorldSimulation::PreparePlayers(bool PredictPlayers, CGameClient *pGam
 {
 	m_pGameClient = pGameClient;
 	m_pJobEngine = pGameClient ? pGameClient->Engine() : nullptr;
+	if(pGameClient)
+	{
+		// 21e3c0 uses the active local tuning, not the projectile owner's zone.
+		m_World.m_WorldConfig.m_KrxExplosionStrengthValid = true;
+		m_World.m_WorldConfig.m_KrxExplosionStrength = pGameClient->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
+	}
 	if(!m_pLocal)
 		return;
 	// 0x1402cd0c0: discard inactive/other-team/distant tees, then remove all
@@ -200,6 +211,11 @@ vec2 CGameWorldSimulation::Position() const
 
 float CGameWorldSimulation::HookLength() const
 {
+	// 2cd0c0/2b3980/4460 read client+55a0b4 directly: HookLength at
+	// offset 8*sizeof(int) in the first tuning slot (base+55a094).
+	// This is independent of the local character's tune zone and dummy slot.
+	if(m_pGameClient)
+		return m_pGameClient->m_aTuning[0].m_HookLength;
 	return m_pLocal ? m_pLocal->GlobalTuning()->m_HookLength : 380.0f;
 }
 
@@ -219,7 +235,7 @@ std::optional<vec2> CGameWorldSimulation::HookPoint(vec2 Aim) const
 	if(m_pGameClient && m_pGameClient->IntersectCharacter(m_pLocal->m_Pos, To, HitPos, m_LocalClientId) != -1)
 		return std::nullopt;
 	const int Hit = m_World.Collision()->IntersectLineTeleHook(m_pLocal->m_Pos, To, &HitPos, nullptr, nullptr);
-	if(Hit == TILE_SOLID)
+	if(Hit == TILE_SOLID && HitPos != vec2(0, 0))
 		return HitPos;
 	return std::nullopt;
 }
@@ -229,10 +245,9 @@ std::unique_ptr<IBlatantSimulation> CreateSimulation(CGameClient *pGameClient, i
 	auto pResult = std::make_unique<CGameWorldSimulation>();
 	// 0x1402cd0c0 always starts from the predicted world (client+0x5b3f38).
 	// Player prediction only decides whether the snapshot contains other tees.
-	const CGameWorld *pSource = &pGameClient->m_GameWorld;
-	if(pGameClient->m_PredictedWorld.GetCharacterById(ClientId))
-		pSource = &pGameClient->m_PredictedWorld;
-	pResult->CopyFrom(*pSource, ClientId);
+	// A missing predicted local tee makes cd0c0 fail. Falling back to the
+	// authoritative world would silently plan from a different point in time.
+	pResult->CopyFrom(pGameClient->m_PredictedWorld, ClientId);
 	pResult->PreparePlayers(PredictPlayers, pGameClient);
 	if(PendingAutomaticFire)
 		pResult->LimitPendingAutomaticFire(AllowImmediateShot);

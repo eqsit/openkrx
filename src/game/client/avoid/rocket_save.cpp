@@ -168,6 +168,7 @@ namespace OpenKrx
 		{
 			CGameWorld Copy;
 			Copy.CopyWorldIsolated(&Source);
+			Copy.m_WorldConfig.m_KrxPrediction = true;
 			if(!Copy.GetCharacterById(ClientId))
 				return -1;
 			for(int Step = 0; Step <= CheckTicks; ++Step)
@@ -191,6 +192,7 @@ namespace OpenKrx
 			{
 				CGameWorld Danger;
 				Danger.CopyWorldIsolated(&m_Source);
+				Danger.m_WorldConfig.m_KrxPrediction = true;
 				// Only this danger world is stripped. Rescue probes retain projectiles,
 				// lasers and other tees because they can affect a grenade's outcome.
 				for(CEntity *pEntity = Danger.FindFirst(CGameWorld::ENTTYPE_PROJECTILE); pEntity;)
@@ -410,27 +412,92 @@ namespace OpenKrx
 		return SearchWithManualJump(Probe, Input, MouseRadius, ManualJump);
 	}
 
+	bool CRocketSave::SafeWithoutShot(const CGameWorld &World, int ClientId, CNetObj_PlayerInput Input, bool ManualJump)
+	{
+		// Preparing the grenade must not prevent abandoning an unnecessary or
+		// failed save. Test the actual no-new-shot trajectory, not DangerLife's
+		// hypothetical shot. A suppressed physical jump remains part of the test.
+		if(ManualJump && Input.m_Jump == 0)
+			Input.m_Jump = 1;
+		return CWorldRocketProbe(World, ClientId).NoShotLife(Input) == 9999;
+	}
+
 	CNetObj_PlayerInput CRocketSave::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
 	{
-		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		const auto *pPredicted = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
-		const bool CoupledForecast = g_Config.m_AvoidRocketPulsePrediction && pGameClient->m_Avoid.Active() &&
-					     (Input.m_PlayerFlags & PLAYERFLAG_PLAYING) && pGameClient->Client()->State() == IClient::STATE_ONLINE &&
-					     !pGameClient->m_Snap.m_SpecInfo.m_Active && pGameClient->m_Snap.m_pLocalCharacter;
-		const bool Ready = RocketShotReady(pPredicted, pAuthoritative);
-		const bool NewShotObserved = (pPredicted && pPredicted->GetAttackTick() > m_AttackTickOnIssue) ||
-					     (pAuthoritative && pAuthoritative->GetAttackTick() > m_AttackTickOnIssue);
-		const bool CancelUnfired = CoupledForecast && !Ready && !NewShotObserved &&
-					   OwnsPendingFire(Input.m_Fire, ClientId, g_Config.m_ClDummy);
-		if(CancelUnfired)
+		const auto *pCharacter = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		const bool Valid = g_Config.m_RocketRestoreWeapon && g_Config.m_KrxGrenadeSaver && pCharacter &&
+			pGameClient->Client()->State() == IClient::STATE_ONLINE &&
+			!pGameClient->m_Snap.m_SpecInfo.m_Active && pGameClient->m_Snap.m_pLocalCharacter;
+		if(!Valid || m_RestoreClientId != ClientId || m_RestoreSlot != g_Config.m_ClDummy)
+			CancelWeaponRestore();
+		if(Valid)
 		{
-			Input.m_Fire = (Input.m_Fire + 1) & INPUT_STATE_MASK;
-			m_ReleaseModulo = 0;
-			m_GeneratedFire = -1;
-			if(g_Config.m_AvoidDebug)
-				dbg_msg("rocket-save", "cancelled deferred press cid=%d tick=%d fire=%d", ClientId, pGameClient->m_GameWorld.GameTick(), Input.m_Fire);
+			m_RestoreClientId = ClientId;
+			m_RestoreSlot = g_Config.m_ClDummy;
+			if(m_WeaponRestore.Weapon() >= 0 && !pCharacter->Core()->m_aWeapons[m_WeaponRestore.Weapon()].m_Got)
+				m_WeaponRestore.Reset();
+			m_WeaponRestore.Observe(pCharacter->GetActiveWeapon(), pCharacter->GetAttackTick());
 		}
-		bool CanFire = !CancelUnfired;
+		const auto Output = AdjustInputCore(pGameClient, Input, ClientId, ManualJump);
+		auto Restored = Output;
+		if(Valid)
+		{
+			// Capture before the first automatic WantedWeapon=4 reaches controls.
+			// Persistent WantedWeapon=4 on later ticks must never replace this slot.
+			if(Output.m_WantedWeapon == WEAPON_GRENADE + 1 && Input.m_WantedWeapon != WEAPON_GRENADE + 1)
+			{
+				int Previous = Input.m_WantedWeapon ? Input.m_WantedWeapon - 1 : pCharacter->GetActiveWeapon();
+				if(Previous == WEAPON_GRENADE)
+					Previous = pCharacter->GetActiveWeapon();
+				if(Previous >= 0 && Previous < WEAPON_NINJA && pCharacter->Core()->m_aWeapons[Previous].m_Got)
+					m_WeaponRestore.Prepare(Previous);
+			}
+			const bool Issued = Output.m_Fire != Input.m_Fire && (Output.m_Fire & 1) &&
+				OwnsPendingFire(Output.m_Fire, ClientId, g_Config.m_ClDummy);
+			if(Issued)
+				m_WeaponRestore.OnIssued(pCharacter->GetAttackTick());
+			if(!Issued && m_ReleaseModulo == 0 && !(Output.m_Fire & 1) && m_WeaponRestore.NeedsSafeExit() &&
+				!IsKrxCharacterFrozen(pGameClient, ClientId) && pGameClient->m_PredictedWorld.GetCharacterById(ClientId))
+			{
+				CGameWorld Snapshot;
+				Snapshot.CopyWorldIsolated(&pGameClient->m_PredictedWorld);
+				Snapshot.m_WorldConfig.m_IsFNG = IsKrxFng(pGameClient);
+				Snapshot.m_WorldConfig.m_PredictTiles = true;
+				Snapshot.m_WorldConfig.m_PredictFreeze = 1;
+				Snapshot.m_WorldConfig.m_PredictWeapons = true;
+				Snapshot.m_WorldConfig.m_PredictDDRace = true;
+				Snapshot.m_WorldConfig.m_KrxPrediction = true;
+				Snapshot.m_WorldConfig.m_KrxAvoidDeath = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantDeath;
+				Snapshot.m_WorldConfig.m_KrxAvoidTeles = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantTeles;
+				Snapshot.m_WorldConfig.m_KrxExplosionStrengthValid = true;
+				Snapshot.m_WorldConfig.m_KrxExplosionStrength = pGameClient->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
+				if(SafeWithoutShot(Snapshot, ClientId, Output, ManualJump && g_Config.m_RocketPreserveJump))
+				{
+					m_WeaponRestore.OnSafeWithoutShot();
+					if(g_Config.m_AvoidDebug)
+						dbg_msg("rocket-save", "restore after safe cancellation cid=%d attack_tick=%d", ClientId, pCharacter->GetAttackTick());
+				}
+			}
+			const int Wanted = m_WeaponRestore.WantedWeapon(Issued, m_ReleaseModulo != 0);
+			if(Wanted)
+			{
+				// DoWeaponSwitch queues this through the actual reload timer. Keep
+				// requesting it until the authoritative weapon acknowledges the switch,
+				// even if Search still emits WantedWeapon=4 while reloading.
+				Restored.m_WantedWeapon = Wanted;
+				if(g_Config.m_AvoidDebug && Input.m_WantedWeapon != Wanted)
+					dbg_msg("rocket-save", "restore weapon=%d cid=%d attack_tick=%d reload=%d", Wanted - 1,
+						ClientId, pCharacter->GetAttackTick(), pCharacter->DiagnosticReloadTimer());
+			}
+		}
+		return Restored;
+	}
+
+	CNetObj_PlayerInput CRocketSave::AdjustInputCore(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
+	{
+		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		// Reference fire pulses; the requested manual-jump extension is applied below.
+		bool CanFire = true;
 		// 0x1402ba150 releases a generated shot on a randomly selected tick
 		// divisor (1..5), not after a fixed elapsed duration. Release happens even
 		// if the feature has since been disabled.
@@ -464,16 +531,13 @@ namespace OpenKrx
 		Snapshot.m_WorldConfig.m_PredictFreeze = 1;
 		Snapshot.m_WorldConfig.m_PredictWeapons = true;
 		Snapshot.m_WorldConfig.m_PredictDDRace = true;
+		Snapshot.m_WorldConfig.m_KrxPrediction = true;
+		Snapshot.m_WorldConfig.m_KrxAvoidDeath = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantDeath;
+		Snapshot.m_WorldConfig.m_KrxAvoidTeles = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantTeles;
+		Snapshot.m_WorldConfig.m_KrxExplosionStrengthValid = true;
+		Snapshot.m_WorldConfig.m_KrxExplosionStrength = pGameClient->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		const auto Start = std::chrono::steady_clock::now();
 		auto Decision = SearchWorld(Snapshot, ClientId, Input, pGameClient->m_Controls.GetMaxMouseDistance(), ManualJump, CanFire);
-		if(CoupledForecast)
-		{
-			const bool Deferred = Decision.m_Fired && !Ready;
-			Decision = RequireReadyShot(std::move(Decision), Input, Ready);
-			if(Deferred && g_Config.m_AvoidDebug)
-				dbg_msg("rocket-save", "deferred shot not armed cid=%d tick=%d pred_reload=%d auth_reload=%d weapon=%d", ClientId,
-					Source.GameTick(), pPredicted->DiagnosticReloadTimer(), pAuthoritative->DiagnosticReloadTimer(), pPredicted->GetActiveWeapon());
-		}
 		const auto Micros = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - Start).count();
 		if(g_Config.m_AvoidDebug && (Decision.m_Triggered || Decision.m_KeptManualJump || ManualJump || Micros > 20000))
 		{
@@ -492,7 +556,7 @@ namespace OpenKrx
 			m_GeneratedFire = Decision.m_Input.m_Fire;
 			m_GeneratedClientId = ClientId;
 			m_GeneratedSlot = g_Config.m_ClDummy;
-			m_AttackTickOnIssue = pPredicted->GetAttackTick();
+			m_AttackTickOnIssue = Source.GetCharacterById(ClientId)->GetAttackTick();
 			std::random_device Seed;
 			std::mt19937 Generator(Seed());
 			m_ReleaseModulo = std::uniform_int_distribution<int>(1, 5)(Generator);

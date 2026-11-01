@@ -59,6 +59,10 @@ private:
 	// Live entities leave the observer null; the probe owns the sink lifetime.
 	int m_HitClientId = -1;
 	int *m_pHitClientIdObserver = nullptr;
+	// 24dc80 retires an impacted/expired projectile on the following Tick.
+	bool m_KrxAlive = true;
+	bool KrxNearestAirPos(vec2 Pos, vec2 PrevPos, vec2 *pOutPos);
+	bool KrxNearestAirPosPlayer(vec2 PlayerPos, vec2 *pOutPos);
 
 	// DDRace
 

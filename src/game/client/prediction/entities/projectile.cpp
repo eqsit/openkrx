@@ -74,6 +74,14 @@ vec2 CProjectile::GetPos(float Time)
 
 void CProjectile::Tick()
 {
+	const bool Krx = GameWorld()->m_WorldConfig.m_KrxPrediction;
+	if(Krx && !m_KrxAlive)
+	{
+		m_MarkedForDestroy = true;
+		return;
+	}
+	if(Krx)
+		m_HitClientId = -1;
 	float Pt = (GameWorld()->GameTick() - m_StartTick - 1) / (float)GameWorld()->GameTickSpeed();
 	float Ct = (GameWorld()->GameTick() - m_StartTick) / (float)GameWorld()->GameTickSpeed();
 	vec2 PrevPos = GetPos(Pt);
@@ -107,6 +115,8 @@ void CProjectile::Tick()
 			if(m_pHitClientIdObserver)
 				*m_pHitClientIdObserver = m_HitClientId;
 		}
+		if(Krx && pTargetChr && pOwnerChar)
+			m_KrxAlive = false;
 		if(m_Explosive && (!pTargetChr || (!m_Freeze || (m_Type == WEAPON_SHOTGUN && Collide))))
 		{
 			GameWorld()->CreateExplosion(ColPos, m_Owner, m_Type, m_Owner == -1, (!pTargetChr ? -1 : pTargetChr->Team()), CClientMask().set(), m_StartTick);
@@ -145,11 +155,46 @@ void CProjectile::Tick()
 		{
 			if(GameWorld()->m_WorldConfig.m_IsDDRace && GameWorld()->m_WorldConfig.m_PredictDDRace)
 				GameWorld()->CreatePredictedDamageIndEvent(CurPos, -std::atan2(m_Direction.x, m_Direction.y), 10, m_StartTick);
-			m_MarkedForDestroy = true;
+			if(Krx)
+				m_KrxAlive = false;
+			else
+				m_MarkedForDestroy = true;
 		}
 		else if(!m_Freeze)
 		{
-			m_MarkedForDestroy = true;
+			if(Krx)
+				m_KrxAlive = false;
+			else
+				m_MarkedForDestroy = true;
+		}
+		if(Krx && pOwnerChar && !GameLayerClipped(ColPos) &&
+			((m_Type == WEAPON_GRENADE && pOwnerChar->Core()->m_HasTelegunGrenade) ||
+			 (m_Type == WEAPON_GUN && pOwnerChar->Core()->m_HasTelegunGun)))
+		{
+			const int MapIndex = Collision()->GetPureMapIndex(pTargetChr ? pTargetChr->m_Pos : ColPos);
+			const int Front = Collision()->GetFrontTileIndex(MapIndex);
+			bool Switch = Collision()->GetSwitchType(MapIndex) == TILE_ALLOW_TELE_GUN;
+			bool BlueSwitch = Collision()->GetSwitchType(MapIndex) == TILE_ALLOW_BLUE_TELE_GUN;
+			if(Switch || BlueSwitch)
+			{
+				const int Delay = Collision()->GetSwitchDelay(MapIndex);
+				if((Delay == 1 && m_Type != WEAPON_GUN) ||
+					(Delay == 2 && m_Type != WEAPON_GRENADE) ||
+					(Delay == 3 && m_Type != WEAPON_LASER))
+					Switch = BlueSwitch = false;
+			}
+			if(Front == TILE_ALLOW_TELE_GUN || Front == TILE_ALLOW_BLUE_TELE_GUN || Switch || BlueSwitch || pTargetChr)
+			{
+				vec2 PossiblePos;
+				const bool Found = Collide ? KrxNearestAirPos(NewPos, CurPos, &PossiblePos) :
+					KrxNearestAirPosPlayer(pTargetChr ? pTargetChr->m_Pos : ColPos, &PossiblePos);
+				if(Found)
+				{
+					pOwnerChar->m_KrxTeleGunPos = PossiblePos;
+					pOwnerChar->m_KrxTeleGunTeleport = true;
+					pOwnerChar->m_KrxBlueTeleGunTeleport = Front == TILE_ALLOW_BLUE_TELE_GUN || BlueSwitch;
+				}
+			}
 		}
 	}
 	if(m_LifeSpan == -1)
@@ -162,8 +207,52 @@ void CProjectile::Tick()
 			GameWorld()->CreateExplosion(ColPos, m_Owner, m_Type, m_Owner == -1, (!pOwnerChar ? -1 : pOwnerChar->Team()), CClientMask().set(), m_StartTick);
 			GameWorld()->CreatePredictedSound(ColPos, m_SoundImpact, m_StartTick);
 		}
-		m_MarkedForDestroy = true;
+		if(Krx)
+			m_KrxAlive = false;
+		else
+			m_MarkedForDestroy = true;
 	}
+	if(Krx)
+	{
+		// 24dc80 checks weapon teleporters even on the impact/expiry tick.
+		const int Index = Collision()->GetIndex(PrevPos, CurPos);
+		const int Number = g_Config.m_SvOldTeleportWeapons ? Collision()->IsTeleport(Index) : Collision()->IsTeleportWeapon(Index);
+		if(Number && !Collision()->TeleOuts(Number - 1).empty())
+		{
+			const auto &vOuts = Collision()->TeleOuts(Number - 1);
+			m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+			m_StartTick = GameWorld()->GameTick();
+		}
+	}
+}
+
+bool CProjectile::KrxNearestAirPos(vec2 Pos, vec2 PrevPos, vec2 *pOutPos)
+{
+	// 21c890: retreat up to 16 pixels, then test the three 28x28 corner fits.
+	for(int Step = 0; Step < 16 && Collision()->CheckPoint(Pos); ++Step)
+		Pos -= normalize(PrevPos - Pos);
+	const vec2 InBlock(round_to_int(Pos.x) % 32, round_to_int(Pos.y) % 32);
+	const vec2 Center = vec2(round_to_int(Pos.x), round_to_int(Pos.y)) - InBlock + vec2(16.0f, 16.0f);
+	*pOutPos = vec2(Center.x + (InBlock.x < 16.0f ? -2.0f : 1.0f), Pos.y);
+	if(!Collision()->TestBox(*pOutPos, CCharacterCore::PhysicalSizeVec2()))
+		return true;
+	*pOutPos = vec2(Pos.x, Center.y + (InBlock.y < 16.0f ? -2.0f : 1.0f));
+	if(!Collision()->TestBox(*pOutPos, CCharacterCore::PhysicalSizeVec2()))
+		return true;
+	*pOutPos = vec2(Center.x + (InBlock.x < 16.0f ? -2.0f : 1.0f), Center.y + (InBlock.y < 16.0f ? -2.0f : 1.0f));
+	return !Collision()->TestBox(*pOutPos, CCharacterCore::PhysicalSizeVec2());
+}
+
+bool CProjectile::KrxNearestAirPosPlayer(vec2 PlayerPos, vec2 *pOutPos)
+{
+	// 21cc50: top-down candidate order is part of the chosen destination.
+	for(int Offset = 5; Offset >= -1; --Offset)
+	{
+		*pOutPos = vec2(PlayerPos.x, PlayerPos.y - Offset);
+		if(!Collision()->TestBox(*pOutPos, CCharacterCore::PhysicalSizeVec2()))
+			return true;
+	}
+	return false;
 }
 
 // DDRace

@@ -124,8 +124,11 @@ namespace OpenKrx
 		static constexpr CAction ACTIONS[] = {{0, 0}, {0, 1}, {1, 0}, {-1, 0}, {1, 1}, {-1, 1}};
 		for(int Tick = 0, Remaining = CheckTicks; Tick <= CheckTicks; ++Tick, --Remaining)
 		{
-			if(Anchor && (TrackFromFirstTick || Tick > 0))
-				AimAt(Input, *Anchor, pCopy->Position());
+			// The original uses (0,0) as no tracking point for ordinary plans.
+			// Auto Drag (TrackFromFirstTick=false) instead re-aims unconditionally
+			// after the first tick, including when its relative mouse anchor is zero.
+			if((TrackFromFirstTick && Anchor && *Anchor != vec2(0, 0)) || (!TrackFromFirstTick && Tick > 0))
+				AimAt(Input, Anchor.value_or(vec2(0, 0)), pCopy->Position());
 			if(Tick > 0)
 			{
 				int BestLife = -1;
@@ -208,7 +211,7 @@ namespace OpenKrx
 			{
 				const vec2 Candidate = normalize(direction(Angle + static_cast<float>(Probe) * Step50)) * Radius;
 				const auto Point = World.HookPoint(Candidate);
-				if(Point)
+				if(Point && *Point != vec2(0, 0))
 				{
 					Hit = Candidate;
 					Aim = Point;
@@ -226,9 +229,15 @@ namespace OpenKrx
 				Candidate.m_TargetX = static_cast<int>(Hit.x);
 				Candidate.m_TargetY = static_cast<int>(Hit.y);
 				Candidate.m_Hook = 1;
+				const float Dot = dot(normalize(Hit), Mouse);
+				// With Auto Aim disabled this probe can only update Assist, which
+				// requires both a strictly larger dot and a strictly larger lifespan.
+				// A rejected dot cannot affect the output, regardless of survival.
+				// Keep every original probe for adapters with possible side effects.
+				if(MayElide && !m_Settings.m_AutoAim && !(Dot > AssistDot))
+					continue;
 				// 0x1402d1060 uses a literal 26 here, independently of Check Ticks.
 				const int Life = ConstantLife(World, Candidate, 26);
-				const float Dot = dot(normalize(Hit), Mouse);
 				if(Dot > AssistDot && Life > AssistLife)
 				{
 					AssistDot = Dot;
@@ -256,13 +265,10 @@ namespace OpenKrx
 		{
 			std::vector<CNetObj_PlayerInput> vGroup;
 			for(const auto &Next : Group)
-			{
-				if(!m_Settings.m_Direction && Next[0] != 0)
-					continue;
-				if(!m_Settings.m_Hook && Next[1] != 0)
-					continue;
 				vGroup.push_back(Action(Input, Next[0], Next[1]));
-			}
+			// The shipped 2d2a90/2ccd60 path emits the complete groups. Its
+			// Direction/Hook settings have registration/UI references only and
+			// do not filter this candidate list (nor the greedy continuation).
 			if(!vGroup.empty())
 				vGroups.push_back(std::move(vGroup));
 		}
@@ -329,7 +335,7 @@ namespace OpenKrx
 		if(m_TrackPoint)
 			AimAt(Input, *m_TrackPoint, World.Position());
 		const auto Point = World.HookPoint(MouseAim);
-		if(!Point)
+		if(!Point || *Point == vec2(0, 0))
 			return;
 		auto Candidate = Input;
 		AimAt(Candidate, *Point, World.Position());
@@ -345,7 +351,7 @@ namespace OpenKrx
 		CNetObj_PlayerInput Input, vec2 MouseAim)
 	{
 		const auto Aim = World.DragAim();
-		if(!Aim)
+		if(!Aim || *Aim == vec2(0, 0))
 			return Input;
 		auto Candidate = Input;
 		Candidate.m_TargetX = static_cast<int>(Aim->x);
@@ -498,6 +504,12 @@ namespace OpenKrx
 		}
 		m_Diagnostic.m_pReason = "no_safe_tail_failed";
 		return std::nullopt;
+	}
+
+	void CBlatantPlanner::SynchronizeFireCounter(int Fire)
+	{
+		for(auto &Input : m_vLastPlan)
+			Input.m_Fire = Fire;
 	}
 
 	void CBlatantPlanner::Reset()

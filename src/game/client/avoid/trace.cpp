@@ -394,11 +394,11 @@ namespace OpenKrx
 		Int(J, "aim_assist", Settings.m_AimAssist);
 		Int(J, "auto_aim", Settings.m_AutoAim);
 		Int(J, "auto_drag", Settings.m_AutoDrag);
-		Int(J, "emergency_hook", g_Config.m_AvoidEmergencyHook);
-		Int(J, "keep_direction", g_Config.m_AvoidKeepDirection);
+		Int(J, "emergency_hook", 0);
+		Int(J, "keep_direction", 0);
 		Int(J, "rocket_enabled", g_Config.m_KrxGrenadeSaver);
 		Int(J, "rocket_preserve_jump", g_Config.m_RocketPreserveJump);
-		Int(J, "rocket_pulse_prediction", g_Config.m_AvoidRocketPulsePrediction);
+		Int(J, "rocket_pulse_prediction", 0);
 		const auto &W = pClient->m_PredictedWorld.m_WorldConfig;
 		Int(J, "predict_tiles", W.m_PredictTiles);
 		Int(J, "predict_freeze", W.m_PredictFreeze);

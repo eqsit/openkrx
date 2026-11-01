@@ -85,6 +85,10 @@ void CControls::ResetInput(int Dummy)
 
 void CControls::OnPlayerDeath()
 {
+	// Keep a generated fire release alive through death, like the reference's
+	// process-wide release state. OnReset would drop the timer but leave the
+	// live input odd. A reconnect still resets both controls and Rocket.
+	GameClient()->m_RocketSave.CancelWeaponRestore();
 	m_aKrxInput[g_Config.m_ClDummy] = {};
 	std::fill(std::begin(m_aAmmoCount), std::end(m_aAmmoCount), 0);
 }
@@ -148,6 +152,7 @@ void CControls::ConKeyInputSet(IConsole::IResult *pResult, void *pUserData)
 	CInputSet *pSet = (CInputSet *)pUserData;
 	if(pResult->GetInteger(0))
 	{
+		pSet->m_pControls->GameClient()->m_RocketSave.CancelWeaponRestore();
 		*pSet->m_apVariables[g_Config.m_ClDummy] = pSet->m_Value;
 	}
 }
@@ -155,6 +160,8 @@ void CControls::ConKeyInputSet(IConsole::IResult *pResult, void *pUserData)
 void CControls::ConKeyInputNextPrevWeapon(IConsole::IResult *pResult, void *pUserData)
 {
 	CInputSet *pSet = (CInputSet *)pUserData;
+	if(pResult->GetInteger(0))
+		pSet->m_pControls->GameClient()->m_RocketSave.CancelWeaponRestore();
 	ConKeyInputCounter(pResult, pSet);
 	pSet->m_pControls->m_aInputData[g_Config.m_ClDummy].m_WantedWeapon = 0;
 }
@@ -443,6 +450,16 @@ int CControls::SnapInput(int *pData)
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.JetRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoAled(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		GameClient()->m_MediumVisuals.UpdateIdentity();
+		// Main aimbot refreshes its private candidates even with master disabled,
+		// before Avoid consumes the cache, following the recovered coordinator.
+		auto AimbotSettings = CurrentKrxAimbotSettings();
+		// Reference 26d2d0 runs the weapon aimbot before Avoid; rescue aim wins.
+		AimbotSettings.m_HookIsAutomated = m_aPhysicalHook[KrxSlot] == 0 &&
+						   m_aInputData[KrxSlot].m_Hook != 0;
+		const auto AimDecision = GameClient()->m_Aimbot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId, m_aMousePos[KrxSlot], AimbotSettings);
+		m_aInputData[KrxSlot] = AimDecision.m_Input;
+		if(AimDecision.m_ChangeVisibleAim)
+			m_aMousePos[KrxSlot] = AimDecision.m_VisibleAim;
 		TracePipelineStart = g_Config.m_AvoidDebug ? time_get_nanoseconds().count() : 0;
 		TraceRaw = m_aInputData[g_Config.m_ClDummy];
 		TraceEvaluated = true;
@@ -450,20 +467,6 @@ int CControls::SnapInput(int *pData)
 			GameClient(), m_aInputData[g_Config.m_ClDummy],
 			GameClient()->m_aLocalIds[g_Config.m_ClDummy], m_aMousePos[g_Config.m_ClDummy], m_aPhysicalHook[g_Config.m_ClDummy] != 0);
 		TraceAvoid = m_aInputData[g_Config.m_ClDummy];
-		// Main aimbot refreshes its private candidates even with master disabled;
-		// AutoDrag above deliberately consumes the preceding snapshot's cache.
-		auto AimbotSettings = CurrentKrxAimbotSettings();
-		// KRX automation (Hook Spam/Rehook, Hook Nearest auto hook, Dummy Fly,
-		// Avoid rescue) may have pressed hook this tick without a physical
-		// press. Such a hook keeps its own direction: aim assist must not steer
-		// it. Original pipeline ran the aimbot before Avoid, so an automatic
-		// hook always won afterwards.
-		AimbotSettings.m_HookIsAutomated = m_aPhysicalHook[KrxSlot] == 0 &&
-						   (m_aInputData[KrxSlot].m_Hook != 0 || GameClient()->m_Avoid.Diagnostic().m_OwnedHookAfter);
-		const auto AimDecision = GameClient()->m_Aimbot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId, m_aMousePos[KrxSlot], AimbotSettings);
-		m_aInputData[KrxSlot] = AimDecision.m_Input;
-		if(AimDecision.m_ChangeVisibleAim)
-			m_aMousePos[KrxSlot] = AimDecision.m_VisibleAim;
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.FakeAim(GameClient(), m_aInputData[KrxSlot]);
 		GameClient()->m_KrxMisc.AfterAvoid(GameClient());
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoUnfreeze(GameClient(), m_aInputData[KrxSlot], KrxClientId);

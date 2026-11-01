@@ -700,6 +700,24 @@ int CCharacter::Team()
 
 void CCharacter::HandleSkippableTiles(int Index)
 {
+	// 237e60: death is a terminal frozen state in KRX speculative worlds,
+	// selected by the active Avoid agent's Death option. The live world is untouched.
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath && !m_Core.m_Super)
+	{
+		for(const vec2 Offset : {vec2(GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
+			vec2(GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f),
+			vec2(-GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
+			vec2(-GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f)})
+		{
+			const int TileIndex = Collision()->GetPureMapIndex(vec2(round_to_int(m_Pos.x + Offset.x), round_to_int(m_Pos.y + Offset.y)));
+			if(Collision()->GetTileIndex(TileIndex) == TILE_DEATH || Collision()->GetFrontTileIndex(TileIndex) == TILE_DEATH)
+			{
+				m_Core.m_DeepFrozen = m_Core.m_LiveFrozen = true;
+				m_FreezeTime = 1000;
+				return;
+			}
+		}
+	}
 	if(Index < 0)
 		return;
 
@@ -1085,6 +1103,75 @@ void CCharacter::HandleTiles(int Index)
 		if(NewJumps != m_Core.m_Jumps)
 			m_Core.m_Jumps = NewJumps;
 	}
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction)
+	{
+		// 238420: without teleport prediction (the reference default), or
+		// with Avoid Teles, every character tele-in is a terminal hazard.
+		const int Tele = Collision()->IsTeleport(MapIndex);
+		const int EvilTele = Collision()->IsEvilTeleport(MapIndex);
+		const bool CheckEvil = Collision()->IsCheckEvilTeleport(MapIndex);
+		const bool Check = Collision()->IsCheckTeleport(MapIndex);
+		if(!g_Config.m_KrxPredictionTeleports || GameWorld()->m_WorldConfig.m_KrxAvoidTeles)
+		{
+			if(Tele || EvilTele || CheckEvil || Check)
+			{
+				m_Core.m_DeepFrozen = m_Core.m_LiveFrozen = true;
+				m_FreezeTime = 1000;
+			}
+			return;
+		}
+		if(m_Core.m_Super)
+			return;
+		const bool Old = g_Config.m_SvOldTeleportHook || g_Config.m_SvOldTeleportWeapons;
+		if(!Old && Tele && !Collision()->TeleOuts(Tele - 1).empty())
+		{
+			const auto &vOuts = Collision()->TeleOuts(Tele - 1);
+			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+			if(!g_Config.m_SvTeleportHoldHook)
+				ResetHook();
+			if(g_Config.m_SvTeleportLoseWeapons)
+				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
+					GiveWeapon(Weapon, true);
+			return;
+		}
+		if(EvilTele && !Collision()->TeleOuts(EvilTele - 1).empty())
+		{
+			const auto &vOuts = Collision()->TeleOuts(EvilTele - 1);
+			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+			if(Old)
+				return;
+			m_Core.m_Vel = vec2(0, 0);
+			if(!g_Config.m_SvTeleportHoldHook)
+			{
+				ResetHook();
+				GameWorld()->ReleaseHooked(GetCid());
+			}
+			if(g_Config.m_SvTeleportLoseWeapons)
+				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
+					GiveWeapon(Weapon, true);
+			return;
+		}
+		if(CheckEvil || Check)
+		{
+			for(int Checkpoint = m_TeleCheckpoint - 1; Checkpoint >= 0; --Checkpoint)
+			{
+				const auto &vOuts = Collision()->TeleCheckOuts(Checkpoint);
+				if(vOuts.empty())
+					continue;
+				m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+				if(CheckEvil)
+					m_Core.m_Vel = vec2(0, 0);
+				if(!g_Config.m_SvTeleportHoldHook)
+				{
+					ResetHook();
+					if(CheckEvil)
+						GameWorld()->ReleaseHooked(GetCid());
+				}
+				return;
+			}
+		}
+	}
+
 }
 
 void CCharacter::HandleTuneLayer()
@@ -1197,6 +1284,16 @@ void CCharacter::DDRacePostCoreTick()
 	else
 	{
 		HandleTiles(CurrentIndex);
+	}
+	// 2397c0/216ee0 consume projectile teleport after tile handling, before
+	// TickDeferred's Move/Quantize. Blue permissions preserve velocity.
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction && m_KrxTeleGunTeleport)
+	{
+		m_Core.m_Pos = m_KrxTeleGunPos;
+		if(!m_KrxBlueTeleGunTeleport)
+			m_Core.m_Vel = vec2(0.0f, 0.0f);
+		m_KrxTeleGunTeleport = false;
+		m_KrxBlueTeleGunTeleport = false;
 	}
 }
 
