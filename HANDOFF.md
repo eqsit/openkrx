@@ -1,37 +1,62 @@
-# Текущее: перенос функций 1–33 до TAS, 2026-11-01
+# Актуальное состояние: OpenKRX v0.1.4, 2026-11-01
 
-Пункты FEATURE_ESTIMATES.md от Teleport Prediction Menu до Find Tunes
-включительно восстановлены по REA и интегрированы. Детальный статус каждого:
-research/pre-tas-20261101/PORT_STATUS.md; итог и проверки: RESULT.md и
-verification.json в том же каталоге. Menus Misc/Visuals/Settings восстановлены
-по исходным251090/255740/25fdd0, без придуманной карточки console-only flags.
+Пункты 1–33 исходного FEATURE_ESTIMATES.md обработаны: от Teleport Prediction
+Menu до Find Tunes включительно. Логика восстановлена через REA-agents,
+исходники изменены напрямую. TAS и следующие пункты не входят в перенос.
+Матрица поведения и ограничения опубликованы в PRE_TAS_PORT.md.
 
-Новые компоненты krx_misc_pre_tas, krx_movement_pre_tas, krx_visuals_pre_tas;
-config macro headers krx_pre_tas_*_config.h; исходные данные krx_name_data.h и
-data/krx/killsays.json. Killsays включён в CMake data manifest.
-Buildremote включает Discord SDK динамически наLinux (SDKрядомсbinary),
-наWindows DISCORDON/DYNAMICOFF и соответствующийDLL.
+Новые компоненты: krx_misc_pre_tas, krx_movement_pre_tas,
+krx_visuals_pre_tas. Конфигурация — krx_pre_tas_*_config.h. Данные генератора
+имён — krx_name_data.h; исходные фразы — data/krx/killsays.json, включены в
+CMake data manifest. Меню Misc, Visuals & HUD и Settings восстановлено по
+оригинальным обработчикам, включая условия полей, размеры и режимы.
 
-Проверки наhome:34prediction,20018misc,movement,checksum packetdispatch;
-3hashlib;GDB602observations/6FastInputmain/dummy/Otherscases/errors0;
-privateFastInput+visuals+Rocket1rescue/1shot/returnhammer/nofreeze/exit0;
-RPCfixtureSDK;раскрытоеменю.1724sourcehashes сверены. Оба ярлыка обновлены.
-Нужен перезапуск пользователя. Личныйконфиг не меняли. Бэкап:
+Сохранять особенности оригинала: дополнительный визуальный тик Fast Input
+с откатом мира, порядок Dummy First, статические Ghost Move / Find Tunes,
+MSVC RNG для слов и shuffle, mutex уведомлений и восстановление kill messages,
+исходные ограничения в 64 игрока у новых обработчиков.
+
+Linux и Windows собираются только на ssh home. Linux: scripts/build-remote.sh
+с DISCORD=ON/DISCORD_DYNAMIC=ON; рядом с бинарником нужен discord_game_sdk.so.
+Windows: build-win, target DDNet.exe, DISCORD=ON/DISCORD_DYNAMIC=OFF.
+При упаковке Windows брать libwinpthread-1.dll и libssp-0.dll из текущего
+/usr/x86_64-w64-mingw32/bin на home: старый комплектный pthread не экспортирует
+clock_gettime64/nanosleep64, которые нужны новому компилятору.
+
+Исходник релиза: 9d0aaa10f4bf1c271fce8dc579840f1194596939. Исходники
+отправлены в origin/main. Оба локальных ярлыка запускают scripts/openkrx.sh;
+итоговый dist/OpenKRX SHA256:
+737d87b164dc8a9621254881c506434372094b944f471f8d845fc7751f2b8586.
+Открытый клиент требует перезапуска. Пользовательский конфиг не переписывался.
+
+Проверки: 34 native prediction, 20018 misc, movement, checksum packet dispatch
+и три независимых hashlib; GDB — 602 наблюдения/шесть main/dummy/FastInput/
+Others режимов без ошибок тика и снимков. Приватный FastInput+visuals+Rocket:
+один сейв, один подтверждённый выстрел, возврат молота, без фриза, exit0.
+Повторено на stripped Linux-релизе. Windows запущен под Wine с отдельным
+профилем, рендер работает, exit0; проверены 668 импортов комплектных DLL.
+RPC проверен через отдельную fixture SDK. Все 1724 source hashes сверены с home.
+
+Не заявлять абсолютную 1:1 идентичность: native original A/B и pixel A/B
+не получены. TrackPoint/Aimbot ESP 25/26 в исследованных прямых ссылках не
+имеют renderer; Path ESP 27 принадлежит Fent вне объёма. SendAds 8 в оригинале
+сбрасывает флаг; benchmark 18 — checksum metadata. Дополнительный Blatant
+path renderer не придумывался. Manual jump, weapon restore и Fire-sync сохранены.
+
+Локальные результаты: research/pre-tas-20261101/RESULT.md, PORT_STATUS.md,
+verification.json, package-verification.json и release.json. Evidence по
+веткам в misc/, movement/, visuals/, prediction/. Worker REA-сессии закрыты,
+root individual Evidence сохранены; новый MCP-сеанс в финале уже не имел
+старого target/ledger. Тестовые процессы завершены; пользовательские VM и
+открытый клиент не закрывались. Бэкап до работы:
 /home/a/backups/openkrx-before-pre-tas-20261101-155937.
 
-Не заявлятьполную1:1: nativeoriginalAB/pixelAB нет. TrackPoint/AimbESP25/26
-вbounded originalxrefsearchнеимеютconsumer;PathESP27принадлежитFentвнеобъёма.
-SendAds8толькосбрасываетфлаг,benchmark18имеетchecksumconsumer. Новых
-BlatantESPнепридумывали. TAS/Pathfinding/Fent/Legit/Basicнепортировались.
-Оригинальные особенностисохранять:FastInputextra visualtickсоткатоммира,
-порядокDummyFirst,process-staticGhostMove/FindTunes,RNGMSVCдляслов/shuffle,
-notificationmutex/killmessagesrestore,64playerlimitsвновыхoriginalconsumers.
+Пользователь явно запросил commit/push и публикацию Linux/Windows в Releases.
+Релиз v0.1.4 опубликован: https://github.com/eqsit/openkrx/releases/tag/v0.1.4
+Windows ZIP, Linux tar.gz и SHA256SUMS доступны; размеры и GitHub digests
+совпали с локальными архивами. Тег указывает на исходник сборок 9d0aaa1.
 
-Пользователь затем явно разрешил commit/push и релизWindows+Linuxv0.1.4.
-На момент этойсводки релизготовится; финальныеcommit/assets/hashсмотреть
-вконцеJOURNAL иresearch/pre-tas-20261101/release.json,когдаонпоявится.
-
-Ниже история; если противоречит верхнейсводке,этостароесостояние.
+Ниже история; при противоречии актуальна верхняя сводка.
 
 # Актуальная сборка: аудит Blatant/Rocket/timing, 2026-11-01
 

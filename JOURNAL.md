@@ -1934,15 +1934,53 @@ checksum dispatch+3 hashlib, RPC через fixture SDK. Исходный live o
 См. research/pre-tas-20261101/INSTALLED-INTERIM.json. Работа продолжается.
 
 
-## 2026-11-01 — завершён перенос pre-TAS и запрошен релиз v0.1.4
+## 2026-11-01 — перенос pre-TAS и релиз v0.1.4 опубликованы
 
-Объём1–33FEATURE_ESTIMATES включительно,менюGoodCrack; итог/матрица/
-Evidence research/pre-tas-20261101/. Сборканаhome,34prediction,20018misc,
-movement,checksumdispatch+3hashlib;6GDBFastInputmain/dummy/Otherscases,
-602observations/errors0;privateRocket+visuals1shot/returnhammer/nofreeze.
-Все1724sourcehashes сверенысhome,localbinary совпал. Оба ярлыкаобновлены.
-Тестовыепроцессы/REAworkersзакрыты,конфигнепереписан. НативногоoriginalAB
-нет.25/26originalnorefconsumer,27Fentdependency,8/18исходныенооп/metadata
-оговоренывPORT_STATUS;невыдаватьза33самостоятельныхновыхсистемы.
-Пользовательявнопопросилcommit/pushиWindows/LinuxReleases. Подготавливается
-v0.1.4;послеэтойзаписибудутточныеcommit/assets иverificationrelease.
+Исходники переноса пунктов 1–33 FEATURE_ESTIMATES.md и меню GoodCrack
+отправлены в origin/main: cbabf7c, затем исправление Windows/Discord 9d0aaa1.
+TAS и следующие пункты не входят. Матрица исходного поведения и ограничения:
+PRE_TAS_PORT.md; подробные Evidence — research/pre-tas-20261101/.
+
+Linux и Windows x86_64 собраны только на ssh home из
+9d0aaa10f4bf1c271fce8dc579840f1194596939. Тег v0.1.4 указывает на этот коммит.
+Релиз опубликован по явному запросу пользователя:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.4
+
+Архивы содержат клиент, data/ с исходными killsays, документацию и библиотеки.
+Windows: 19 DLL; libwinpthread-1.dll и libssp-0.dll взяты из текущего компилятора
+на home. Старый pthread не экспортировал clock_gettime64/nanosleep64;
+после замены Wine-запуск прошёл. Все 668 импортов комплектных DLL найдены.
+Linux: комплектная Discord SDK; остальные зависимости DDNet системные.
+
+Опубликованные архивы, проверенные через GitHub asset digest и размер:
+
+- OpenKRX-linux-x86_64.tar.gz: 50748489 байт, SHA256
+  483ffd6a19e7c23f1aaa94507fd359262c3d2597ea374adf76abbf8967176fb1.
+- OpenKRX-windows-x86_64.zip: 55702342 байт, SHA256
+  553b3479b3d4e0064f09c336f963ea14d41baa21c30f8461e0ea681021856d19.
+- SHA256SUMS-v0.1.4.txt: хеши обоих архивов.
+
+Внутри архивов сверены 865 файлов Linux и 883 файла Windows.
+
+Проверки: 34 native prediction, 20018 misc, movement, checksum dispatch и
+три независимых hashlib; GDB — 602 наблюдения в шести main/dummy/FastInput/
+Others режимах, без ошибок тика и снимков. Приватный Linux FastInput+visuals+
+Rocket: один подтверждённый выстрел, возврат молота, без фриза, штатный выход;
+повторено на stripped release-бинарнике. Windows-пакет запущен под Wine с
+отдельным профилем и Xvfb: рендер работает, штатный выход. Нативный Windows
+не проверялся. Discord ID/flags/activity проверены через fixture SDK;
+реальный аккаунт Discord и внешний Auto Verify не проверялись.
+
+Все 1724 source hashes сверены с home. Оба ярлыка обновлены на итоговый
+Linux dist/OpenKRX SHA256
+737d87b164dc8a9621254881c506434372094b944f471f8d845fc7751f2b8586.
+Для использования нужен перезапуск клиента. Личный конфиг не переписывался,
+krx-beta.desktop не тронут. Тестовые процессы и worker REA-сессии завершены.
+
+Абсолютная 1:1 идентичность не заявляется: native original A/B и pixel A/B
+не получены. TrackPoint/Aimbot ESP 25/26 не имеют renderer в исследованных
+прямых ссылках; Path ESP 27 принадлежит Fent вне объёма. SendAds 8 сбрасывает
+флаг; benchmark 18 используется как checksum metadata. Новые алгоритмы за
+ними не придуманы; manual jump, weapon restore и Fire-sync сохранены.
+Результаты упаковки и публикации: package-verification.json, release.json,
+verification.json в research/pre-tas-20261101/.
