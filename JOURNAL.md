@@ -2181,3 +2181,32 @@ stripped cf980a42c9cd3d4a06c33ca89c2b961be7037869db58f503e603cb69cd1a5f6e;
 Windows OpenKRX.exe 912a952f1e49282307d3a36c120fc30586a617a36693560f8a7992ebfbce1473.
 Полная 1:1 идентичность и pixel A/B не заявлены; Windows проверена только Wine.
 Пакеты не содержат пользовательских настроек, TAS и аналитического PE.
+
+
+## 2026-11-02 — повторная сверка Blatant/Rocket, без исправления исходников
+
+По запросу пользователя проведён повторный REA-аудит; пользователь отдельно
+запретил пока менять исходники приложения. Исправления НЕ вносились, сборка
+клиента/установка/конфиг/ярлыки не менялись. Отчёт:
+research/codex/parity-audit-20261102/RESULT.md; границы — COVERAGE.md.
+
+Найдены13групп отличий: ошибочная подстановкаLiveFrozen вместоIsInFreeze
+в hazard/gates; неверные terminaldeath/tele flags; порядокswitch/game;
+пропущенные forcedTASdeath/stopper rules;AutoDragpersistentworld/cache;
+Super-freezegate;Rocketnormalization иmouse-radius arithmetic;
+перевёрнутый Avoid/aimbotorder;hook-raynullptrtele;лишнийdeathcontact
+в normalcustomIsInFreeze;зафиксированная вместо динамическойblaststrength
+при speculativetunezone;reloadfloatorder с разницей1tick на1060/1180.
+Отдельно lifecycle reset,128client и manualjump/restore/Fire-sync адаптации.
+
+Ранее ошибочную идентификацию originalcharacter318 какLiveFrozen исправляет
+новое независимое чтение producers/consumers:318IsInFreeze,319Deep,31aLive.
+Ранний same-frameAutoDrag пример отозван: originalAvoid идёт передmainaimbot.
+Подозрение GetPosrounding отвергнуто по assembly. ClonePRNG уточнён: свежие
+original constructor+copy сохраняютnullptr иteleout0, какпорт.
+
+4researchnativefixtures толькоsshhome,всеexit0;numericfloatreconstruction
+отдельно отoriginalruntime. REAсохранён в двухbundles/checkpoints,сессиизакрыты.
+Хеши11проверенныхsrcфайлов совпадают с началом обоих этапов;parallelTASправки
+не трогались. NativeoriginalA/B,полный18.9/20.3physicscontract иpixelA/B
+не получены,полная1:1не заявляется. verification.json хранит точные хеши/выходы.

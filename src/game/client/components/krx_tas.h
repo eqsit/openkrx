@@ -74,6 +74,8 @@ namespace OpenKrx
 		std::array<CNetObj_PlayerInput, 2> m_aInputs{};
 		CNetObj_PlayerInput m_NetworkBefore{};
 		std::vector<std::string> m_vReplayFiles;
+		std::future<int> m_ConversionFuture;
+		std::atomic<bool> m_ConversionCancel{false};
 		std::string m_Status, m_OverwriteName;
 		bool m_WasRecording = false, m_RewindHeld = false, m_ForwardHeld = false;
 		bool m_PlaybackWasActive = false;
@@ -104,6 +106,8 @@ namespace OpenKrx
 		size_t m_VaultNextFile = 0;
 		void CancelPathFinding();
 		void StopVaultWorker();
+		void StopConversionWorker();
+		void UpdateLegacyConversion();
 		void InstallVaultFiles();
 		void UpdateVault();
 		void InitializeWorld(const CGameWorld &Source, bool PredictPlayers);

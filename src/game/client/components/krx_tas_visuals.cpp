@@ -289,6 +289,7 @@ namespace OpenKrx
 	void CKrxTas::OnRender()
 	{
 		UpdateVault();
+		UpdateLegacyConversion();
 		if(g_Config.m_KrxTasFakeAim)
 			AddFakeAim();
 		if(g_Config.m_KrxSaveReplayToFile)
@@ -343,7 +344,7 @@ namespace OpenKrx
 	bool CKrxTas::AddFakeAim()
 	{
 		g_Config.m_KrxTasFakeAim = 0;
-		const CGameWorld &Initial = m_pInitialWorld ? *m_pInitialWorld : GameClient()->m_GameWorld;
+		const CGameWorld &Initial = GameClient()->m_GameWorld;
 		const bool Result = AddReplayFakeAim(m_Replay, Initial, m_aIds, g_Config.m_KrxTasFakeAimMode, GameClient()->m_Controls.GetMaxMouseDistance());
 		Message(Result ? "TAS: Adding fake aim was sucessful." : "TAS: Adding fake aim was unsucessful!");
 		return Result;

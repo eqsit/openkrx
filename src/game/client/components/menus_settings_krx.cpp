@@ -89,7 +89,8 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			if(Ui()->DoButton_FontIcon(&s_aHelp[g_Config.m_KrxMenuTab], FontIcon::BOOK, 0, &Help, BUTTONFLAG_LEFT))
 				Client()->ViewLink(pHelpUrl);
 		}
-		Ui()->DoLabel(&Header, Localize(pTitle), 20.0f, TEXTALIGN_ML);
+		Ui()->DoLabel(&Header, Localize(pTitle), 20.0f,
+			g_Config.m_KrxMenuTab == 3 || g_Config.m_KrxMenuTab == 4 ? TEXTALIGN_TL : TEXTALIGN_ML);
 		return true;
 	};
 	const auto Check = [&](int &Value, const char *pText, bool Indent = false, const char *pTip = nullptr) {
@@ -179,7 +180,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		Body.HSplitTop(20.0f, &Row, &Body);
 		CUIRect Label;
 		Row.VSplitLeft(135.0f, &Label, &Row);
-		Ui()->DoLabel(&Label, Localize(pLabel), 13.0f, TEXTALIGN_ML);
+		Ui()->DoLabel(&Label, Localize(pLabel), 13.0f, g_Config.m_KrxMenuTab == 4 ? TEXTALIGN_TL : TEXTALIGN_ML);
 		const auto Result = GameClient()->m_KeyBinder.DoKeyReader(&s_aKeys[Index], &s_aClear[Index], &Row, Current, false, false);
 		if(!Result.m_Aborted && Result.m_Bind != Current)
 		{
@@ -719,7 +720,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(Card(Left, 125 + (g_Config.m_KrxTasAutoReplay && g_Config.m_KrxAutoSaveReplayEnabled ? 20 : 0), "Settings"))
 		{
 			CUIRect SettingsLeft, SettingsRight;
-			Body.VSplitMid(&SettingsLeft, &SettingsRight, 10);
+			Body.VSplitMid(&SettingsLeft, &SettingsRight);
 			Body = SettingsLeft;
 			Check(g_Config.m_KrxTasUseSound, "Enable sound", false, "Enables using sounds in the TAS world");
 			Check(g_Config.m_KrxTasShowEffects, "Enable effects", false, "Enables showing effects(like hammer hit, double jump, ...) in TAS world");
@@ -739,8 +740,8 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(Card(Left, 180, "Hotkeys"))
 		{
 			Key(16, "Record:", "toggle krx_recordreplay 1 0");
-			Key(17, "Replay:", "toggle krx_loadreplay 1 0");
-			Key(18, "Respawn:", "+toggle krx_tasrespawn 1 0");
+			Key(17, "Load:", "toggle krx_loadreplay 1 0");
+			Key(18, "Clear:", "+toggle krx_tasrespawn 1 0");
 			Key(19, "Pause:", "toggle krx_taspause 0 1");
 			Key(20, "Rewind:", "+toggle krx_tasrewind 1 0");
 			Key(21, "Forward:", "+toggle krx_tasforward 1 0");
@@ -896,7 +897,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		{
 			CUIRect Sync, Rest;
 			Body.HSplitTop(20, &Row, &Rest);
-			Row.VSplitMid(&Body, &Sync, 10);
+			Row.VSplitMid(&Body, &Sync, 5);
 			if(Action("Auto Sync", 14, g_Config.m_KrxTasReplayVaultAutoSync ? ColorRGBA(0, 1, 0, .5f) : ColorRGBA(1, 1, 1, .5f)))
 				g_Config.m_KrxTasReplayVaultAutoSync ^= 1;
 			Body = Sync;

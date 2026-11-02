@@ -1,3 +1,16 @@
+# Аудит Blatant / Rocket — 2026-11-02, исправления пока запрещены
+
+Повторная REA-сверка выявила13групп расхождений. Критично: originalhazard
+проверяетIsInFreeze318, а порт ошибочноLiveFrozen31a;Deep319. Отличаются
+switch/gameorder, controllerAvoid/aimbotorder, hooktele-ray, dynamicblast
+tuning и прочие детали. Полный отчёт и границы:
+research/codex/parity-audit-20261102/{RESULT,COVERAGE}.md.
+
+По прямому указанию пользователя исходники приложения этим аудитом НЕ
+исправлялись;клиент/конфиг/установка неизменны. 4researchnativefixtures
+наsshhome exit0;originalnativeA/Bнет. Старые утверждения о совпадении
+timer/deep/live и оaimbot-before-Avoid ошибочны,новый отчёт приоритетен.
+
 # Актуальная сборка: OpenKRX v0.1.6, 2026-11-02
 
 Исходник `e60b7e4ef0cc24563b403cf04e9058dc3388892d` отправлен origin/main,
