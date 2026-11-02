@@ -159,6 +159,7 @@ tags
 # tidy-alphabetical-end
 /dist/
 /research/
+/replays/
 /test-reference/
 /test-server/
 

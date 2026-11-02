@@ -480,7 +480,7 @@ namespace OpenKrx
 	}
 	CAimbotDecision CAimbot::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, vec2 PhysicalMouse, const CAimbotSettings &Settings)
 	{
-		const auto &Source = pGameClient->m_PredictedWorld.GetCharacterById(ClientId) ? pGameClient->m_PredictedWorld : pGameClient->m_GameWorld;
+		const auto &Source = pGameClient->KrxPredictedWorld().GetCharacterById(ClientId) ? pGameClient->KrxPredictedWorld() : pGameClient->KrxGameWorld();
 		const bool TeamPlay = pGameClient->m_Snap.m_pGameInfoObj && (pGameClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS);
 		return Search(Source, pGameClient, Input, ClientId, PhysicalMouse, Settings, pGameClient->m_Controls.GetMaxMouseDistance(), TeamPlay, nullptr);
 	}
@@ -578,7 +578,7 @@ namespace OpenKrx
 					delete pEntity;
 				pEntity = pNext;
 			}
-		const auto *pAuth = pGameClient ? pGameClient->m_GameWorld.GetCharacterById(ClientId) : pLocal;
+		const auto *pAuth = pGameClient ? pGameClient->KrxGameWorld().GetCharacterById(ClientId) : pLocal;
 		if(!Settings.m_Enabled || !(Input.m_PlayerFlags & PLAYERFLAG_PLAYING) || !pAuth ||
 			(pGameClient ? IsKrxCharacterFrozen(pGameClient, ClientId) || pGameClient->m_Snap.m_SpecInfo.m_Active : Frozen(pAuth)))
 			return Decision;
@@ -622,7 +622,7 @@ namespace OpenKrx
 		// 2bab10 runs before the fire/target gates and uses authoritative tick modulo.
 		if(m_FireLength)
 		{
-			const int Tick = pGameClient ? pGameClient->m_GameWorld.GameTick() : Source.GameTick();
+			const int Tick = pGameClient ? pGameClient->KrxGameWorld().GameTick() : Source.GameTick();
 			if(Tick % m_FireLength == 0 && (Decision.m_Input.m_Fire & 1))
 			{
 				++Decision.m_Input.m_Fire;

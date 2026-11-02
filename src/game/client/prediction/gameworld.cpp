@@ -727,6 +727,14 @@ void CGameWorld::CopyWorld(CGameWorld *pFrom)
 	m_IsValidCopy = true;
 }
 
+void CGameWorld::RebindCollision(CCollision *pCollision)
+{
+	m_pCollision = pCollision;
+	for(auto *pCharacter : m_apCharacters)
+		if(pCharacter)
+			pCharacter->SetCoreWorld(this);
+}
+
 void CGameWorld::CopyWorldIsolated(const CGameWorld *pFrom)
 {
 	if(!pFrom || pFrom == this)

@@ -19,6 +19,7 @@
 #include <generated/protocolglue.h>
 
 #include <game/client/avoid/avoid.h>
+#include <game/client/avoid/fent.h>
 #include <game/client/avoid/rocket_save.h>
 #include <game/client/krx/aimbot.h>
 #include <game/client/krx/bots.h>
@@ -56,8 +57,9 @@
 #include "components/infomessages.h"
 #include "components/items.h"
 #include "components/key_binder.h"
-#include "components/krx_movement_pre_tas.h"
 #include "components/krx_misc_pre_tas.h"
+#include "components/krx_movement_pre_tas.h"
+#include "components/krx_tas.h"
 #include "components/krx_visuals_pre_tas.h"
 #include "components/local_server.h"
 #include "components/mapimages.h"
@@ -204,6 +206,8 @@ public:
 	CKrxMovementPreTas m_KrxMovementPreTas;
 	CKrxMiscPreTas m_KrxMiscPreTas;
 	OpenKrx::CPreTasVisuals m_PreTasVisuals;
+	OpenKrx::CKrxTas m_Tas;
+	OpenKrx::CFent m_Fent;
 
 	CMapLayers m_MapLayersBackground = CMapLayers{ERenderType::RENDERTYPE_BACKGROUND};
 	CMapLayers m_MapLayersForeground = CMapLayers{ERenderType::RENDERTYPE_FOREGROUND};
@@ -741,6 +745,8 @@ public:
 	CGameWorld m_FastInputWorld;
 	CGameWorld m_PrevPredictedWorld;
 
+	CGameWorld &KrxGameWorld() { return m_Tas.Active() ? *m_Tas.World() : m_GameWorld; }
+	CGameWorld &KrxPredictedWorld() { return m_Tas.Active() ? *m_Tas.World() : m_PredictedWorld; }
 	std::vector<SSwitchers> &Switchers() { return m_GameWorld.m_Core.m_vSwitchers; }
 	std::vector<SSwitchers> &PredSwitchers() { return m_PredictedWorld.m_Core.m_vSwitchers; }
 

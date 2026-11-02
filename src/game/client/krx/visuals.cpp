@@ -169,7 +169,7 @@ namespace OpenKrx
 		{
 			if((g_Config.m_KrxDrawAimLinesSelfOnly && Id != Own) || !GameClient()->m_aClients[Id].m_Active)
 				continue;
-			auto *pCharacter = GameClient()->m_GameWorld.GetCharacterById(Id);
+			auto *pCharacter = GameClient()->KrxGameWorld().GetCharacterById(Id);
 			if(!pCharacter)
 				continue;
 			const int Weapon = pCharacter->GetActiveWeapon();
@@ -185,10 +185,10 @@ namespace OpenKrx
 				Dir = vec2(1, 0);
 			const vec2 Pos = GameClient()->m_aClients[Id].m_RenderPos;
 			std::vector<CPathSegment> Path;
-			if(Weapon == WEAPON_LASER || (Weapon == WEAPON_SHOTGUN && GameClient()->m_GameWorld.m_WorldConfig.m_IsDDRace))
-				Path = LaserPath(GameClient()->m_GameWorld, Id, Weapon, Pos, Dir);
+			if(Weapon == WEAPON_LASER || (Weapon == WEAPON_SHOTGUN && GameClient()->KrxGameWorld().m_WorldConfig.m_IsDDRace))
+				Path = LaserPath(GameClient()->KrxGameWorld(), Id, Weapon, Pos, Dir);
 			else
-				Path = ProjectilePath(GameClient()->m_GameWorld, Id, Weapon, Pos + Dir * 21.f, Dir);
+				Path = ProjectilePath(GameClient()->KrxGameWorld(), Id, Weapon, Pos + Dir * 21.f, Dir);
 			ColorRGBA Color = Weapon == WEAPON_GUN ? ColorRGBA(.9f, .9f, .9f) : Weapon == WEAPON_GRENADE ? ColorRGBA(1, .3f, .6f) :
 										    Weapon == WEAPON_SHOTGUN         ? ColorRGBA(0, .8f, 0) :
 														       ColorRGBA(.3f, .7f, 1);

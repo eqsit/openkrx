@@ -1,9 +1,41 @@
+# Текущий перенос: TAS / Pathfinding / Fent, 2026-11-02
+
+В исходниках реализован блок №34–74 (41 название) и Path ESP №27 для Fent.
+Матрица, использование, проверки и ограничения — TAS_PATH_FENT.md.
+Legit/Basic исключены. Не заявлять абсолютное 1:1: original native A/B и
+pixel A/B всё ещё не получены. №39 — исходные флаг/меню без consumer.
+
+C++ собирается и native fixtures запускаются только ssh home. Linux build13
+проверен private client/server/Xvfb: ранний Playback ждёт Fent; после передачи
+89 кадров playback двигает реальную tee. Ранее native4: 2,357,031 checks/errors0;
+extended dummy/fakeaim/autosave/tunnel/vault/cancel и freeze-live5 прошли.
+Vault async: 179 файлов, max main-thread heartbeat14.18ms/p99 13.02ms.
+Браузер replay теперь popup с папками/.. и загрузкой по Enter/double-click.
+Show real aim выключен по умолчанию в оригинале; для recorded aim его включают.
+Прерванный Fent не передаёт готовую запись; это не означает ошибку алгоритма.
+
+Пользователь явно запросил push и Windows/Linux на GitHub. Готовится v0.1.5;
+не считать старые файлы dist/*.zip/*.tar.gz новыми до финальной упаковки.
+Новая Windows-сборка build-windows-2 успешна; после последних UI/auto-sync
+правок нужны финальные сборки, запуск пакетов и публикация. Исследования:
+research/tas-path-fent-20261101/. owned-evidence.json — локальная подборка
+полных inline Evidence, не экспорт потерянного при лимите/выключении MCP ledger.
+Личный config не переписывать, пользовательский клиент/его local server не закрывать.
+
+Ниже сохранена история предыдущих релизов; текущая сводка выше приоритетна.
+
 # Актуальное состояние: OpenKRX v0.1.4, 2026-11-01
 
 Пункты 1–33 исходного FEATURE_ESTIMATES.md обработаны: от Teleport Prediction
 Menu до Find Tunes включительно. Логика восстановлена через analysis,
 исходники изменены напрямую. TAS и следующие пункты не входят в перенос.
 Матрица поведения и ограничения опубликованы в PRE_TAS_PORT.md.
+
+Актуальный план: REMAINING_FEATURES.md — сделанное, 41 оставшийся пункт
+(№34–74: TAS 32, Pathfinding 8, Fent 1) и отдельные проверки уже перенесённого.
+Пользователь 2026-11-01 исключил Avoid Legit №75 и Avoid Basic №76:
+они не нужны вообще, не реализовывать и не возвращать в план как отложенные.
+Path ESP №27 остаётся зависимостью Fent. Следующий блок по списку — основа TAS.
 
 Новые компоненты: krx_misc_pre_tas, krx_movement_pre_tas,
 krx_visuals_pre_tas. Конфигурация — krx_pre_tas_*_config.h. Данные генератора

@@ -14,7 +14,9 @@
 #include <game/layers.h>
 #include <game/mapitems.h>
 
+#include <algorithm>
 #include <cmath>
+#include <type_traits>
 
 vec2 ClampVel(int MoveRestriction, vec2 Vel)
 {
@@ -46,6 +48,42 @@ CCollision::CCollision()
 CCollision::~CCollision()
 {
 	Unload();
+}
+
+std::unique_ptr<CCollision> CCollision::CreateIsolatedCopy() const
+{
+	auto pCopy = std::make_unique<CCollision>();
+	*pCopy = *this;
+	pCopy->m_pDoor = nullptr;
+	const size_t Count = (size_t)m_Width * m_Height;
+	if(m_pTiles && Count)
+	{
+		pCopy->m_pIsolatedTiles.reset(new CTile[Count]);
+		std::copy_n(m_pTiles, Count, pCopy->m_pIsolatedTiles.get());
+		pCopy->m_pTiles = pCopy->m_pIsolatedTiles.get();
+	}
+	if(m_pDoor && Count)
+	{
+		pCopy->m_pDoor = new CDoorTile[Count];
+		std::copy_n(m_pDoor, Count, pCopy->m_pDoor);
+	}
+	const auto Clone = [Count](const auto *pSource, auto &pOwner) {
+		using T = std::remove_const_t<std::remove_pointer_t<decltype(pSource)>>;
+		if(!pSource || !Count)
+		{
+			pOwner.reset();
+			return (T *)nullptr;
+		}
+		pOwner.reset(new T[Count]);
+		std::copy_n(pSource, Count, pOwner.get());
+		return pOwner.get();
+	};
+	pCopy->m_pFront = Clone(m_pFront, pCopy->m_pIsolatedFront);
+	pCopy->m_pTele = Clone(m_pTele, pCopy->m_pIsolatedTele);
+	pCopy->m_pSpeedup = Clone(m_pSpeedup, pCopy->m_pIsolatedSpeedup);
+	pCopy->m_pSwitch = Clone(m_pSwitch, pCopy->m_pIsolatedSwitch);
+	pCopy->m_pTune = Clone(m_pTune, pCopy->m_pIsolatedTune);
+	return pCopy;
 }
 
 void CCollision::Init(class CLayers *pLayers)

@@ -879,7 +879,7 @@ void CNamePlates::OnRender()
 			RenderNamePlateGame(RenderPos, pInfo, 0.4f);
 		}
 		// Only render name plates for active characters
-		if(GameClient()->m_Snap.m_aCharacters[i].m_Active)
+		if(GameClient()->m_Snap.m_aCharacters[i].m_Active && (!GameClient()->m_Tas.Active() || GameClient()->m_Tas.World()->GetCharacterById(i)))
 		{
 			const vec2 RenderPos = GameClient()->m_aClients[i].m_RenderPos;
 			RenderNamePlateGame(RenderPos, pInfo, 1.0f);

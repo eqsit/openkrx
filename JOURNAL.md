@@ -1984,3 +1984,116 @@ krx-beta.desktop не тронут. Тестовые процессы и worker 
 ними не придуманы; manual jump, weapon restore и Fire-sync сохранены.
 Результаты упаковки и публикации: package-verification.json, release.json,
 verification.json в research/pre-tas-20261101/.
+
+
+## 2026-11-01 — зафиксированы сделанное и оставшийся план, Legit/Basic исключены
+
+По прямому запросу пользователя обновлён REMAINING_FEATURES.md: сводка
+выполненного, опубликованный релиз v0.1.4, ограничения пунктов 1–33,
+полный оставшийся список с исходными номерами и отдельные проверки/доводка.
+В плане 41 пункт №34–74: TAS — 32, Pathfinding — 8, Avoid Fent — 1.
+Path ESP №27 остаётся зависимостью Fent, не объявлен готовой отрисовкой Blatant.
+
+Avoid Legit №75 и Avoid Basic №76 пользователю не нужны вообще:
+исключены из плана, не реализовывать и не считать отложенными.
+Решение отражено также в FEATURE_ESTIMATES.md, HANDOFF.md и PRE_TAS_PORT.md.
+В PRE_TAS_PORT.md исправлена устаревшая запись о непубликации релиза.
+Изменена только документация; клиент и выпущенные сборки не менялись.
+
+## 2026-11-01 — TAS / Pathfinding / Fent, работа продолжается
+
+Новый запрос: доделать №34–74 REMAINING_FEATURES.md по GoodCrack через
+analysis. Прямые изменения исходников; ChatGPT Web не используется.
+До правок: /home/a/backups/openkrx-before-tas-path-fent-20261101/source.tgz.
+База 9d0aaa1; старые изменения документации сохранены. C++ собирается и
+тестируется только ssh home. Личный DDNet settings_ddnet.cfg не переписывается.
+
+analysis/Ghidra открыт на прежнем PE SHA256 0477b21e…55402 с checkpoint.snap.
+Новые извлечения: research/tas-path-fent-20261101/. Bulk: 167 функций TAS/Fent,
+12 controller и 18 codec; отдельно полные меню, controls, HUD/assembly,
+регистрация конфигов и fake-aim assembly. Это статические Evidence, не native A/B.
+
+Основные восстановленные детали: reverse Theta* с Bresenham, отрицательный
+нормированный parent-flow и один Gaussian pass 3x3; middle-of-255 finish;
+occupancy solid/nohook/death/freeze/deep/tele и square light/unfreeze support.
+Fent: MSVC MT19937/uniform/Bernoulli, начальная sticky-jump запись Direction,
+packed32 input, score dot*1000 и coast12*1750, displacement/speed, elite20%,
+tournament5, 3 crossover режима, mutation decay .96/min.1, MSVC sort ties,
+quality presets и асинхронный поиск. Invalid score сохраняет старый score0.
+Результат не рулит live tee: 50 neutral prefix + текущий input + найденный
+ввод передаются в replay_local; Avoid выключается. Collision worker изолирован.
+
+TAS: отдельные миры/снимки тиков, neutral50 reset, TPS integer-ms gate,
+отрицательная rewind intra и 50TPS tick controls, forward подаёт один input,
+network neutral сохраняет Fire/aim/flags/weapons. Exact-position playback,
+первый выдаваемый input1. HUD восстановлен по 30e1b0. Fake aim двухпроходный:
+critical hook/fire, Robot/Spin/Rand/Smooth, точная проверка positions после шага.
+Конфиг krx_tasplayerprediction в bounded refs имеет только меню/регистрацию;
+оригинальные reset всегда передают prediction=true. Не выдумывать consumer.
+
+.tas: LE32 JSON-size + zlib9; 10 input полей и pos, info/map/author/date/description.
+Vault: commits/main + archive/main.zip, вложенные map folders, auto sync из TAS page.
+Намеренные адаптации: безопасные bounds/CRC/transactional load/atomic file saves,
+отмена/join worker; дублированный original krx_autosavereplay разделён на
+interval с прежним именем и openkrx_autosavereplay_enabled. Empty Fent candidate
+не делит на0/NaN. Эти исправления нельзя выдавать за буквальную копию ошибок PE.
+
+Промежуточные сборки1–8 выполнены ONLY sshhome; build7/8 успешны. Native2:
+2,356,494 checks, errors0; 179 реальных vault .tas / 1,010,553 кадров проходят
+чтение/запись с точным input/pos. 4 fake aim modes с hook/jetpack сохраняют
+позиции; MSVC sort проверен на tie groups/перестановки до5000 элементов.
+Private Xvfb/client/server live1 и live2 exit0: TPS10, pause, step/held-step,
+rewind restore, network tee stays, respawn, save/validate/load/playback, Fent
+completion/transfer. После исправления prefix live2 Fent72frames. Точные логи
+native-*.log/build-*.log/live-*.log и runtime/result.json. Это ещё НЕ финал:
+идёт UI/physics review, extended dummy/cancel/vault и финальная установка.
+
+
+## 2026-11-02 — TAS/Path/Fent: проверки, пользовательские наблюдения, релиз запрошен
+
+Native4: 2,357,031 checks, errors0, 179 reference files/1,010,553 frames;
+добавлены legacy JSON roundtrip. Extended2 exit0: dummy record/playback,
+4 fake aim modes, autosave, auto tunnel/clear, real Vault179/cache,
+Fent cancellation/disconnect/reconnect. Freeze-live5 exit0: auto forward
+останавливается на freeze2 (после одного тика0), auto rewind before-freeze,
+auto replay restart. Ошибки ранних freeze fixtures устранены настройкой
+player_collision0 при наличии dummy; solo/отсутствующий dummy меняли исходные
+условия autorewind. Неверный projectile regression запуск с --map подставил
+AiP-Gores; повтор с собственной ProjectileParity.map прошёл, как tile/fire/
+rocket restore/pre-TAS prediction/movement.
+
+По просьбе пользователя обновлены локальные ярлыки промежуточной сборкой.
+В goodcrack.zip (978 members) .tas/.json replays не найдены. Вместо заявления
+об их наличии установлены 179 готовых TAS из оригинального KRX vault в
+локальный replays/, с hash manifest installed-replays.json; runtime папка
+игнорируется git. Перенос пользовательских сохранений не делался.
+
+Фриз при первом открытии TAS: реальный log показал синхронную установку Vault
+примерно3s. Decode/validation вынесены в async worker, запись8 файлов/2msbudget;
+flow calculation тоже async/cancelable/deferred. Vault full performance exit0:
+179files,613heartbeat,max14.18ms,p99 13.02ms,24.29sec total включая HTTP.
+Auto Sync теперь вызывается только renderer TAS page, один раз за run.
+
+Show real aim: первоначальная оценка отсутствия поворота как бага была ошибочной.
+В original FUN14024ba60 есть явное условие tasshowaim && loadreplay; по умолчанию
+0. Сохранён mouse-look без флага и recorded-input angle с ним; playback не
+меняет m_aMousePos/камеру. Исходные Evidence deep-audit уже содержали ветку.
+
+Fent Playback: log показывал запуск playback до transfer. Пользователь уточнил,
+что сам прервал незавершённый поиск — это не считается поломкой GA. Тем не менее
+устранена возможность играть neutral50 prefix и пропускать completed worker
+из-за early SnapInput branch: Fent serviced before playback, busy guard с
+понятным сообщением/надписью кнопки, empty result не выдаётся за готовый replay.
+Private fent-playback2 exit0: early attempt playback0/безFinished, затем
+89frames transferred, playback60/liveX319 против start272.
+
+UI: original popup browser263510 восстановлен через analysis и сохранён полным
+replay-browser Evidence. Вместо плоского списка теперь popup250h с папками,
+.., 20h rows/icons и активацией по Enter/doubleclick. Изолированный UI пробег
+загрузил003/003_2.15s.tas (7248frames), screenshots menu-final/.
+Vault controls side-by-side. Flow arrows по 2dffd0: white width1, length16,
+sidebars20% +/-pi/4 (дополнительное чтение PE/objdump сохранено отдельно от analysis).
+
+Пользователь запросил push и публикацию обеих платформ. Windows build2 successful
+на home, target DDNet.exe (первый запуск target DDNet был неверен, без изменения
+кода). Финальная упаковка/проверка/публикация следует отдельной записью.

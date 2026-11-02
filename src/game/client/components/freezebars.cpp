@@ -17,7 +17,7 @@ void CFreezeBars::RenderFreezeBar(const int ClientId)
 	}
 
 	// only show the freeze bar once the server confirmed the freeze, so mispredicted freezes are not shown
-	if(GameClient()->m_Snap.m_aCharacters[ClientId].m_ExtendedData.m_FreezeEnd <= 0)
+	if(!GameClient()->m_Tas.Active() && GameClient()->m_Snap.m_aCharacters[ClientId].m_ExtendedData.m_FreezeEnd <= 0)
 	{
 		return;
 	}
@@ -32,6 +32,9 @@ void CFreezeBars::RenderFreezeBar(const int ClientId)
 	{
 		Tick = Client()->GetPredictionTick();
 	}
+
+	if(GameClient()->m_Tas.Active())
+		Tick = GameClient()->m_Tas.World()->GameTick();
 
 	const int64_t Max = (int64_t)pCharacter->m_FreezeEnd - pCharacter->m_FreezeStart;
 	float FreezeProgress = std::clamp<int64_t>(Max - ((int64_t)Tick - pCharacter->m_FreezeStart), 0, Max) / (float)Max;
@@ -206,7 +209,8 @@ void CFreezeBars::RenderFreezeBarPos(float x, const float y, const float Width, 
 
 inline bool CFreezeBars::IsPlayerInfoAvailable(int ClientId) const
 {
-	return GameClient()->m_Snap.m_aCharacters[ClientId].m_Active &&
+	return (!GameClient()->m_Tas.Active() || GameClient()->m_Tas.World()->GetCharacterById(ClientId)) &&
+	       GameClient()->m_Snap.m_aCharacters[ClientId].m_Active &&
 	       GameClient()->m_Snap.m_apPrevPlayerInfos[ClientId] != nullptr &&
 	       GameClient()->m_Snap.m_apPlayerInfos[ClientId] != nullptr;
 }

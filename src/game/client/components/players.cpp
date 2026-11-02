@@ -127,6 +127,22 @@ float CPlayers::GetPlayerTargetAngle(
 	int ClientId,
 	float Intra)
 {
+	if(g_Config.m_KrxLoadReplay && g_Config.m_KrxTasShowAim)
+	{
+		const int Slot = GameClient()->m_aLocalIds[0] == ClientId ? 0 : GameClient()->m_aLocalIds[1] == ClientId ? 1 :
+															   -1;
+		if(Slot >= 0)
+		{
+			const auto &Input = Slot == g_Config.m_ClDummy ? GameClient()->m_Controls.m_aInputData[Slot] : GameClient()->m_DummyInput;
+			return angle(vec2(Input.m_TargetX, Input.m_TargetY));
+		}
+	}
+	if(GameClient()->m_Tas.Active())
+		if(auto *pCharacter = GameClient()->m_Tas.World()->GetCharacterById(ClientId))
+		{
+			const auto &Input = pCharacter->DiagnosticCurrentInput();
+			return angle(vec2(Input.m_TargetX, Input.m_TargetY));
+		}
 	if(g_Config.m_KrxFakeAim && g_Config.m_KrxFakeAimVisible && ClientId == GameClient()->m_aLocalIds[g_Config.m_ClDummy] && !GameClient()->m_Snap.m_SpecInfo.m_Active)
 	{
 		const auto &Input = GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy];
@@ -245,7 +261,7 @@ void CPlayers::RenderHookCollLine(
 	if(!AlwaysRenderHookColl && !RenderHookCollPlayer)
 		return;
 
-	float Intra = GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy);
+	float Intra = GameClient()->m_Tas.Active() ? GameClient()->m_Tas.IntraTick() : (GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy));
 	float Angle = GetPlayerTargetAngle(&Prev, &Player, ClientId, Intra);
 
 	vec2 Position = GameClient()->m_aClients[ClientId].m_RenderPos;
@@ -529,7 +545,7 @@ void CPlayers::RenderHook(
 		return;
 
 	if(ClientId >= 0)
-		Intra = GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy);
+		Intra = GameClient()->m_Tas.Active() ? GameClient()->m_Tas.IntraTick() : (GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy));
 
 	bool OtherTeam = GameClient()->IsOtherTeam(ClientId);
 	float Alpha = (OtherTeam || ClientId < 0) ? g_Config.m_ClShowOthersAlpha / 100.0f : 1.0f;
@@ -656,7 +672,7 @@ void CPlayers::RenderPlayer(
 	RenderInfo.m_Size = 64.0f;
 
 	if(ClientId >= 0)
-		Intra = GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy);
+		Intra = GameClient()->m_Tas.Active() ? GameClient()->m_Tas.IntraTick() : (GameClient()->m_aClients[ClientId].m_IsPredicted ? Client()->PredIntraGameTick(g_Config.m_ClDummy) : Client()->IntraGameTick(g_Config.m_ClDummy));
 
 	static float s_LastGameTickTime = Client()->GameTickTime(g_Config.m_ClDummy);
 	static float s_LastPredIntraTick = Client()->PredIntraGameTick(g_Config.m_ClDummy);
@@ -676,6 +692,13 @@ void CPlayers::RenderPlayer(
 		LastAttackTime = (s_LastPredIntraTick + (Client()->PredGameTick(g_Config.m_ClDummy) - 1 - Player.m_AttackTick)) / (float)Client()->GameTickSpeed();
 	}
 	float AttackTicksPassed = AttackTime * (float)Client()->GameTickSpeed();
+	if(GameClient()->m_Tas.Active() && ClientId >= 0)
+	{
+		Intra = GameClient()->m_Tas.IntraTick();
+		AttackTime = (GameClient()->m_Tas.World()->GameTick() - 1 - Player.m_AttackTick + Intra) / 50.0f;
+		LastAttackTime = AttackTime;
+		AttackTicksPassed = AttackTime * 50;
+	}
 
 	float Angle = GetPlayerTargetAngle(&Prev, &Player, ClientId, Intra);
 
@@ -1003,7 +1026,8 @@ void CPlayers::RenderPlayer(
 
 inline bool CPlayers::IsPlayerInfoAvailable(int ClientId) const
 {
-	return GameClient()->m_Snap.m_aCharacters[ClientId].m_Active &&
+	return (!GameClient()->m_Tas.Active() || GameClient()->m_Tas.World()->GetCharacterById(ClientId)) &&
+	       GameClient()->m_Snap.m_aCharacters[ClientId].m_Active &&
 	       GameClient()->m_Snap.m_apPrevPlayerInfos[ClientId] != nullptr &&
 	       GameClient()->m_Snap.m_apPlayerInfos[ClientId] != nullptr;
 }
@@ -1023,7 +1047,7 @@ void CPlayers::OnRender()
 
 		// predict freeze skin only for local players
 		bool Frozen = false;
-		if(i == GameClient()->m_aLocalIds[0] || i == GameClient()->m_aLocalIds[1])
+		if(GameClient()->m_Tas.Active() || i == GameClient()->m_aLocalIds[0] || i == GameClient()->m_aLocalIds[1])
 		{
 			if(GameClient()->m_aClients[i].m_Predicted.m_FreezeEnd != 0)
 				aRenderInfo[i].m_TeeRenderFlags |= TEE_EFFECT_FROZEN | TEE_NO_WEAPON;

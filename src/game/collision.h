@@ -8,6 +8,7 @@
 #include <engine/shared/protocol.h>
 
 #include <map>
+#include <memory>
 #include <vector>
 
 class CTile;
@@ -34,6 +35,8 @@ struct CAntibotMapData;
 class CCollision
 {
 public:
+	// Fent's background physics must never borrow the live writable tile grid.
+	std::unique_ptr<CCollision> CreateIsolatedCopy() const;
 	CCollision();
 	~CCollision();
 
@@ -153,6 +156,12 @@ private:
 	int m_Height;
 
 	CTile *m_pTiles;
+	std::shared_ptr<CTile[]> m_pIsolatedTiles;
+	std::shared_ptr<CTile[]> m_pIsolatedFront;
+	std::shared_ptr<CTeleTile[]> m_pIsolatedTele;
+	std::shared_ptr<CSpeedupTile[]> m_pIsolatedSpeedup;
+	std::shared_ptr<CSwitchTile[]> m_pIsolatedSwitch;
+	std::shared_ptr<CTuneTile[]> m_pIsolatedTune;
 	CTeleTile *m_pTele;
 	CSpeedupTile *m_pSpeedup;
 	CTile *m_pFront;
