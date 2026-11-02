@@ -107,6 +107,8 @@ namespace OpenKrx
 		m_WasRecording = m_PlaybackWasActive = false;
 		m_RewindHeld = m_ForwardHeld = false;
 		m_aIds = {-1, -1};
+		m_aReplayInputSlots = {0, 1};
+		m_LastReplayTimeTicks = 0;
 		g_Config.m_KrxRecordReplay = g_Config.m_KrxLoadReplay = 0;
 		g_Config.m_KrxTasRewind = g_Config.m_KrxTasForward = g_Config.m_KrxTasRespawn = 0;
 		m_LastPlaybackGameTick = -1;
@@ -160,25 +162,29 @@ namespace OpenKrx
 		for(int Slot = 0; Slot < 2; ++Slot)
 			if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
 				if(pCharacter->Core()->m_Pos != vec2(0, 0))
-					m_Replay.m_aFrames[Slot].push_back({aInputs[Slot], pCharacter->Core()->m_Pos});
+					m_Replay.m_aFrames[Slot].push_back({aInputs[m_aReplayInputSlots[Slot]], pCharacter->Core()->m_Pos});
 		m_vWorlds.push_back(std::move(pWorld));
 	}
 
-	void CKrxTas::Step(const std::array<CNetObj_PlayerInput, 2> &aInputs, bool Record, bool Events, int InputCount)
+	void CKrxTas::Step(const std::array<CNetObj_PlayerInput, 2> &aInputs, bool Record, bool Events, int InputCount, unsigned InputMask)
 	{
 		if(!m_pWorld)
 			return;
 		m_pPreviousWorld->CopyWorldIsolated(m_pWorld.get());
-		for(int Slot = 0; Slot < InputCount; ++Slot)
-			if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
-				pCharacter->OnDirectInput(&aInputs[Slot]);
+		for(int Slot = 0; Slot < 2; ++Slot)
+			if(m_aReplayInputSlots[Slot] < InputCount && (InputMask & (1u << m_aReplayInputSlots[Slot])))
+				if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
+					pCharacter->OnDirectInput(&aInputs[m_aReplayInputSlots[Slot]]);
 		++m_pWorld->m_GameTick;
-		for(int Slot = 0; Slot < InputCount; ++Slot)
-			if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
-				pCharacter->OnPredictedInput(&aInputs[Slot]);
+		for(int Slot = 0; Slot < 2; ++Slot)
+			if(m_aReplayInputSlots[Slot] < InputCount && (InputMask & (1u << m_aReplayInputSlots[Slot])))
+				if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
+					pCharacter->OnPredictedInput(&aInputs[m_aReplayInputSlots[Slot]]);
 		m_pWorld->Tick();
-		for(int Slot = 0; Slot < InputCount; ++Slot)
+		for(int Slot = 0; Slot < 2; ++Slot)
 		{
+			if(m_aReplayInputSlots[Slot] >= InputCount || !(InputMask & (1u << m_aReplayInputSlots[Slot])))
+				continue;
 			auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]);
 			if(!pCharacter)
 				continue;
@@ -214,6 +220,11 @@ namespace OpenKrx
 		const int Slot = g_Config.m_ClDummy;
 		auto &Controls = GameClient()->m_Controls;
 		const bool Recording = g_Config.m_KrxRecordReplay != 0;
+		if(Recording && g_Config.m_KrxLoadReplay)
+		{
+			Message("TAS: Can't load, still recording!");
+			g_Config.m_KrxLoadReplay = 0;
+		}
 		if(!Recording)
 		{
 			if(m_WasRecording)
@@ -224,7 +235,7 @@ namespace OpenKrx
 			}
 			m_WasRecording = false;
 			m_NetworkBefore = Controls.m_aInputData[Slot];
-			if(g_Config.m_KrxTasAutoReplay && !m_Replay.m_aFrames[0].empty() &&
+			if(!g_Config.m_KrxLoadReplay && g_Config.m_KrxTasAutoReplay && !m_Replay.m_aFrames[0].empty() &&
 				((g_Config.m_KrxTasAutoReplayFreeze && Frozen(GameClient()->m_GameWorld.GetCharacterById(GameClient()->m_aLocalIds[Slot]))) || m_PlaybackTick >= (int)m_Replay.m_aFrames[0].size()))
 			{
 				m_PlaybackTick = 0;
@@ -264,6 +275,7 @@ namespace OpenKrx
 		if(!m_pWorld || m_Replay.m_aFrames[0].size() < 51 || g_Config.m_KrxTasRespawn)
 		{
 			m_aIds = {GameClient()->m_aLocalIds[0], GameClient()->m_aLocalIds[1]};
+			m_aReplayInputSlots = {0, 1};
 			if(!GameClient()->m_GameWorld.GetCharacterById(m_aIds[Slot]))
 				return false;
 			if(!m_WasRecording)
@@ -274,9 +286,9 @@ namespace OpenKrx
 			m_Replay.m_Map = Client()->ServerInfo().m_aMap;
 			m_Replay.m_Author = g_Config.m_PlayerName;
 			m_Replay.m_Description = g_Config.m_KrxReplayFileDescription;
-			m_aInputs = {Controls.m_aInputData[0], Controls.m_aInputData[1]};
-			for(auto &Input : m_aInputs)
+			for(auto &Input : Controls.m_aInputData)
 				Input.m_Direction = Input.m_Jump = Input.m_Hook = 0;
+			m_aInputs = {Controls.m_aInputData[0], Controls.m_aInputData[1]};
 			for(int I = 0; I < 50; ++I)
 				Step(m_aInputs, true, false);
 			g_Config.m_KrxTasPause = 0;
@@ -293,7 +305,7 @@ namespace OpenKrx
 		m_ForwardHeld = g_Config.m_KrxTasForward != 0;
 		if(g_Config.m_KrxTasAutoForward && !m_RewindHeld)
 		{
-			auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]);
+			auto *pCharacter = m_pWorld->GetCharacterById(GameClient()->m_aLocalIds[Slot]);
 			if(pCharacter && pCharacter->m_FreezeTime > 0)
 			{
 				CGameWorld Probe;
@@ -302,7 +314,7 @@ namespace OpenKrx
 				int Ticks = 0;
 				for(int I = 0; I < MaxTicks; ++I)
 				{
-					auto *pProbe = Probe.GetCharacterById(m_aIds[Slot]);
+					auto *pProbe = Probe.GetCharacterById(GameClient()->m_aLocalIds[Slot]);
 					if(!pProbe)
 						break;
 					pProbe->OnDirectInput(&m_aInputs[Slot]);
@@ -348,6 +360,17 @@ namespace OpenKrx
 		if(!Active() || Ticks < 0 || Ticks >= Count)
 			return;
 		Ticks = std::min(Ticks, Count - 1);
+		std::array<int, 2> aFire{};
+		std::array<bool, 2> aRestoreFire{};
+		if(Ticks > 0)
+			for(int Slot = 0; Slot < 2; ++Slot)
+				if(auto *pCharacter = m_vWorlds[Count - Ticks]->GetCharacterById(m_aIds[Slot]))
+				{
+					// 2f5890 reads the first removed snapshot before popping it,
+					// using LatestInput.Fire (character+154), not target CurrentInput.
+					aFire[Slot] = pCharacter->DiagnosticLatestInput().m_Fire;
+					aRestoreFire[Slot] = true;
+				}
 		m_pWorld->CopyWorldIsolated(m_vWorlds[Count - Ticks - 1].get());
 		m_pPreviousWorld->CopyWorldIsolated(m_pWorld.get());
 		m_vWorlds.resize(Count - Ticks);
@@ -355,8 +378,16 @@ namespace OpenKrx
 			if(vFrames.size() >= (size_t)Ticks)
 				vFrames.resize(vFrames.size() - Ticks);
 		for(int Slot = 0; Slot < 2; ++Slot)
-			if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
-				GameClient()->m_Controls.m_aInputData[Slot].m_Fire = pCharacter->DiagnosticCurrentInput().m_Fire;
+			if(aRestoreFire[Slot])
+			{
+				const int InputSlot = m_aReplayInputSlots[Slot];
+				GameClient()->m_Controls.m_aInputData[InputSlot].m_Fire = aFire[Slot];
+				if(InputSlot != g_Config.m_ClDummy)
+				{
+					GameClient()->m_DummyInput.m_Fire = aFire[Slot];
+					GameClient()->m_HammerInput.m_Fire = aFire[Slot];
+				}
+			}
 		m_FinishTick = 0;
 		if(Ticks > 0)
 			m_LastStep = time_get_nanoseconds().count();
@@ -382,7 +413,7 @@ namespace OpenKrx
 	{
 		if(!Active() || !g_Config.m_KrxTasAutoRewind || g_Config.m_KrxTasRewind || m_vWorlds.size() <= 10)
 			return;
-		const int Id = m_aIds[g_Config.m_ClDummy];
+		const int Id = GameClient()->m_aLocalIds[g_Config.m_ClDummy];
 		if(!Frozen(m_pWorld->GetCharacterById(Id)) || Frozen(m_pPreviousWorld->GetCharacterById(Id)))
 			return;
 		int BestLife = 0, BestRewind = 10;
@@ -454,7 +485,7 @@ namespace OpenKrx
 		if(m_PlaybackTick == 0)
 			for(int Slot = 0; Slot < 2; ++Slot)
 				if(!m_Replay.m_aFrames[Slot].empty())
-					if(auto *pCharacter = GameClient()->m_GameWorld.GetCharacterById(GameClient()->m_aLocalIds[Slot]))
+					if(auto *pCharacter = GameClient()->m_GameWorld.GetCharacterById(m_aIds[Slot]))
 						if(pCharacter->Core()->m_Pos != m_Replay.m_aFrames[Slot][0].m_Position)
 						{
 							char aMessage[128];
@@ -476,8 +507,9 @@ namespace OpenKrx
 		for(int Slot = 0; Slot < 2; ++Slot)
 			if((size_t)m_PlaybackTick < m_Replay.m_aFrames[Slot].size())
 			{
-				GameClient()->m_Controls.m_aInputData[Slot] = m_Replay.m_aFrames[Slot][m_PlaybackTick].m_Input;
-				if(Slot != g_Config.m_ClDummy)
+				const int InputSlot = m_aReplayInputSlots[Slot];
+				GameClient()->m_Controls.m_aInputData[InputSlot] = m_Replay.m_aFrames[Slot][m_PlaybackTick].m_Input;
+				if(InputSlot != g_Config.m_ClDummy)
 					GameClient()->m_DummyInput = m_Replay.m_aFrames[Slot][m_PlaybackTick].m_Input;
 			}
 	}
@@ -493,14 +525,14 @@ namespace OpenKrx
 		return true;
 	}
 
-	bool CKrxTas::SaveReplay(const char *pName, bool Auto)
+	bool CKrxTas::SaveReplay(const char *pName, bool Auto, bool Overwrite)
 	{
 		std::string Path;
 		if(!MakePath(pName, Path, Auto))
 			return false;
 		if(str_endswith(Path.c_str(), ".json"))
 			Path = Path.substr(0, Path.size() - 5) + ".tas";
-		if(!Auto && Storage()->FileExists(Path.c_str(), IStorage::TYPE_SAVE) && m_OverwriteName != Path)
+		if(!Auto && !Overwrite && Storage()->FileExists(Path.c_str(), IStorage::TYPE_SAVE) && m_OverwriteName != Path)
 		{
 			m_OverwriteName = Path;
 			Message("TAS: Replay already exists. Save again to overwrite.");
@@ -566,12 +598,60 @@ namespace OpenKrx
 			Message(Error.empty() ? "TAS: Couldn't read file." : Error.c_str());
 			return false;
 		}
+		// Validate and rebuild snapshots from the same source as 2f2cf0. An
+		// offline browser can load data, but cannot reuse a previous TAS world.
+		CGameWorld Source;
+		const bool Online = Client()->State() == IClient::STATE_ONLINE;
+		if(Online)
+			Source.CopyWorldIsolated(Active() ? m_pWorld.get() : &GameClient()->m_GameWorld);
 		ClearReplay();
 		m_Replay = std::move(Loaded);
+		m_pWorld.reset();
+		m_pPreviousWorld.reset();
 		m_pInitialWorld.reset();
-		m_aIds = {GameClient()->m_aLocalIds[0], GameClient()->m_aLocalIds[1]};
+		m_aReplayInputSlots = {g_Config.m_ClDummy, !g_Config.m_ClDummy};
+		m_aIds = {GameClient()->m_aLocalIds[m_aReplayInputSlots[0]], GameClient()->m_aLocalIds[m_aReplayInputSlots[1]]};
 		str_copy(g_Config.m_KrxReplayFileDescription, m_Replay.m_Description.c_str());
 		Message("TAS: Successfully loaded replay from file.");
+		if(Online && !m_Replay.m_aFrames[0].empty())
+		{
+			InitializeWorld(Source, true);
+			bool Valid = m_pWorld->GetCharacterById(m_aIds[0]) != nullptr;
+			for(size_t I = 0; Valid && I < m_Replay.m_aFrames[0].size(); ++I)
+			{
+				std::array<CNetObj_PlayerInput, 2> aInputs{};
+				unsigned InputMask = 0;
+				for(int Slot = 0; Slot < 2; ++Slot)
+					if(I < m_Replay.m_aFrames[Slot].size())
+					{
+						aInputs[m_aReplayInputSlots[Slot]] = m_Replay.m_aFrames[Slot][I].m_Input;
+						InputMask |= 1u << m_aReplayInputSlots[Slot];
+					}
+				Step(aInputs, false, false, 2, InputMask);
+				for(int Slot = 0; Slot < 2; ++Slot)
+					if(I < m_Replay.m_aFrames[Slot].size())
+					{
+						const auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]);
+						if(!pCharacter || pCharacter->Core()->m_Pos != m_Replay.m_aFrames[Slot][I].m_Position)
+							Valid = false;
+					}
+				m_vWorlds.push_back(Snapshot(*m_pWorld));
+			}
+			if(Valid)
+			{
+				m_ReplayFinishTicks = m_StartTick && m_FinishTick ? m_FinishTick - m_StartTick : 0;
+				g_Config.m_KrxTasPause = 1;
+			}
+			else
+			{
+				m_vWorlds.clear();
+				m_pWorld.reset();
+				m_pPreviousWorld.reset();
+				m_pInitialWorld.reset();
+				m_StartTick = m_FinishTick = 0;
+				Message("TAS: Couldn't validate run information (invalid run).");
+			}
+		}
 		return true;
 	}
 
@@ -620,7 +700,7 @@ namespace OpenKrx
 		if(m_Replay.m_aFrames[0].empty())
 			return false;
 		CGameWorld Probe;
-		Probe.CopyWorldIsolated(m_pInitialWorld ? m_pInitialWorld.get() : &GameClient()->m_GameWorld);
+		Probe.CopyWorldIsolated(Active() ? m_pWorld.get() : &GameClient()->m_GameWorld);
 		Probe.m_WorldConfig.m_KrxPrediction = true;
 		for(size_t I = 0; I < m_Replay.m_aFrames[0].size(); ++I)
 		{
@@ -668,22 +748,27 @@ namespace OpenKrx
 						pCharacter->OnPredictedInput(&m_Replay.m_aFrames[Slot][I].m_Input);
 			Probe.Tick();
 			for(int Slot = 0; Slot < 2; ++Slot)
-				if(auto *pCharacter = Probe.GetCharacterById(m_aIds[Slot]))
-				{
-					auto vIndices = Collision()->GetMapIndices(pCharacter->m_PrevPos, pCharacter->Core()->m_Pos);
-					vIndices.push_back(Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos));
-					for(int Index : vIndices)
+				if(I < m_Replay.m_aFrames[Slot].size())
+					if(auto *pCharacter = Probe.GetCharacterById(m_aIds[Slot]))
 					{
-						const int Tile = Collision()->GetTileIndex(Index), Front = Collision()->GetFrontTileIndex(Index);
-						if(Tile == TILE_START || Front == TILE_START)
-							Start = Probe.GameTick();
-						if((Tile == TILE_FINISH || Front == TILE_FINISH) && Start && !Finish)
-							Finish = Probe.GameTick();
+						auto vIndices = Collision()->GetMapIndices(pCharacter->m_PrevPos, pCharacter->Core()->m_Pos);
+						vIndices.push_back(Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos));
+						for(int Index : vIndices)
+						{
+							const int Tile = Collision()->GetTileIndex(Index), Front = Collision()->GetFrontTileIndex(Index);
+							if(Tile == TILE_START || Front == TILE_START)
+								Start = Probe.GameTick();
+							if((Tile == TILE_FINISH || Front == TILE_FINISH) && Start && !Finish)
+								Finish = Probe.GameTick();
+						}
 					}
-				}
 		}
-		m_ReplayFinishTicks = Start && Finish ? Finish - Start : 0;
-		return m_ReplayFinishTicks;
+		const int Ticks = Start && Finish ? Finish - Start : 0;
+		// 2f24b0 writes the last measured race time only for a completed run.
+		// Replay metadata Finish Time is populated separately by 2f2cf0.
+		if(Ticks)
+			m_LastReplayTimeTicks = Ticks;
+		return Ticks;
 	}
 
 	void CKrxTas::ConvertLegacyReplays()
@@ -730,6 +815,7 @@ namespace OpenKrx
 	{
 		ClearReplay();
 		m_aIds = {GameClient()->m_aLocalIds[0], GameClient()->m_aLocalIds[1]};
+		m_aReplayInputSlots = {0, 1};
 		InitializeWorld(GameClient()->m_GameWorld, true);
 		m_Replay.m_Map = Client()->ServerInfo().m_aMap;
 		m_Replay.m_Author = g_Config.m_PlayerName;

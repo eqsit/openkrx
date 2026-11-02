@@ -1273,6 +1273,11 @@ void CMenus::RenderPopupFullscreen(CUIRect Screen)
 		pExtraText = Localize("Are you sure you want to save your skin? If a skin with this name already exists, it will be replaced.");
 	}
 
+	else if(m_Popup == POPUP_SAVE_KRX_REPLAY)
+	{
+		pTitle = Localize("Save replay?");
+	}
+
 	CUIRect Box, Part;
 	Box = Screen;
 	if(m_Popup != POPUP_FIRST_LAUNCH)
@@ -2000,6 +2005,67 @@ void CMenus::RenderPopupFullscreen(CUIRect Screen)
 			SetActive(false);
 		}
 	}
+	else if(m_Popup == POPUP_SAVE_KRX_REPLAY)
+	{
+		// Original 2474f0 uses a separate filename buffer and resets it on
+		// both Save and Quit. The description remains a config-bound input.
+		static char s_aReplayFilename[512] = "my_tas";
+		static CLineInput s_ReplayDescription(g_Config.m_KrxReplayFileDescription, sizeof(g_Config.m_KrxReplayFileDescription));
+		static CLineInput s_ReplayFilename(s_aReplayFilename, sizeof(s_aReplayFilename));
+		if(str_comp(s_aReplayFilename, "my_tas") == 0 && Client()->ServerInfo().m_aMap[0])
+		{
+			const int Ticks = GameClient()->m_Tas.LastReplayTimeTicks();
+			char aFilename[512];
+			if(Ticks != 0)
+				str_format(aFilename, sizeof(aFilename), "%s_%dm%.2fs", Client()->ServerInfo().m_aMap, (int)(Ticks / 50.0f) / 60, std::fmod(Ticks / 50.0f, 60.0f));
+			else
+				str_copy(aFilename, Client()->ServerInfo().m_aMap);
+			s_ReplayFilename.Set(aFilename);
+		}
+
+		CUIRect Buttons, Quit, Save;
+		Box.HSplitBottom(20, &Box, &Buttons);
+		Box.HSplitBottom(24, &Box, &Buttons);
+		Box.HSplitBottom(24, &Box, &Buttons);
+		Buttons.VSplitMid(&Quit, &Save);
+		Quit.VMargin(20, &Quit);
+		Save.VMargin(20, &Save);
+		static CButtonContainer s_QuitReplay, s_SaveReplay;
+		if(DoButton_Menu(&s_SaveReplay, Localize("Save"), 0, &Save) || Ui()->ConsumeHotkey(CUi::HOTKEY_ENTER))
+		{
+			GameClient()->m_Tas.SaveReplay(s_aReplayFilename, false, true);
+			m_Popup = POPUP_NONE;
+			s_ReplayFilename.Set("my_tas");
+		}
+		if(DoButton_Menu(&s_QuitReplay, Localize("Quit"), 0, &Quit) || Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE))
+		{
+			m_Popup = POPUP_NONE;
+			s_ReplayFilename.Set("my_tas");
+		}
+
+		CUIRect Label, Edit;
+		Box.HSplitBottom(20, &Box, &Part);
+		Box.HSplitBottom(24, &Box, &Part);
+		Box.HSplitBottom(24, &Box, &Part);
+		Part.VSplitLeft(60, nullptr, &Label);
+		Label.VSplitLeft(100, nullptr, &Edit);
+		Edit.VSplitLeft(20, nullptr, &Edit);
+		Edit.VSplitRight(60, &Edit, nullptr);
+		Ui()->DoLabel(&Label, Localize("Description"), 16, TEXTALIGN_ML);
+		s_ReplayDescription.SetEmptyText(Localize("Enter replay description"));
+		Ui()->DoEditBox(&s_ReplayDescription, &Edit, 12);
+
+		Box.HSplitBottom(20, &Box, &Part);
+		Box.HSplitBottom(24, &Box, &Part);
+		Part.VSplitLeft(60, nullptr, &Label);
+		Label.VSplitLeft(100, nullptr, &Edit);
+		Edit.VSplitLeft(20, nullptr, &Edit);
+		Edit.VSplitRight(60, &Edit, nullptr);
+		Ui()->DoLabel(&Label, Localize("Filename"), 16, TEXTALIGN_ML);
+		s_ReplayFilename.SetEmptyText(Localize("Enter replay filename"));
+		Ui()->DoEditBox(&s_ReplayFilename, &Edit, 12);
+	}
+
 	else if(m_Popup == POPUP_SAVE_SKIN)
 	{
 		CUIRect Label, TextBox, Yes, No;

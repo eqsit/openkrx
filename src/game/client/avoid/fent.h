@@ -5,6 +5,7 @@
 #include <game/client/krx/flow_field.h>
 #include <game/client/prediction/gameworld.h>
 
+#include <array>
 #include <atomic>
 #include <cfloat>
 #include <memory>
@@ -32,6 +33,19 @@ namespace OpenKrx
 		{
 			std::vector<uint32_t> m_vInputs;
 			float m_Score = 0;
+		};
+		// 2d8aa0 -> 2d76b0 evaluates disjoint contiguous ranges in parallel,
+		// waits for every range, then sorts. Each worker owns its simulation.
+		class CEvaluator
+		{
+		public:
+			CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads);
+			~CEvaluator();
+			void Evaluate(std::vector<CCandidate> &vPopulation, const std::atomic<bool> &Cancel);
+
+		private:
+			struct CImpl;
+			std::unique_ptr<CImpl> m_pImpl;
 		};
 		struct CPathPoint
 		{
@@ -61,6 +75,7 @@ namespace OpenKrx
 		std::vector<CNetObj_PlayerInput> m_vInputs;
 		std::unique_ptr<CCollision> m_pCollision;
 		std::unique_ptr<CGameWorld> m_pInitial;
+		std::array<CTuningParams, 256> m_aSearchTuning;
 		int m_Id = -1;
 		bool m_PausedForScan = false;
 		vec2 m_ScanPosition = vec2(0, 0);
