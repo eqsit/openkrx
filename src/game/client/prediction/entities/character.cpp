@@ -497,7 +497,14 @@ void CCharacter::FireWeapon()
 	// -1 is no weapon, handled here so pain sound still plays when firing in freeze
 	if(!m_ReloadTimer && m_Core.m_ActiveWeapon != -1)
 	{
-		m_ReloadTimer = GetTuning(GetOverriddenTuneZone())->GetWeaponFireDelay(m_Core.m_ActiveWeapon) * GameWorld()->GameTickSpeed();
+		if(GameWorld()->m_WorldConfig.m_KrxPrediction)
+		{
+			// Preserve MUL50 then DIV1000 before int, without a seconds roundtrip.
+			const float FireDelay = GetTuning(GetOverriddenTuneZone())->GetWeaponFireDelayMilliseconds(m_Core.m_ActiveWeapon);
+			m_ReloadTimer = (FireDelay * GameWorld()->GameTickSpeed()) / 1000.0f;
+		}
+		else
+			m_ReloadTimer = GetTuning(GetOverriddenTuneZone())->GetWeaponFireDelay(m_Core.m_ActiveWeapon) * GameWorld()->GameTickSpeed();
 	}
 }
 
@@ -703,17 +710,19 @@ void CCharacter::HandleSkippableTiles(int Index)
 	// 237e60: death is a terminal frozen state for global death prediction,
 	// AutoEdge, or the active speculative Avoid world's Death option.
 	if((g_Config.m_KrxPredictionDeathTile || g_Config.m_KrxAutoEdge ||
-		(GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath)) && !m_Core.m_Super)
+		   (GameWorld()->m_WorldConfig.m_KrxPrediction && g_Config.m_KrxRecordReplay) ||
+		   (GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath)) &&
+		!m_Core.m_Super)
 	{
 		for(const vec2 Offset : {vec2(GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
-			vec2(GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f),
-			vec2(-GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
-			vec2(-GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f)})
+			    vec2(GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f),
+			    vec2(-GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
+			    vec2(-GetProximityRadius() / 3.0f, GetProximityRadius() / 3.0f)})
 		{
 			const int TileIndex = Collision()->GetPureMapIndex(vec2(round_to_int(m_Pos.x + Offset.x), round_to_int(m_Pos.y + Offset.y)));
 			if(Collision()->GetTileIndex(TileIndex) == TILE_DEATH || Collision()->GetFrontTileIndex(TileIndex) == TILE_DEATH)
 			{
-				m_Core.m_DeepFrozen = m_Core.m_LiveFrozen = true;
+				m_Core.m_IsInFreeze = m_Core.m_DeepFrozen = true;
 				m_FreezeTime = 1000;
 				return;
 			}
@@ -815,11 +824,22 @@ bool CCharacter::IsSwitchActiveCb(unsigned char Number, void *pUser)
 
 void CCharacter::HandleTiles(int Index)
 {
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction && Index < 0)
+	{
+		m_LastRefillJumps = false;
+		return;
+	}
 	int MapIndex = Index;
 	m_TileIndex = Collision()->GetTileIndex(MapIndex);
 	m_TileFIndex = Collision()->GetFrontTileIndex(MapIndex);
-	m_MoveRestrictions = g_Config.m_KrxPredictionMoveRestriction ?
-		Collision()->GetMoveRestrictions(IsSwitchActiveCb, this, m_Pos, 18.0f, MapIndex) : 0;
+	m_MoveRestrictions = (g_Config.m_KrxPredictionMoveRestriction ||
+				     (GameWorld()->m_WorldConfig.m_KrxPrediction && g_Config.m_KrxRecordReplay)) ?
+				     Collision()->GetMoveRestrictions(IsSwitchActiveCb, this, m_Pos, 18.0f, MapIndex) :
+				     0;
+
+	// 238420 clamps before its PredictTiles gate and processes switch first.
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction)
+		ClampTileVelocity();
 
 	if(!GameWorld()->m_WorldConfig.m_PredictTiles)
 		return;
@@ -833,6 +853,9 @@ void CCharacter::HandleTiles(int Index)
 	int TeleCheckpoint = Collision()->IsTeleCheckpoint(MapIndex);
 	if(TeleCheckpoint)
 		m_TeleCheckpoint = TeleCheckpoint;
+
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction)
+		HandleSwitchTiles(MapIndex);
 
 	// freeze
 	if(((m_TileIndex == TILE_FREEZE) || (m_TileFIndex == TILE_FREEZE)) && !m_Core.m_Super && !m_Core.m_Invincible && !m_Core.m_DeepFrozen)
@@ -991,6 +1014,84 @@ void CCharacter::HandleTiles(int Index)
 		m_Core.m_HasTelegunLaser = false;
 	}
 
+	if(!GameWorld()->m_WorldConfig.m_KrxPrediction)
+		ClampTileVelocity();
+
+	if(!GameWorld()->m_WorldConfig.m_KrxPrediction)
+		HandleSwitchTiles(MapIndex);
+	// 238420 applies the global teleport option to every prediction world.
+	// The Avoid-specific Teles policy additionally marks tele-ins as hazards.
+	{
+		// 238420: without teleport prediction (the reference default), or
+		// with Avoid Teles, every character tele-in is a terminal hazard.
+		const int Tele = Collision()->IsTeleport(MapIndex);
+		const int EvilTele = Collision()->IsEvilTeleport(MapIndex);
+		const bool CheckEvil = Collision()->IsCheckEvilTeleport(MapIndex);
+		const bool Check = Collision()->IsCheckTeleport(MapIndex);
+		if(!g_Config.m_KrxPredictionTeleports || GameWorld()->m_WorldConfig.m_KrxAvoidTeles)
+		{
+			if(Tele || EvilTele || CheckEvil || Check)
+			{
+				m_Core.m_IsInFreeze = m_Core.m_DeepFrozen = true;
+				m_FreezeTime = 1000;
+			}
+			return;
+		}
+		if(m_Core.m_Super)
+			return;
+		const bool Old = g_Config.m_SvOldTeleportHook || g_Config.m_SvOldTeleportWeapons;
+		if(!Old && Tele && !Collision()->TeleOuts(Tele - 1).empty())
+		{
+			const auto &vOuts = Collision()->TeleOuts(Tele - 1);
+			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+			if(!g_Config.m_SvTeleportHoldHook)
+				ResetHook();
+			if(g_Config.m_SvTeleportLoseWeapons)
+				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
+					GiveWeapon(Weapon, true);
+			return;
+		}
+		if(EvilTele && !Collision()->TeleOuts(EvilTele - 1).empty())
+		{
+			const auto &vOuts = Collision()->TeleOuts(EvilTele - 1);
+			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+			if(Old)
+				return;
+			m_Core.m_Vel = vec2(0, 0);
+			if(!g_Config.m_SvTeleportHoldHook)
+			{
+				ResetHook();
+				GameWorld()->ReleaseHooked(GetCid());
+			}
+			if(g_Config.m_SvTeleportLoseWeapons)
+				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
+					GiveWeapon(Weapon, true);
+			return;
+		}
+		if(CheckEvil || Check)
+		{
+			for(int Checkpoint = m_TeleCheckpoint - 1; Checkpoint >= 0; --Checkpoint)
+			{
+				const auto &vOuts = Collision()->TeleCheckOuts(Checkpoint);
+				if(vOuts.empty())
+					continue;
+				m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
+				if(CheckEvil)
+					m_Core.m_Vel = vec2(0, 0);
+				if(!g_Config.m_SvTeleportHoldHook)
+				{
+					ResetHook();
+					if(CheckEvil)
+						GameWorld()->ReleaseHooked(GetCid());
+				}
+				return;
+			}
+		}
+	}
+}
+
+void CCharacter::ClampTileVelocity()
+{
 	// stopper
 	if(m_Core.m_Vel.y > 0 && (m_MoveRestrictions & CANTMOVE_DOWN))
 	{
@@ -998,7 +1099,10 @@ void CCharacter::HandleTiles(int Index)
 		m_Core.m_JumpedTotal = 0;
 	}
 	m_Core.m_Vel = ClampVel(m_MoveRestrictions, m_Core.m_Vel);
+}
 
+void CCharacter::HandleSwitchTiles(int MapIndex)
+{
 	// handle switch tiles
 	const int SwitchType = Collision()->GetSwitchType(MapIndex);
 	const int SwitchNumber = Collision()->GetSwitchNumber(MapIndex);
@@ -1105,76 +1209,6 @@ void CCharacter::HandleTiles(int Index)
 		if(NewJumps != m_Core.m_Jumps)
 			m_Core.m_Jumps = NewJumps;
 	}
-	// 238420 applies the global teleport option to every prediction world.
-	// The Avoid-specific Teles policy additionally marks tele-ins as hazards.
-	{
-		// 238420: without teleport prediction (the reference default), or
-		// with Avoid Teles, every character tele-in is a terminal hazard.
-		const int Tele = Collision()->IsTeleport(MapIndex);
-		const int EvilTele = Collision()->IsEvilTeleport(MapIndex);
-		const bool CheckEvil = Collision()->IsCheckEvilTeleport(MapIndex);
-		const bool Check = Collision()->IsCheckTeleport(MapIndex);
-		if(!g_Config.m_KrxPredictionTeleports || GameWorld()->m_WorldConfig.m_KrxAvoidTeles)
-		{
-			if(Tele || EvilTele || CheckEvil || Check)
-			{
-				m_Core.m_DeepFrozen = m_Core.m_LiveFrozen = true;
-				m_FreezeTime = 1000;
-			}
-			return;
-		}
-		if(m_Core.m_Super)
-			return;
-		const bool Old = g_Config.m_SvOldTeleportHook || g_Config.m_SvOldTeleportWeapons;
-		if(!Old && Tele && !Collision()->TeleOuts(Tele - 1).empty())
-		{
-			const auto &vOuts = Collision()->TeleOuts(Tele - 1);
-			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
-			if(!g_Config.m_SvTeleportHoldHook)
-				ResetHook();
-			if(g_Config.m_SvTeleportLoseWeapons)
-				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
-					GiveWeapon(Weapon, true);
-			return;
-		}
-		if(EvilTele && !Collision()->TeleOuts(EvilTele - 1).empty())
-		{
-			const auto &vOuts = Collision()->TeleOuts(EvilTele - 1);
-			m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
-			if(Old)
-				return;
-			m_Core.m_Vel = vec2(0, 0);
-			if(!g_Config.m_SvTeleportHoldHook)
-			{
-				ResetHook();
-				GameWorld()->ReleaseHooked(GetCid());
-			}
-			if(g_Config.m_SvTeleportLoseWeapons)
-				for(int Weapon = WEAPON_SHOTGUN; Weapon <= WEAPON_LASER; ++Weapon)
-					GiveWeapon(Weapon, true);
-			return;
-		}
-		if(CheckEvil || Check)
-		{
-			for(int Checkpoint = m_TeleCheckpoint - 1; Checkpoint >= 0; --Checkpoint)
-			{
-				const auto &vOuts = Collision()->TeleCheckOuts(Checkpoint);
-				if(vOuts.empty())
-					continue;
-				m_Core.m_Pos = vOuts[GameWorld()->m_Core.RandomOr0(vOuts.size())];
-				if(CheckEvil)
-					m_Core.m_Vel = vec2(0, 0);
-				if(!g_Config.m_SvTeleportHoldHook)
-				{
-					ResetHook();
-					if(CheckEvil)
-						GameWorld()->ReleaseHooked(GetCid());
-				}
-				return;
-			}
-		}
-	}
-
 }
 
 void CCharacter::HandleTuneLayer()
@@ -1182,6 +1216,12 @@ void CCharacter::HandleTuneLayer()
 	int CurrentIndex = Collision()->GetMapIndex(m_Pos);
 	SetTuneZone(GameWorld()->m_WorldConfig.m_UseTuneZones ? Collision()->IsTune(CurrentIndex) : 0);
 	m_Core.m_Tuning = *GetTuning(GetOverriddenTuneZone());
+	if(GameWorld()->m_WorldConfig.m_KrxPrediction && m_IsLocal)
+	{
+		// 218ab0: the last local tee updates the active world tuning slot.
+		GameWorld()->m_WorldConfig.m_KrxExplosionStrengthValid = true;
+		GameWorld()->m_WorldConfig.m_KrxExplosionStrength = GetTuning(m_TuneZone)->m_ExplosionStrength;
+	}
 }
 
 void CCharacter::DDRaceTick()
@@ -1217,20 +1257,26 @@ void CCharacter::DDRaceTick()
 	m_Core.m_IsInFreeze = false;
 	for(const int Tile : aTiles)
 	{
-		if(Tile == TILE_FREEZE || Tile == TILE_DFREEZE || Tile == TILE_LFREEZE || Tile == TILE_DEATH)
+		if(Tile == TILE_FREEZE || Tile == TILE_DFREEZE || Tile == TILE_LFREEZE ||
+			(g_Config.m_KrxRecordReplay && Tile == TILE_DEATH))
 		{
 			m_Core.m_IsInFreeze = true;
 			break;
 		}
 	}
-	m_Core.m_IsInFreeze |= (Collision()->GetCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetFrontCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetFrontCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetFrontCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
-				Collision()->GetFrontCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH);
+	// Normal KRX 2397c0 excludes death contact; alternate recording 2170b0
+	// includes corners. Death prediction itself still marks terminal hazards.
+	if(g_Config.m_KrxRecordReplay)
+	{
+		m_Core.m_IsInFreeze |= (Collision()->GetCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetFrontCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetFrontCollisionAt(m_Pos.x + GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetFrontCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y - GetProximityRadius() / 3.f) == TILE_DEATH ||
+					Collision()->GetFrontCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH);
+	}
 }
 
 void CCharacter::DDRacePostCoreTick()
@@ -1693,7 +1739,10 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 	{
 		if(std::max(m_LastTuneZoneTick, m_LastWeaponSwitchTick) + GameWorld()->GameTickSpeed() < GameWorld()->GameTick())
 		{
-			const int FireDelayTicks = GetTuning(GetOverriddenTuneZone())->GetWeaponFireDelay(m_Core.m_ActiveWeapon) * GameWorld()->GameTickSpeed();
+			const auto *pTuning = GetTuning(GetOverriddenTuneZone());
+			const int FireDelayTicks = GameWorld()->m_WorldConfig.m_KrxPrediction ?
+							   (pTuning->GetWeaponFireDelayMilliseconds(m_Core.m_ActiveWeapon) * GameWorld()->GameTickSpeed()) / 1000.0f :
+							   pTuning->GetWeaponFireDelay(m_Core.m_ActiveWeapon) * GameWorld()->GameTickSpeed();
 			m_ReloadTimer = std::max(0, m_AttackTick + FireDelayTicks - GameWorld()->GameTick());
 		}
 	}

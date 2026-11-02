@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -39,10 +40,8 @@ namespace OpenKrx
 		int m_MinShootLength = 1;
 		int m_MaxShootLength = 8;
 		bool m_GrenadeMovePrediction = false;
-		// Set when this tick's hook was injected by other KRX automation (Avoid
-		// rescue, Hook Nearest auto hook, hook spam/rehook) instead of the
-		// player. Such a hook owns its direction and aim assistance must not
-		// steer it.
+		// Retained for source compatibility. Original aimbot evaluates the
+		// post-Avoid input without an additional synthetic-hook exclusion.
 		bool m_HookIsAutomated = false;
 	};
 
@@ -58,7 +57,10 @@ namespace OpenKrx
 	class CAimbot
 	{
 	public:
+		CAimbot();
+		~CAimbot();
 		void OnReset();
+		void SetSettings(const CAimbotSettings &Settings) { m_CachedSettings = Settings; }
 		CAimbotDecision AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input,
 			int ClientId, vec2 PhysicalMouse, const CAimbotSettings &Settings);
 		CAimbotDecision SearchWorld(const CGameWorld &Source, CNetObj_PlayerInput Input,
@@ -66,7 +68,7 @@ namespace OpenKrx
 			float MouseRadius = 400.0f, bool TeamPlay = false,
 			const std::array<bool, MAX_CLIENTS> *pFriends = nullptr);
 		std::optional<vec2> FindDragAim(const CGameWorld &Source, int ClientId,
-			CGameClient *pGameClient, vec2 PhysicalMouse) const;
+			CGameClient *pGameClient, vec2 PhysicalMouse);
 
 		int HookTarget() const { return m_HookTarget; }
 		int WeaponTarget() const { return m_WeaponTarget; }
@@ -85,8 +87,12 @@ namespace OpenKrx
 			const CAimbotSettings &Settings, float MouseRadius, bool TeamPlay,
 			const std::array<bool, MAX_CLIENTS> *pFriends);
 		std::vector<CTarget> m_vCachedTargets;
-		vec2 m_CachedLocalPosition{};
-		float m_CachedHookLength = 380.0f;
+		std::unique_ptr<CGameWorld> m_pTargetWorld;
+		void CollectTargets(CGameWorld &World, CGameClient *pGameClient, bool TeamPlay,
+			const std::array<bool, MAX_CLIENTS> *pFriends);
+		void SelectTargets(CGameWorld &World, CGameClient *pGameClient, vec2 Mouse,
+			const CAimbotSettings &Settings, bool TeamPlay);
+		void PruneTargets(CGameWorld &World);
 		CAimbotSettings m_CachedSettings{};
 		int m_HookTarget = -1;
 		int m_WeaponTarget = -1;

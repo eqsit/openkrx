@@ -8,6 +8,8 @@
 
 #include <game/client/gameclient.h>
 #include <game/client/prediction/entities/character.h>
+#include <game/collision.h>
+#include <game/mapitems.h>
 
 #include <chrono>
 
@@ -60,7 +62,9 @@ namespace OpenKrx
 			pGameClient->m_Snap.m_SpecInfo.m_Active || !pGameClient->m_Snap.m_pLocalCharacter ||
 			!(Input.m_PlayerFlags & PLAYERFLAG_PLAYING))
 		{
-			if(m_WasActive)
+			// Original cc620 skips transient gates without clearing its agent.
+			// Connection/tee changes still discard plans through OnReset below.
+			if(pGameClient->Client()->State() != IClient::STATE_ONLINE && m_WasActive)
 				OnReset();
 			m_Diagnostic.m_pGate = !Active() ? "disabled" : ClientId < 0                                    ? "invalid_cid" :
 								pGameClient->Client()->State() != IClient::STATE_ONLINE ? "offline" :
@@ -83,6 +87,15 @@ namespace OpenKrx
 		}
 		m_LastClientId = ClientId;
 		m_LastSlot = g_Config.m_ClDummy;
+		// cc620: the snapshot's SUPER bit plus raw game tile9 is an early gate.
+		const vec2 LocalPos = pGameClient->m_LocalCharacterPos;
+		const vec2 TilePos(static_cast<int>(LocalPos.x), static_cast<int>(LocalPos.y));
+		if(pGameClient->m_aClients[ClientId].m_Super &&
+			pGameClient->Collision()->GetTileIndex(pGameClient->Collision()->GetPureMapIndex(TilePos)) == TILE_FREEZE)
+		{
+			m_Diagnostic.m_pGate = "super_freeze_tile";
+			return Input;
+		}
 		const CBlatantSettings Settings = SettingsFromConfig();
 		auto pSimulation = CreateSimulation(pGameClient, ClientId, Settings.m_PlayerPrediction);
 		// KRX b4450 gates on the authoritative world, while cd0c0 searches the
@@ -95,7 +108,6 @@ namespace OpenKrx
 				const vec2 Pos = pSimulation->Position();
 				dbg_msg("avoid", "cid=%d pos=%.0f,%.0f frozen=1 decision=0 before_dir=%d", ClientId, Pos.x, Pos.y, Input.m_Direction);
 			}
-			m_Planner.Reset();
 			m_Diagnostic.m_pGate = AuthoritativeFrozen ? "authoritative_frozen_gate" : "invalid_simulation";
 			m_OwnsHook = false;
 			return Input;

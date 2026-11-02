@@ -129,10 +129,10 @@ namespace OpenKrx
 		static CRocketSaveDecision SearchWithManualJump(const IRocketSaveProbe &Probe, CNetObj_PlayerInput Input, float MouseRadius, bool ManualJump);
 		static CRocketSaveDecision SearchWorld(const CGameWorld &World, int ClientId, CNetObj_PlayerInput Input, float MouseRadius, bool ManualJump = false, bool CanFire = true);
 		static bool SafeWithoutShot(const CGameWorld &World, int ClientId, CNetObj_PlayerInput Input, bool ManualJump);
-		static bool FrozenGate(bool Fng, bool ServerNamedDDNet, int FreezeTime, bool DeepFrozen, bool LiveFrozen, int SnapshotWeapon)
+		static bool FrozenGate(bool Fng, bool ServerNamedDDNet, int FreezeTime, bool DeepFrozen, bool IsInFreeze, int SnapshotWeapon)
 		{
 			if(!Fng && ServerNamedDDNet)
-				return FreezeTime > 0 || DeepFrozen || LiveFrozen;
+				return FreezeTime > 0 || DeepFrozen || IsInFreeze;
 			return FreezeTime > 0 || SnapshotWeapon == WEAPON_NINJA;
 		}
 		static bool ShouldReleaseFire(int GameTick, int Modulo, int Fire)

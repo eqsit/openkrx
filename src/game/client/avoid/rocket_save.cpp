@@ -148,7 +148,7 @@ namespace OpenKrx
 
 		bool Frozen(const CCharacter *pCharacter)
 		{
-			return !pCharacter || pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_LiveFrozen;
+			return !pCharacter || pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_IsInFreeze;
 		}
 
 		void Tick(CGameWorld &World, int ClientId, const CNetObj_PlayerInput &Input)
@@ -271,7 +271,7 @@ namespace OpenKrx
 		// Their different fields are significant on FNG and non-DDNet servers.
 		const bool NamedDDNet = str_find_nocase(pGameClient->Client()->ServerInfo().m_aName, "DDNet") != nullptr;
 		return CRocketSave::FrozenGate(IsKrxFng(pGameClient), NamedDDNet, pCharacter->m_FreezeTime,
-			pCharacter->Core()->m_DeepFrozen, pCharacter->Core()->m_LiveFrozen,
+			pCharacter->Core()->m_DeepFrozen, pCharacter->Core()->m_IsInFreeze,
 			pGameClient->m_Snap.m_aCharacters[ClientId].m_Cur.m_Weapon);
 	}
 
@@ -310,7 +310,9 @@ namespace OpenKrx
 		constexpr float END = 6.2831854820251465f;
 		for(float Angle = 0.0f; Angle <= END; Angle += STEP)
 		{
-			const vec2 Direction = normalize(vec2(std::cos(Angle), std::sin(Angle)));
+			const vec2 Ray(std::cos(Angle), std::sin(Angle));
+			// 2ba64e/652 divide each component directly before integer truncation.
+			const vec2 Direction = normalize_pre_length(Ray, length(Ray));
 			Shot.m_TargetX = static_cast<int>(Direction.x * MouseRadius);
 			Shot.m_TargetY = static_cast<int>(Direction.y * MouseRadius);
 			vCandidates.push_back({Shot, Probe.ShotLife(Shot)});

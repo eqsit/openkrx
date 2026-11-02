@@ -2309,3 +2309,104 @@ overwrite.`), то есть на артефакте теста, а не на к�
   SHA256 a87c601ac611acf741c054054db2112845b41519d7f61e7dedbb683b0523eb3e.
 - SHA256SUMS-v0.1.7.txt:380байт,
   SHA256 bb4b0a5c764702b7684372bdb898ce62ea1876736b48f261110e6b776b3f02c1.
+
+
+## 2026-11-02 — диагностика выключена, локальная сборка, проверка записей Fent
+
+По уточнению пользователя использована существующая галочка Record Avoid
+decisions: default `openkrx_avoid_debug=0` уже был в исходнике, но личный конфиг
+содержал1. Выставлено0, очищен только project-generated logfile. Проверено,
+что в personal settings_ddnet.cfg изменены ровно две строки; прочие настройки
+побайтно сохранены. Backup `/home/a/backups/openkrx-logs-build-20261102-142910/`.
+`scripts/openkrx.sh` больше не создаёт файл лога и не передаёт logfile
+принудительно; явный аргумент logfile по-прежнему поддерживается.
+Автоматическая trace/JSONL, input-send/input-timing и Rocket diagnostics уже
+ограничены существующим flag. Нормальные сообщения об ошибках/завершении
+действий в консоли не являются постоянной диагностикой.
+
+Пользователь подтвердил переезд сессии на прежнюю машину сборки. Read-only
+проверка: локальный arch/CachyOS, Ryzen5 5600X,12logicalCPU,31GiB RAM,
+наличие `/home/a/openkrx-build/{source,build,build-win}`. Скилл
+`/home/a/.codex/skills/openkrx-project/{SKILL.md,agents/openai.yaml}` и
+репозиторный AGENTS.md обновлены под локальную сборку. Старый удалённый
+скрипт оставлен для истории, в текущем пространстве не используется.
+Пользователь не хочет дополнительных Windows/Linux сравнений и запусков ВМ.
+TAS принят в текущем состоянии, дальнейшую мелкую полировку не продолжали.
+
+Завершена bounded проверка ранее снятых оригинальных Fent-записей AiP-Gores.
+Старые native fixtures1/2 отличались с frame51: они конструировали character
+без extended DDNet object, поэтому fallback включал jetpack по tuning strength.
+В original snapshots jetpack отсутствует. Исправлена исследовательская fixture:
+extended weapon flags hammer/gun, jumps2, no jetpack, tuning исходного сервера.
+Production simulation/search source не меняли. Локальный runner с production
+objects: **13053checks/errors0**, run4338/4314/4401frames; positions совпали
+точно. Наблюдались31/25/27airjumps. Свежий build fixture проигнорировал PCH от
+другого compiler executable (GCCwarning), затем успешно скомпилирован/exit0.
+Новых запусков original/Wine/Windows/VM в этом продолжении не делали.
+
+Уже снятые Low замеры на одном private сервере: original Wine
+31.548796/33.643747/38.262128с; OpenKRX Linux
+32.980781/34.642591/34.490726с. Медианы33.643747/34.490726с. GAрандомный,
+платформы исполнения различны, поэтому не считать эти6samples универсальной
+гарантией скорости. Полное1:1 всех карт/состояний/платформ не заявлено.
+Отчёт `research/fent-fidelity-20261102/ORIGINAL_AB_RESULT.md`, хеши и stdout
+в `original-replay-verification.json`/`original-replay-physics-3.log`.
+
+Bash syntax и git diff --check passed; default flag0 подтверждён. Оба локальных
+ярлыка по-прежнему запускают scripts/openkrx.sh, исправлен stale buildhash
+на фактический `0fd43a7ac7d9870cee9d139afe53f0ba581864938acb51e44eed2efd56594d41`,
+desktop-file-validate passed. Клиент не пересобирался: C++ в этом продолжении
+не менялся, новая компиляция только исследовательской nativefixture.
+
+
+## 2026-11-02 — backup и исправление результатов REA-аудита Blatant/Rocket
+
+Пользователь сменил audit-only на явное «забекапь текущее состояние и исправь».
+Перечитан updated openkrx-project skill; работали локально, без ssh home.
+До изменений полный backup проекта/.git/research/dist, cfg и desktop:
+`/home/a/backups/openkrx-before-parity-fix-20261102-143338/`; zstd-t passed,
+SHA25665f54379b1f2e79ae1a13e0d1b1a4b03b2e2f3a51fceb99fa67bccf0f9252f36.
+Исходный HEADcf027ddb73add59adec8b73f1066e26e23378e19, существовавшие изменения
+AGENTS/HANDOFF/JOURNAL/TAS_PATH_FENT/launcher сохранены.
+
+Исправлены13групп: Frozen использует IsInFreeze; terminal death/tele writes
+IsInFreeze+Deep без изменения Live; switch перед game/front и stopper перед
+PredictTiles в KRX мирах; forced TAS death/stopper; AutoDrag повторяет
+collect/select/prune retained private world предыдущего aimbot refresh;
+Super/rawtile9 gate; прямая нормализация Rocket; followfactor*.01;
+Avoid перед aimbot перед Rocket, удалён выдуманный synthetic-hook priority;
+nonnull hooktele pointer; normal contact producer исключает death, record
+включает; explosion strength обновляется локальными tee по pure tune zone;
+reload millis*TickSpeed/1000. CTuningParams даёт именованный millis helper,
+обычная physics сохраняет прежний seconds API. При разработке reload probe
+поймала ошибочный индекс tuning; заменено именованным helper до финальных
+проверок. Transient disable/freeze не сбрасывают план; reconnect/cid/slot
+reset сохранён. Не удалены manual jump rescue, weapon restore, Fire-sync.
+
+Linux DDNet/Server собраны локально, dist установлен атомарно. OpenKRX SHA256
+50ee629954fe42fe7b75c62db1c7c356382557211a5f3b65a8d62fce05059fd8;
+Serverb5cdd4cfb082a72b7b43de87f02bf57d99c181d2394d792e1917fe8ef10a6443.
+13native suites exit0:5новых, Avoid boundaries/full-elision, Fire-sync,
+confirmed restore, rocket physics, projectile, old original Fent replay и
+TAS/path/Fent2357031checks/errors0/179files/1010553frames. Original replay
+13053positions/errors0. Два private Xvfb/server run: rescue/manual press,
+реальный attack, hammer return, после release freeze=false, clientexit0.
+GDB123pipeline triples совпали; disable/freeze/Super gates сохранили hash
+26-step planner.84sends/83receipts,late0,maxprepare1056us/maxflush13us.
+Это ограниченные локальные проверки, не universal original native A/B.
+Полный RESULT/verification и тесты: `research/codex/parity-fix-20261102/`.
+
+Оба desktop обновлены. По скриншоту «x11 not available» проверена фактическая
+сессия: X11 :1 не отвечает, Wayland socket рабочий. Launcher теперь предпочитает
+native Wayland при доступном socket, явно заданный SDL backend не подменяет.
+Wayland smoke с graphics-параметрами personal cfg и private XDG profile:
+selected SDLwayland,OpenGL1.5/NVIDIA RTX5060,menu/echo/quit,exit0; personal cfg
+hash неизменен. Xwayland/Hyprland не перезапускались. Тестовый cfg и логи
+изолированы; в пользовательский cfg не писали. Внешний клиент изменил его
+в14:35:20 до первого private run14:42:21; значения не откатывались.
+
+Позже пользователь явно запросил push и релиз с Windows/Linux. Это разрешает
+commit/tag/publish и локальный Windows cross-build; Windows runtime/ВМ не
+запрошены. Настройки оставить как в текущих пакетах: config headers совпадают
+с v0.1.7, cl_antiping default0; личный config не включать. Новый релизv0.1.8,
+результаты упаковки/публикации в `research/release-v018/` и следующей записи.

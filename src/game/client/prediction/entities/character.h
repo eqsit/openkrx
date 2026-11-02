@@ -194,6 +194,8 @@ private:
 	void HandleSkippableTiles(int Index);
 	void DDRaceTick();
 	void DDRacePostCoreTick();
+	void HandleSwitchTiles(int MapIndex);
+	void ClampTileVelocity();
 	void HandleTuneLayer();
 
 	int m_StrongWeakId;
