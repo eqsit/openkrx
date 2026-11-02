@@ -1,4 +1,37 @@
-# Актуальная сборка: OpenKRX v0.1.5, 2026-11-02
+# Актуальная сборка: OpenKRX v0.1.6, 2026-11-02
+
+Исходник `e60b7e4ef0cc24563b403cf04e9058dc3388892d` отправлен origin/main,
+annotated tag v0.1.6. Windows/Linux пакеты опубликованы:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.6
+
+Содержимое: аудит контроллера TAS — загрузка/валидация записи из текущего
+источника, `replay_local`→активный dummy (`m_aReplayInputSlots`), Fire при
+rewind из первого снятого снимка с синхронизацией DummyInput/HammerInput,
+очистка реальных входов в neutral50, порядок playback/autoreplay, отказ
+`LoadReplay` во время записи, отдельное LastReplayTimeTicks; Fent оценивает
+кандидатов в изолированных мирах с общей коллизией и бюджетом; попап
+Save replay и обновлённые кнопки транспорта TAS. Матрица и ограничения
+по-прежнему в TAS_PATH_FENT.md; отчёт аудита —
+research/fent-fidelity-20261102/tas-controller-audit.md.
+
+Сборки только ssh home. Linux: `scripts/build-remote.sh`. Windows: `build-win`,
+target `DDNet.exe`, DISCORD=ON/DISCORD_DYNAMIC=OFF, pthread/ssp из текущего
+`/usr/x86_64-w64-mingw32/bin`. 1920 tracked files совпали с home. Native
+`tas_path_fent_test` 2 357 031 проверка/errors0, 179 файлов/1 010 553 кадра.
+Linux-пакет: приватный Xvfb/сервер, Fent busy/отмена/завершение 88 кадров,
+передача в TAS, playback, exit0. Windows-пакет: Wine с приватным префиксом,
+страница TAS, exit0. Внутри архивов 868/886 файлов, SHA256SUMS сверены.
+
+Хеши: Linux dist/OpenKRX 9572219482a7cf0bfea8f376ca12dda7810ed1cc305e7252afa761fa023eb5cb,
+stripped cf980a42c9cd3d4a06c33ca89c2b961be7037869db58f503e603cb69cd1a5f6e;
+Windows OpenKRX.exe 912a952f1e49282307d3a36c120fc30586a617a36693560f8a7992ebfbce1473.
+Пакеты: linux tar.gz SHA256 f6f39699…049baf (51 302 370 байт), windows zip
+4e7a8628…20fb05 (60 422 443 байта), SHA256SUMS a93c80a6…d11d6 (187 байт).
+Загрузка local-only записи при активном dummy требует совпадения стартовой
+позиции; иначе invalid run — это стартовая проверка оригинала. Полная 1:1
+и pixel A/B не заявлены, Windows проверена только Wine.
+
+# Предыдущая сборка: OpenKRX v0.1.5, 2026-11-02
 
 TAS / Pathfinding / Fent (№34–74, 41 название) и Path ESP №27 перенесены.
 Матрица реализации/ограничения/использование — TAS_PATH_FENT.md.

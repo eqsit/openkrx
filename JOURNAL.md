@@ -2136,3 +2136,48 @@ shadow Angle в aimbot — прежнее предупреждение. Errors �
 Релизные пакеты не содержат личных настроек, пользовательских TAS и оригинального
 аналитического PE. Original native A/B/pixel A/B не заявлены, Windows проверена
 Wine. REA final session закрыта; локально сохранены18complete inline records.
+
+
+## 2026-11-02 — контроллер TAS и Fent: исправления и релиз v0.1.6
+
+Пользователь запросил push текущих исходников и публикацию Windows/Linux сборок
+в Releases. Незакоммиченные правки после v0.1.5 относятся к аудиту контроллера
+TAS (`research/fent-fidelity-20261102/tas-controller-audit.md`): загрузка
+пересобирает запись из текущего источника и валидирует позиции, `replay_local`
+сопоставляется с активным dummy через `m_aReplayInputSlots`, rewind берёт Fire
+из первого снятого снимка (LatestInput, char+154) и синхронизирует
+DummyInput/HammerInput, neutral50 очищает реальные входы, playback выполняется
+до autoreplay и не перезапускается во время проигрывания, `LoadReplay` при
+записи отклоняется, Get replay time хранит последнее завершённое время отдельно
+от метаданных. Fent оценивает кандидатов в изолированных мирах с общей
+коллизией и ограниченным бюджетом; меню получило попап Save replay и новые
+кнопки транспорта. Известное отличие: загрузка local-only записи при активном
+dummy требует совпадения стартовой позиции, иначе invalid run (как стартовая
+проверка оригинала).
+
+Сборки только ssh home. Linux — `scripts/build-remote.sh` (RelWithDebInfo,
+DDNet/DDNet-Server), Windows — `build-win` mingw64 Release, target `DDNet.exe`,
+DISCORD=ON/DISCORD_DYNAMIC=OFF; libwinpthread-1.dll и libssp-0.dll взяты из
+текущего `/usr/x86_64-w64-mingw32/bin`. Все 1920 отслеживаемых файлов совпали
+с home. Native `tas_path_fent_test`: 2 357 031 проверка, errors0, 179 файлов /
+1 010 553 кадра. Linux-пакет в приватном Xvfb/сервере: Fent busy, отмена,
+завершение с 88 кадрами, передача в TAS, playback, exit0. Windows-пакет под
+Wine (приватный префикс): страница TAS отрисована, exit0. Архивы 868/886 файлов,
+внутренние SHA256SUMS сверены при упаковке.
+
+Исходник `e60b7e4ef0cc24563b403cf04e9058dc3388892d` отправлен origin/main,
+annotated tag v0.1.6 указывает на него. Релиз:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.6
+GitHub API подтвердил published/not draft/not prerelease:
+- OpenKRX-linux-x86_64.tar.gz:51 302 370 байт,
+  SHA256 f6f39699425d1e64d06666d6545849babac1758da0188ea690d996c2aa049baf.
+- OpenKRX-windows-x86_64.zip:60 422 443 байта,
+  SHA256 4e7a8628c0ae7e7cd1f5f0d4654923e7907701be74d14c8c870d50459120fb05.
+- SHA256SUMS-v0.1.6.txt:187 байт,
+  SHA256 a93c80a6787cea398c70e9cda8d84be84f93f23e4434c5488b16f10a368d11d6.
+
+Linux raw dist/OpenKRX 9572219482a7cf0bfea8f376ca12dda7810ed1cc305e7252afa761fa023eb5cb,
+stripped cf980a42c9cd3d4a06c33ca89c2b961be7037869db58f503e603cb69cd1a5f6e;
+Windows OpenKRX.exe 912a952f1e49282307d3a36c120fc30586a617a36693560f8a7992ebfbce1473.
+Полная 1:1 идентичность и pixel A/B не заявлены; Windows проверена только Wine.
+Пакеты не содержат пользовательских настроек, TAS и аналитического PE.
