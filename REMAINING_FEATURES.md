@@ -5,6 +5,8 @@ TAS — 32, Pathfinding — 8, Avoid Fent — 1. Матрица реализац
 особенности и ограничения: [TAS_PATH_FENT.md](TAS_PATH_FENT.md).
 Номера соответствуют FEATURE_ESTIMATES.md; Legit и Basic исключены.
 Реализация не означает подтверждённую абсолютную 1:1 идентичность.
+Linux/Windows опубликованы в [v0.1.5](https://github.com/eqsit/openkrx/releases/tag/v0.1.5);
+исходник сборок — `7470801c773f5db498a5c829f651948385891730`.
 
 ## Что сделано
 

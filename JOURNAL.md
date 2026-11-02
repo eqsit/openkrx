@@ -2097,3 +2097,42 @@ sidebars20% +/-pi/4 (дополнительное чтение PE/objdump сох
 Пользователь запросил push и публикацию обеих платформ. Windows build2 successful
 на home, target DDNet.exe (первый запуск target DDNet был неверен, без изменения
 кода). Финальная упаковка/проверка/публикация следует отдельной записью.
+
+
+Финальные сборки Linux14/Windows3 из7470801 (все1920tracked hashes совпали с
+home) успешны. Stripped Linux package: Fent83frames, playback60, liveX362
+против272,exit0. Windows package Wine2: запуск, TAS menu screenshot,exit0;
+668bundled imports/missing0. SHA manifests после smoke всё ещё совпадают.
+Linux868 и Windows886файлов сверены внутри архивов. Desktop hashes обновлены
+на final dist/OpenKRX0ee0d01d…adc1e, личные настройки не менялись тестами.
+Исходник7470801 и annotated tagv0.1.5 уже отправлены origin. Релизные архивы
+загружаются, проверка GitHub digests выполняется после публикации.
+
+
+## 2026-11-02 — v0.1.5 опубликован (Linux + Windows)
+
+По явному запросу пользователя исходники7470801 отправлены origin/main,
+annotated tagv0.1.5 указывает на7470801c773f5db498a5c829f651948385891730.
+https://github.com/eqsit/openkrx/releases/tag/v0.1.5
+GitHub API подтвердил published/not draft/not prerelease и все3asset digests/sizes:
+
+- OpenKRX-linux-x86_64.tar.gz:51,296,055bytes,
+  SHA256fae24bbc089312abdbf82066f141ae08a88df02f823fe62fe3fad6c882946f28.
+- OpenKRX-windows-x86_64.zip:60,407,958bytes,
+  SHA256be2bf30268977cc18d9eff1ad096fd4d0de40d54b964f2bf6439b913ff90de3e.
+- SHA256SUMS-v0.1.5.txt:187bytes,
+  SHA256c8252ff69a635c71902ac64d751aa143fcd906fd7bdb3e96c49701eb5cff314a.
+
+Linux raw dist hash0ee0d01d3fc4702969aff29b193040876370ea6c9370c4662f38674e3b8adc1e;
+stripped648b8639fe8ed359b7de322b16a4b0737c13d0d6c0e1fc7ff6d8e54af8d53eff;
+Windows EXEaee54115f51aca15488f03e7a7aa78347b34c49cef8e2e22f6daa27c21762a53.
+Сборки/упаковка/проверки описаны выше и в локальных verification/package/release
+JSON. Source hashes относятся к7470801, последующий doc commit кода не меняет.
+CMake предупреждает только о прежних дополнительных fixture maps в data/;
+shadow Angle в aimbot — прежнее предупреждение. Errors сборок нет.
+
+Новый README пользователь сразу отменил; отдельный README не добавлялся.
+Существующая README-OpenKRX.txt внутри пакетов обновлена как инструкция запуска.
+Релизные пакеты не содержат личных настроек, пользовательских TAS и оригинального
+аналитического PE. Original native A/B/pixel A/B не заявлены, Windows проверена
+Wine. REA final session закрыта; локально сохранены18complete inline records.
