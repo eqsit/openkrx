@@ -17,6 +17,7 @@
 #include <game/mapitems.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -28,6 +29,28 @@ namespace OpenKrx
 		bool Frozen(const CCharacter *pCharacter)
 		{
 			return pCharacter && (pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen);
+		}
+		void SetTasPredictionFlags(CGameWorld &World)
+		{
+			// 2e75c0 explicitly enables these flags for the TAS wrapper,
+			// independently of the live client's anti-ping preferences.
+			World.m_WorldConfig.m_PredictTiles = true;
+			World.m_WorldConfig.m_PredictFreeze = 1;
+			World.m_WorldConfig.m_PredictWeapons = true;
+			World.m_WorldConfig.m_PredictDDRace = true;
+			World.m_WorldConfig.m_KrxPrediction = true;
+		}
+		bool TouchesRaceTile(const CCollision &Collision, const CCharacter &Character, int Tile)
+		{
+			const int Point = Collision.GetPureMapIndex(Character.Core()->m_Pos);
+			if(Collision.GetTileIndex(Point) == Tile || Collision.GetFrontTileIndex(Point) == Tile)
+				return true;
+			// 2e7ce0 tests the current point before the crossed segment,
+			// independently for start and finish.
+			for(int Index : Collision.GetMapIndices(Character.m_PrevPos, Character.Core()->m_Pos))
+				if(Collision.GetTileIndex(Index) == Tile || Collision.GetFrontTileIndex(Index) == Tile)
+					return true;
+			return false;
 		}
 		std::shared_ptr<CGameWorld> Snapshot(const CGameWorld &World)
 		{
@@ -42,6 +65,7 @@ namespace OpenKrx
 	{
 		CancelPathFinding();
 		StopVaultWorker();
+		StopConversionWorker();
 	}
 	CGameWorld *CKrxTas::RenderWorld() { return Active() ? m_pWorld.get() : &GameClient()->m_PredictedWorld; }
 	CGameWorld *CKrxTas::PreviousRenderWorld() { return Active() ? m_pPreviousWorld.get() : &GameClient()->m_PrevPredictedWorld; }
@@ -59,6 +83,7 @@ namespace OpenKrx
 	{
 		CancelPathFinding();
 		StopVaultWorker();
+		StopConversionWorker();
 		if(m_pVaultRequest && !m_pVaultRequest->Done())
 			m_pVaultRequest->Abort();
 	}
@@ -142,7 +167,7 @@ namespace OpenKrx
 		m_pPreviousWorld = std::make_unique<CGameWorld>();
 		m_pInitialWorld = std::make_unique<CGameWorld>();
 		m_pWorld->CopyWorldIsolated(&Source);
-		m_pWorld->m_WorldConfig.m_KrxPrediction = true;
+		SetTasPredictionFlags(*m_pWorld);
 		m_pWorld->m_WorldConfig.m_KrxExplosionStrengthValid = true;
 		m_pWorld->m_WorldConfig.m_KrxExplosionStrength = GameClient()->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		if(!PredictPlayers)
@@ -188,21 +213,15 @@ namespace OpenKrx
 			auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]);
 			if(!pCharacter)
 				continue;
-			auto vIndices = Collision()->GetMapIndices(pCharacter->m_PrevPos, pCharacter->Core()->m_Pos);
-			vIndices.push_back(Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos));
-			for(int Index : vIndices)
+			if(TouchesRaceTile(*Collision(), *pCharacter, TILE_START))
+				m_StartTick = m_pWorld->GameTick();
+			if(TouchesRaceTile(*Collision(), *pCharacter, TILE_FINISH) && m_StartTick && !m_FinishTick)
 			{
-				const int Tile = Collision()->GetTileIndex(Index), Front = Collision()->GetFrontTileIndex(Index);
-				if(Tile == TILE_START || Front == TILE_START)
-					m_StartTick = m_pWorld->GameTick();
-				if((Tile == TILE_FINISH || Front == TILE_FINISH) && m_StartTick && !m_FinishTick)
-				{
-					m_FinishTick = m_pWorld->GameTick();
-					char aMessage[128];
-					const float Seconds = (m_FinishTick - m_StartTick) / 50.0f;
-					str_format(aMessage, sizeof(aMessage), "TAS: Finished in %d minute(s) %5.2f second(s).", (int)Seconds / 60, std::fmod(Seconds, 60.0f));
-					Message(aMessage);
-				}
+				m_FinishTick = m_pWorld->GameTick();
+				char aMessage[128];
+				const float Seconds = (m_FinishTick - m_StartTick) / 50.0f;
+				str_format(aMessage, sizeof(aMessage), "TAS: Finished in %d minute(s) %5.2f second(s).", (int)Seconds / 60, std::fmod(Seconds, 60.0f));
+				Message(aMessage);
 			}
 		}
 		if(Record)
@@ -541,6 +560,7 @@ namespace OpenKrx
 		Storage()->CreateFolder("replays", IStorage::TYPE_SAVE);
 		Storage()->CreateFolder("replays/auto", IStorage::TYPE_SAVE);
 		m_Replay.m_Description = g_Config.m_KrxReplayFileDescription;
+		m_Replay.m_Author = g_Config.m_PlayerName;
 		char aDate[64];
 		str_timestamp_format(aDate, sizeof(aDate), "%d.%m %H:%M");
 		m_Replay.m_Date = aDate;
@@ -733,7 +753,7 @@ namespace OpenKrx
 	{
 		CGameWorld Probe;
 		Probe.CopyWorldIsolated(&GameClient()->m_GameWorld);
-		Probe.m_WorldConfig.m_KrxPrediction = true;
+		SetTasPredictionFlags(Probe);
 		int Start = 0, Finish = 0;
 		for(size_t I = 0; I < m_Replay.m_aFrames[0].size(); ++I)
 		{
@@ -751,16 +771,10 @@ namespace OpenKrx
 				if(I < m_Replay.m_aFrames[Slot].size())
 					if(auto *pCharacter = Probe.GetCharacterById(m_aIds[Slot]))
 					{
-						auto vIndices = Collision()->GetMapIndices(pCharacter->m_PrevPos, pCharacter->Core()->m_Pos);
-						vIndices.push_back(Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos));
-						for(int Index : vIndices)
-						{
-							const int Tile = Collision()->GetTileIndex(Index), Front = Collision()->GetFrontTileIndex(Index);
-							if(Tile == TILE_START || Front == TILE_START)
-								Start = Probe.GameTick();
-							if((Tile == TILE_FINISH || Front == TILE_FINISH) && Start && !Finish)
-								Finish = Probe.GameTick();
-						}
+						if(TouchesRaceTile(*Collision(), *pCharacter, TILE_START))
+							Start = Probe.GameTick();
+						if(TouchesRaceTile(*Collision(), *pCharacter, TILE_FINISH) && Start && !Finish)
+							Finish = Probe.GameTick();
 					}
 		}
 		const int Ticks = Start && Finish ? Finish - Start : 0;
@@ -773,42 +787,67 @@ namespace OpenKrx
 
 	void CKrxTas::ConvertLegacyReplays()
 	{
-		const auto vFiles = m_vReplayFiles;
-		int Converted = 0;
-		for(const auto &Name : vFiles)
-		{
-			if(!str_endswith(Name.c_str(), ".json"))
-				continue;
-			const std::string Target = "replays/" + Name.substr(0, Name.size() - 5) + ".tas";
-			if(Storage()->FileExists(Target.c_str(), IStorage::TYPE_ALL))
-				continue;
-			char *pJson = Storage()->ReadFileStr(("replays/" + Name).c_str(), IStorage::TYPE_ALL);
-			if(!pJson)
-				continue;
-			CReplay Replay;
-			std::string Error;
-			std::vector<unsigned char> vData;
-			const bool Valid = DecodeReplayJson(pJson, Replay, Error) && EncodeReplay(Replay, vData, Error);
-			free(pJson);
-			if(!Valid)
-				continue;
-			for(size_t Slash = Target.find('/'); Slash != std::string::npos; Slash = Target.find('/', Slash + 1))
-				Storage()->CreateFolder(Target.substr(0, Slash).c_str(), IStorage::TYPE_SAVE);
-			const std::string Temporary = Target + ".tmp";
-			IOHANDLE File = Storage()->OpenFile(Temporary.c_str(), IOFLAG_WRITE, IStorage::TYPE_SAVE);
-			if(!File)
-				continue;
-			const bool Wrote = io_write(File, vData.data(), vData.size()) == vData.size();
-			const bool Closed = io_close(File) == 0;
-			if(Wrote && Closed && Storage()->RenameFile(Temporary.c_str(), Target.c_str(), IStorage::TYPE_SAVE))
-				++Converted;
-			else
-				Storage()->RemoveFile(Temporary.c_str(), IStorage::TYPE_SAVE);
-		}
+		// Original legacy conversion is a background task, like vault decode.
+		// Keep file parsing and zlib work out of the menu/render thread.
+		if(m_ConversionFuture.valid())
+			return;
+		RefreshFiles();
+		m_ConversionCancel.store(false);
+		auto *pStorage = Storage();
+		m_ConversionFuture = std::async(std::launch::async, [this, pStorage, vFiles = m_vReplayFiles] {
+			int Converted = 0;
+			for(const auto &Name : vFiles)
+			{
+				if(m_ConversionCancel.load())
+					break;
+				if(!str_endswith(Name.c_str(), ".json"))
+					continue;
+				const std::string Target = "replays/" + Name.substr(0, Name.size() - 5) + ".tas";
+				if(pStorage->FileExists(Target.c_str(), IStorage::TYPE_ALL))
+					continue;
+				char *pJson = pStorage->ReadFileStr(("replays/" + Name).c_str(), IStorage::TYPE_ALL);
+				if(!pJson)
+					continue;
+				CReplay Replay;
+				std::string Error;
+				std::vector<unsigned char> vData;
+				const bool Valid = DecodeReplayJson(pJson, Replay, Error) && EncodeReplay(Replay, vData, Error);
+				free(pJson);
+				if(!Valid)
+					continue;
+				for(size_t Slash = Target.find('/'); Slash != std::string::npos; Slash = Target.find('/', Slash + 1))
+					pStorage->CreateFolder(Target.substr(0, Slash).c_str(), IStorage::TYPE_SAVE);
+				const std::string Temporary = Target + ".tmp";
+				IOHANDLE File = pStorage->OpenFile(Temporary.c_str(), IOFLAG_WRITE, IStorage::TYPE_SAVE);
+				if(!File)
+					continue;
+				const bool Wrote = io_write(File, vData.data(), vData.size()) == vData.size();
+				const bool Closed = io_close(File) == 0;
+				if(Wrote && Closed && pStorage->RenameFile(Temporary.c_str(), Target.c_str(), IStorage::TYPE_SAVE))
+					++Converted;
+				else
+					pStorage->RemoveFile(Temporary.c_str(), IStorage::TYPE_SAVE);
+			}
+			return Converted;
+		});
+	}
+
+	void CKrxTas::UpdateLegacyConversion()
+	{
+		if(!m_ConversionFuture.valid() || m_ConversionFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+			return;
+		const int Converted = m_ConversionFuture.get();
 		RefreshFiles();
 		char aMessage[128];
 		str_format(aMessage, sizeof(aMessage), "TAS: Converted %d replays to new format.", Converted);
 		Message(aMessage);
+	}
+
+	void CKrxTas::StopConversionWorker()
+	{
+		m_ConversionCancel.store(true);
+		if(m_ConversionFuture.valid())
+			m_ConversionFuture.get();
 	}
 
 	void CKrxTas::PrepareForFent()
