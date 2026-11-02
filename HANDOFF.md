@@ -25,9 +25,16 @@ PredictWeapons/PredictDDRace/KrxPrediction; старт/финиш гонки ч�
 мира; автор сохранённой записи из `player_name`; подписи Load/Clear и правки
 раскладки/выравнивания меню.
 
+В пакетах лежит папка `replays/` — 179 готовых TAS из оригинального KRX vault
+(`krxclient/krx-replays`), плюс отдельный ассет `OpenKRX-tas-replays-v0.1.7.zip`.
+Запись проигрывается на своей карте (карты в пакет не входят, клиент качает их с
+сервера); те же файлы клиент скачивает сам через Replay Vault → Sync now.
+
 Артефакты: `dist/OpenKRX` 0fd43a7ac7d9870cee9d139afe53f0ba581864938acb51e44eed2efd56594d41,
 stripped `dist/OpenKRX-linux-x86_64` 2a5ee44555aa16518e6761d6422e518dbb8c5bc40c022761006a42e840bb7930,
 `dist/OpenKRX.exe` 93e5598707d1a542fd12a99e0de54b4668f501bd552d05a10a5214a309f38c8e.
+Архивы: Linux 00d351f8aa811023bc90a2fea0c162e396e3957323d96f8484f757a547284cb8 (1048 файлов),
+Windows 1328cc7c72f086b9d0df31dc753f68c267c95870c0e6b0b0e03b473a33208d3d (1067 файлов).
 Проверки, детали упаковки и ограничения — в конце JOURNAL.md
 (`2026-11-02 — релиз v0.1.7`) и `research/release-v017/`.
 
