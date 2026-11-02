@@ -41,13 +41,13 @@ namespace OpenKrx
 		float IntraTick() const;
 		void ApplyRenderState();
 		void ClearReplay();
-		bool SaveReplay(const char *pName, bool Auto = false);
+		bool SaveReplay(const char *pName, bool Auto = false, bool Overwrite = false);
 		bool LoadReplay(const char *pName);
 		bool DeleteReplay(const char *pName);
 		bool ValidateReplay();
 		int GetReplayTime();
-		int FinishTicks() const { return m_ReplayFinishTicks ? m_ReplayFinishTicks : m_StartTick && m_FinishTick ? m_FinishTick - m_StartTick :
-															   0; }
+		int LastReplayTimeTicks() const { return m_LastReplayTimeTicks; }
+		int FinishTicks() const { return m_ReplayFinishTicks; }
 		void ConvertLegacyReplays();
 		bool AddFakeAim();
 		const CReplay &Replay() const { return m_Replay; }
@@ -69,6 +69,8 @@ namespace OpenKrx
 		std::unique_ptr<CGameWorld> m_pWorld, m_pPreviousWorld, m_pInitialWorld;
 		std::vector<std::shared_ptr<CGameWorld>> m_vWorlds;
 		std::array<int, 2> m_aIds = {-1, -1};
+		// A loaded replay_local controls the currently active connection (2f2cf0).
+		std::array<int, 2> m_aReplayInputSlots = {0, 1};
 		std::array<CNetObj_PlayerInput, 2> m_aInputs{};
 		CNetObj_PlayerInput m_NetworkBefore{};
 		std::vector<std::string> m_vReplayFiles;
@@ -79,6 +81,7 @@ namespace OpenKrx
 		int64_t m_LastStep = 0, m_LastAutoSave = 0;
 		int m_StartTick = 0, m_FinishTick = 0;
 		int m_ReplayFinishTicks = 0;
+		int m_LastReplayTimeTicks = 0;
 		CFlowField m_FlowField;
 		std::vector<unsigned char> m_vTunnels;
 		vec2 m_Goal = vec2(0, 0), m_LastBrush = vec2(0, 0);
@@ -104,7 +107,7 @@ namespace OpenKrx
 		void InstallVaultFiles();
 		void UpdateVault();
 		void InitializeWorld(const CGameWorld &Source, bool PredictPlayers);
-		void Step(const std::array<CNetObj_PlayerInput, 2> &aInputs, bool Record, bool Events, int InputCount = 2);
+		void Step(const std::array<CNetObj_PlayerInput, 2> &aInputs, bool Record, bool Events, int InputCount = 2, unsigned InputMask = 3);
 		void AppendFrame(const std::array<CNetObj_PlayerInput, 2> &aInputs);
 		void Playback();
 		void RenderPath(const std::vector<CReplayFrame> &vFrames, unsigned Color, int Mode, bool Segmented);

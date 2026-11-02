@@ -7,6 +7,7 @@
 #include <engine/client.h>
 #include <engine/font_icons.h>
 #include <engine/shared/config.h>
+#include <engine/storage.h>
 
 #include <game/client/components/key_binder.h>
 #include <game/client/gameclient.h>
@@ -18,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 // Layout recovered from KRX 0x1402482d0 and its six page renderers.
 // Evidence and original conditional card sizes: research/easy-port-20261030/.
@@ -65,7 +67,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	Scroll.Begin(&MainView, &Params);
 	CUIRect Left, Right, Body, Row;
 	MainView.VSplitMid(&Left, &Right);
-	Right.VMargin(10.0f, &Right);
+	if(g_Config.m_KrxMenuTab == 4)
+		Left.VMargin(10.0f, &Left);
+	else
+		Right.VMargin(10.0f, &Right);
 	const auto Card = [&](CUIRect &Column, float Height, const char *pTitle, const char *pHelpUrl = nullptr) {
 		Column.HSplitTop(10.0f, nullptr, &Column);
 		CUIRect Panel, Header;
@@ -146,7 +151,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	};
 	static CButtonContainer s_aColorReset[32];
 	const auto Color = [&](unsigned &Value, const char *pText, int Index, unsigned Default) {
-		DoLine_ColorPicker(&s_aColorReset[Index], 25.0f, 14.0f, 0.0f, &Body, Localize(pText), &Value,
+		DoLine_ColorPicker(&s_aColorReset[Index], 25.0f, 14.0f, g_Config.m_KrxMenuTab == 4 ? 2.0f : 0.0f, &Body, Localize(pText), &Value,
 			color_cast<ColorRGBA>(ColorHSLA(Default)), false);
 	};
 	const auto Choice = [&](int &Value, const char *pText, const char **ppNames, int Count, int Index, bool Indent = false) {
@@ -654,13 +659,13 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	else if(g_Config.m_KrxMenuTab == 4)
 	{
 		GameClient()->m_Tas.CheckAutoSyncVault();
-		const auto Action = [&](const char *pText, int Index) {
+		const auto Action = [&](const char *pText, int Index, ColorRGBA Color = ColorRGBA(1, 1, 1, .5f)) {
 			static CButtonContainer s_aActions[16];
 			Body.HSplitTop(20, &Row, &Body);
-			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row);
+			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, Color);
 		};
 		const bool HasReplay = GameClient()->m_Tas.Replay().m_aFrames[0].size() > 50;
-		if(Card(Left, HasReplay ? 135 : 105, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/tas"))
+		if(Card(Left, HasReplay ? 115 : 90, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/tas"))
 		{
 			Slider(g_Config.m_KrxTasTps, "TPS", 1, 50, false, "Sets the tick speed of TAS(default teeworlds TPS: 50)");
 			static CButtonContainer s_aTransport[3];
@@ -670,24 +675,30 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			const float Width = Rest.w / 3;
 			Rest.VSplitLeft(Width, &Buttons[0], &Rest);
 			Rest.VSplitLeft(Width, &Buttons[1], &Buttons[2]);
-			if(DoButton_Menu(&s_aTransport[0], g_Config.m_KrxRecordReplay ? Localize("Stop recording TAS") : Localize("Start recording TAS"), g_Config.m_KrxRecordReplay, &Buttons[0]))
+			Buttons[0].VSplitRight(5, &Buttons[0], nullptr);
+			Buttons[1].VSplitRight(5, &Buttons[1], nullptr);
+			if(Ui()->DoButton_FontIcon(&s_aTransport[0], g_Config.m_KrxRecordReplay ? FontIcon::STOP : FontIcon::CIRCLE_PLAY, 0, &Buttons[0], BUTTONFLAG_LEFT))
 				g_Config.m_KrxRecordReplay ^= 1;
-			if(DoButton_Menu(&s_aTransport[1], g_Config.m_KrxTasPause ? Localize("Unpause") : Localize("Pause"), g_Config.m_KrxTasPause, &Buttons[1]))
+			Ui()->DoToolTip(&s_aTransport[0], &Buttons[0], Localize(g_Config.m_KrxRecordReplay ? "Stop recording TAS" : "Start recording TAS"));
+			if(DoButton_Menu(&s_aTransport[1], g_Config.m_KrxTasPause ? Localize("Unpause") : Localize("Pause"), 0, &Buttons[1], BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, g_Config.m_KrxTasPause ? ColorRGBA(1, 0, 0, .5f) : ColorRGBA(1, 1, 1, .5f)))
 				g_Config.m_KrxTasPause ^= 1;
 			const bool FentBusy = GameClient()->m_Fent.Busy();
-			if(DoButton_Menu(&s_aTransport[2], FentBusy ? Localize("Fent: searching...") : g_Config.m_KrxLoadReplay ? Localize("Stop replay") :
-																  Localize("Playback replay"),
-				   g_Config.m_KrxLoadReplay, &Buttons[2]) &&
-				!FentBusy)
+			if(DoButton_Menu(&s_aTransport[2], g_Config.m_KrxLoadReplay ? Localize("Stop replay") : Localize("Playback replay"), 0, &Buttons[2], BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, g_Config.m_KrxLoadReplay ? ColorRGBA(1, 0, 0, .5f) : ColorRGBA(1, 1, 1, .5f)) && !FentBusy)
 				g_Config.m_KrxLoadReplay ^= 1;
+			Ui()->DoToolTip(&s_aTransport[1], &Buttons[1], Localize(g_Config.m_KrxTasPause ? "Unpause TAS" : "Pause TAS"));
+			Ui()->DoToolTip(&s_aTransport[2], &Buttons[2], Localize(FentBusy ? "Fent is still searching. Wait for Replay transferred to TAS." : g_Config.m_KrxLoadReplay ? "Stop replay" :
+																						       "Playback replay"));
 			if(HasReplay)
 			{
-				Body.HSplitTop(10, nullptr, &Body);
+				Body.HSplitTop(5, nullptr, &Body);
 				static bool s_ConfirmClear = false;
 				if(!s_ConfirmClear)
 				{
-					if(Action("Clear current replay", 3))
+					static CButtonContainer s_ClearReplay;
+					Body.HSplitTop(20, &Row, &Body);
+					if(Ui()->DoButton_FontIcon(&s_ClearReplay, FontIcon::TRASH, 0, &Row, BUTTONFLAG_LEFT))
 						s_ConfirmClear = true;
+					Ui()->DoToolTip(&s_ClearReplay, &Row, Localize("Clear current replay"));
 				}
 				else
 				{
@@ -695,17 +706,17 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 					Body.HSplitTop(20, &Row, &Body);
 					Row.VSplitMid(&Confirm, &Cancel, 5);
 					static CButtonContainer s_Clear, s_Cancel;
-					if(DoButton_Menu(&s_Clear, Localize("Confirm"), 0, &Confirm))
+					if(Ui()->DoButton_FontIcon(&s_Clear, "\uF00C", 0, &Confirm, BUTTONFLAG_LEFT))
 					{
-						g_Config.m_KrxTasRespawn = 1;
+						g_Config.m_KrxTasRespawn ^= 1;
 						s_ConfirmClear = false;
 					}
-					if(DoButton_Menu(&s_Cancel, Localize("Cancel"), 0, &Cancel))
+					if(Ui()->DoButton_FontIcon(&s_Cancel, FontIcon::XMARK, 0, &Cancel, BUTTONFLAG_LEFT))
 						s_ConfirmClear = false;
 				}
 			}
 		}
-		if(Card(Left, 135 + (g_Config.m_KrxTasAutoReplay && g_Config.m_KrxAutoSaveReplayEnabled ? 20 : 0), "Settings"))
+		if(Card(Left, 125 + (g_Config.m_KrxTasAutoReplay && g_Config.m_KrxAutoSaveReplayEnabled ? 20 : 0), "Settings"))
 		{
 			CUIRect SettingsLeft, SettingsRight;
 			Body.VSplitMid(&SettingsLeft, &SettingsRight, 10);
@@ -715,17 +726,17 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_KrxTasShowAim, "Show real aim", false, "Shows where you are aiming while replaying a TAS");
 			Check(g_Config.m_KrxTasPlayerPrediction, "Predict players", false, "When enabled, adds every tee to the TAS world");
 			Body = SettingsRight;
-			Check(g_Config.m_KrxTasAutoReplay, "Auto Replay");
+			Check(g_Config.m_KrxTasAutoReplay, "Auto Replay", false, "Auto replays TAS");
 			if(g_Config.m_KrxTasAutoReplay)
 			{
 				Check(g_Config.m_KrxTasAutoReplayFreeze, "On freeze", true, "Restarts auto replay when frozen");
 				Check(g_Config.m_KrxTasAutoReplayKill, "Kill on end", true, "Kills on end of replay");
 			}
-			Check(g_Config.m_KrxAutoSaveReplayEnabled, "Auto Save Replay");
+			Check(g_Config.m_KrxAutoSaveReplayEnabled, "Auto Save Replay", false, "Automatically saves a TAS replay to the replays-folder/auto/ directory");
 			if(g_Config.m_KrxAutoSaveReplayEnabled)
-				Slider(g_Config.m_KrxAutoSaveReplayInterval, "Seconds", 10, 120, true);
+				Slider(g_Config.m_KrxAutoSaveReplayInterval, "Seconds", 10, 120, true, "Sets the interval in seconds for autosave");
 		}
-		if(Card(Left, 185, "Hotkeys"))
+		if(Card(Left, 180, "Hotkeys"))
 		{
 			Key(16, "Record:", "toggle krx_recordreplay 1 0");
 			Key(17, "Replay:", "toggle krx_loadreplay 1 0");
@@ -734,10 +745,12 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Key(20, "Rewind:", "+toggle krx_tasrewind 1 0");
 			Key(21, "Forward:", "+toggle krx_tasforward 1 0");
 		}
-		if(Card(Right, 355, "Replay"))
+		const auto &Replay = GameClient()->m_Tas.Replay();
+		const auto &Files = GameClient()->m_Tas.ReplayFiles();
+		const bool HasLegacy = std::any_of(Files.begin(), Files.end(), [](const auto &Name) { return str_endswith(Name.c_str(), ".json"); });
+		const bool ShowReplayInfo = !Replay.m_Author.empty() && !Replay.m_aFrames[0].empty() && GameClient()->m_Tas.FinishTicks() != 0;
+		if(Card(Right, (ShowReplayInfo ? 175 : 115) + (HasLegacy ? 25 : 0), "Replay"))
 		{
-			Body.HSplitTop(20, &Row, &Body);
-			Ui()->DoLabel(&Row, Localize("Selected replay:"), 13, TEXTALIGN_ML);
 			// 263510: popup browser, immediate children, activation opens a
 			// directory or loads a replay. Keep its list stable across frames.
 			struct CReplayBrowser
@@ -755,14 +768,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				void Populate()
 				{
 					m_vEntries.clear();
-					for(const auto &File : m_pMenus->GameClient()->m_Tas.ReplayFiles())
-					{
-						if(File.compare(0, m_Directory.size(), m_Directory) != 0)
-							continue;
-						const auto Name = File.substr(m_Directory.size());
-						const auto Slash = Name.find('/');
-						m_vEntries.push_back({Name.substr(0, Slash), Slash != std::string::npos});
-					}
+					m_pMenus->Storage()->ListDirectory(IStorage::TYPE_ALL, ("replays/" + m_Directory).c_str(), [](const char *pName, int IsDir, int, void *pUser) {
+						if(pName[0] != '.' && (IsDir || str_endswith(pName, ".tas") || str_endswith(pName, ".json")))
+							static_cast<CReplayBrowser *>(pUser)->m_vEntries.push_back({pName, IsDir != 0});
+						return 0; }, this);
 					std::sort(m_vEntries.begin(), m_vEntries.end(), [](const auto &A, const auto &B) {
 						return A.m_Directory != B.m_Directory ? A.m_Directory > B.m_Directory : A.m_Name < B.m_Name;
 					});
@@ -786,9 +795,9 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 						CUIRect Icon, Label;
 						Item.m_Rect.VSplitLeft(20, &Icon, &Label);
 						pMenus->TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
-						pMenus->Ui()->DoLabel(&Icon, Entry.m_Directory ? Entry.m_Name == ".." ? FontIcon::FOLDER_TREE : FontIcon::FOLDER : FontIcon::FILE, 12, TEXTALIGN_ML);
+						pMenus->Ui()->DoLabel(&Icon, Entry.m_Directory ? Entry.m_Name == ".." ? FontIcon::FOLDER_TREE : FontIcon::FOLDER : FontIcon::MAP, 12, TEXTALIGN_ML);
 						pMenus->TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
-						pMenus->Ui()->DoLabel(&Label, Entry.m_Name.c_str(), 12, TEXTALIGN_ML);
+						pMenus->Ui()->DoLabel(&Label, Entry.m_Name.c_str(), 10, TEXTALIGN_ML);
 					}
 					Browser.m_Selected = Browser.m_List.DoEnd();
 					if(Browser.m_List.WasItemActivated() && Browser.m_Selected >= 0 && Browser.m_Selected < (int)Browser.m_vEntries.size())
@@ -816,91 +825,144 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			static CReplayBrowser s_Browser;
 			static SPopupMenuId s_BrowserPopup;
 			static CButtonContainer s_OpenBrowser;
-			const auto &Files = GameClient()->m_Tas.ReplayFiles();
 			Body.HSplitTop(20, &Row, &Body);
-			if(DoButton_Menu(&s_OpenBrowser, *g_Config.m_KrxReplayFile ? g_Config.m_KrxReplayFile : Localize("Select replay"), 0, &Row))
+			CUIRect Folder, Refresh, Load, Browse = Row;
+			Browse.VSplitLeft(30, &Folder, &Browse);
+			Folder.VSplitRight(5, &Folder, nullptr);
+			Browse.VSplitRight(55, &Browse, &Refresh);
+			Browse.VSplitRight(5, &Browse, nullptr);
+			Refresh.VSplitRight(25, &Refresh, &Load);
+			Refresh.VSplitRight(5, &Refresh, nullptr);
+			static CButtonContainer s_OpenFolder, s_RefreshFiles, s_LoadFile;
+			if(Ui()->DoButton_FontIcon(&s_OpenFolder, FontIcon::FOLDER, 0, &Folder, BUTTONFLAG_LEFT))
+			{
+				char aDirectory[IO_MAX_PATH_LENGTH];
+				Storage()->CreateFolder("replays", IStorage::TYPE_SAVE);
+				Storage()->GetCompletePath(IStorage::TYPE_SAVE, "replays", aDirectory, sizeof(aDirectory));
+				Client()->ViewFile(aDirectory);
+			}
+			if(Ui()->DoButton_FontIcon(&s_RefreshFiles, FontIcon::ARROW_ROTATE_LEFT, 0, &Refresh, BUTTONFLAG_LEFT))
+				GameClient()->m_Tas.RefreshFiles();
+			if(Ui()->DoButton_FontIcon(&s_LoadFile, FontIcon::RIGHT_TO_BRACKET, 0, &Load, BUTTONFLAG_LEFT))
+				g_Config.m_KrxLoadReplayFromFile = 1;
+			const char *pFilename = std::strrchr(g_Config.m_KrxReplayFile, '/');
+			pFilename = pFilename ? pFilename + 1 : g_Config.m_KrxReplayFile;
+			if(DoButton_Menu(&s_OpenBrowser, pFilename, 0, &Browse))
 			{
 				GameClient()->m_Tas.RefreshFiles();
 				s_Browser.m_pMenus = this;
 				s_Browser.Populate();
-				Ui()->DoPopupMenu(&s_BrowserPopup, Ui()->MouseX(), Ui()->MouseY(), 300, 250, &s_Browser, CReplayBrowser::Render);
+				Ui()->DoPopupMenu(&s_BrowserPopup, Browse.x, Browse.y + Browse.h, Browse.w, 250, &s_Browser, CReplayBrowser::Render);
 			}
-			Text(g_Config.m_KrxReplayFile, sizeof(g_Config.m_KrxReplayFile), "", 6);
-			Text(g_Config.m_KrxReplayFileDescription, sizeof(g_Config.m_KrxReplayFileDescription), "Description:", 7);
-			const auto &Replay = GameClient()->m_Tas.Replay();
-			char aInfo[256];
-			str_format(aInfo, sizeof(aInfo), "Author: %s", Replay.m_Author.c_str());
+			if(ShowReplayInfo)
+			{
+				Body.HSplitTop(20, &Row, &Body);
+				Ui()->DoLabel(&Row, Localize("Selected replay:"), 15, TEXTALIGN_ML);
+				char aInfo[256];
+				str_format(aInfo, sizeof(aInfo), "Author: %s", Replay.m_Author.c_str());
+				Body.HSplitTop(20, &Row, &Body);
+				CUIRect Total;
+				Row.VSplitMid(&Row, &Total);
+				Ui()->DoLabel(&Row, aInfo, 10, TEXTALIGN_ML);
+				str_format(aInfo, sizeof(aInfo), "Total Time: %dm %.2fs (%d t)", (int)Replay.m_aFrames[0].size() / 3000, std::fmod(Replay.m_aFrames[0].size() / 50.0f, 60.0f), (int)Replay.m_aFrames[0].size());
+				Ui()->DoLabel(&Total, aInfo, 10, TEXTALIGN_ML);
+				Body.HSplitTop(20, &Row, &Body);
+				Row.VSplitMid(&Row, &Total);
+				str_format(aInfo, sizeof(aInfo), "Map: %s", Replay.m_Map.c_str());
+				Ui()->DoLabel(&Row, aInfo, 10, TEXTALIGN_ML);
+				str_format(aInfo, sizeof(aInfo), "Finish Time: %dm %.2fs (%d t)", GameClient()->m_Tas.FinishTicks() / 3000, std::fmod(GameClient()->m_Tas.FinishTicks() / 50.0f, 60.0f), GameClient()->m_Tas.FinishTicks());
+				Ui()->DoLabel(&Total, aInfo, 10, TEXTALIGN_ML);
+			}
+			Body.HSplitTop(5, nullptr, &Body);
+			CUIRect Validate, GetTime;
 			Body.HSplitTop(20, &Row, &Body);
-			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
-			str_format(aInfo, sizeof(aInfo), "Total Time: %dm %.2fs (%d t)", (int)Replay.m_aFrames[0].size() / 3000, std::fmod(Replay.m_aFrames[0].size() / 50.0f, 60.0f), (int)Replay.m_aFrames[0].size());
-			Body.HSplitTop(20, &Row, &Body);
-			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
-			str_format(aInfo, sizeof(aInfo), "Map: %s", Replay.m_Map.c_str());
-			Body.HSplitTop(20, &Row, &Body);
-			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
-			str_format(aInfo, sizeof(aInfo), "Finish Time: %dm %.2fs (%d t)", GameClient()->m_Tas.FinishTicks() / 3000, std::fmod(GameClient()->m_Tas.FinishTicks() / 50.0f, 60.0f), GameClient()->m_Tas.FinishTicks());
-			Body.HSplitTop(20, &Row, &Body);
-			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
-			if(Action("Load", 6))
-				g_Config.m_KrxLoadReplayFromFile = 1;
-			if(Action("Save replay", 7))
-				g_Config.m_KrxSaveReplayToFile = 1;
-			if(Action("Delete", 8))
-				GameClient()->m_Tas.DeleteReplay(g_Config.m_KrxReplayFile);
-			if(Action("Validate replay", 9))
+			Row.VSplitMid(&Validate, &GetTime, 5);
+			static CButtonContainer s_Validate, s_GetTime;
+			if(DoButton_Menu(&s_Validate, Localize("Validate replay"), 0, &Validate))
 				GameClient()->m_Tas.ValidateReplay();
-			if(Action("Get replay time", 12))
+			if(DoButton_Menu(&s_GetTime, Localize("Get replay time"), 0, &GetTime))
 				GameClient()->m_Tas.GetReplayTime();
-			const bool HasLegacy = std::any_of(Files.begin(), Files.end(), [](const auto &Name) { return str_endswith(Name.c_str(), ".json"); });
-			if(HasLegacy && Action("Convert replays to new format", 13))
-				GameClient()->m_Tas.ConvertLegacyReplays();
-			Body.HSplitTop(25, &Row, &Body);
-			Ui()->DoLabel(&Row, GameClient()->m_Tas.Status().c_str(), 10, TEXTALIGN_ML);
+			Body.HSplitTop(5, nullptr, &Body);
+			if(Action("Save replay", 7, ColorRGBA(.5f, .5f, 0, .5f)))
+				m_Popup = POPUP_SAVE_KRX_REPLAY;
+			if(HasLegacy)
+			{
+				Body.HSplitTop(5, nullptr, &Body);
+				if(Action("Convert replays to new format", 13))
+					GameClient()->m_Tas.ConvertLegacyReplays();
+			}
 		}
-		if(Card(Right, 105, "Replay Vault"))
+		if(Card(Right, 75, "Replay Vault"))
 		{
 			CUIRect Sync, Rest;
 			Body.HSplitTop(20, &Row, &Rest);
 			Row.VSplitMid(&Body, &Sync, 10);
-			Check(g_Config.m_KrxTasReplayVaultAutoSync, "Auto Sync");
+			if(Action("Auto Sync", 14, g_Config.m_KrxTasReplayVaultAutoSync ? ColorRGBA(0, 1, 0, .5f) : ColorRGBA(1, 1, 1, .5f)))
+				g_Config.m_KrxTasReplayVaultAutoSync ^= 1;
 			Body = Sync;
 			if(Action("Sync now", 10))
 				GameClient()->m_Tas.SyncVault();
 			Body = Rest;
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, Localize("Automatically sync with the replay vault from github.com/krxclient/krx-replays"), 10, TEXTALIGN_ML);
 		}
-		if(Card(Right, 165, "Tools"))
+		if(Card(Right, 85, "Tools"))
 		{
-			Slider(g_Config.m_KrxTickControlTicks, "Ticks", 0, 10, false, "Sets the tick speed rewinding/forwarding");
-			Check(g_Config.m_KrxTasAutoRewind, "Auto rewind");
-			Check(g_Config.m_KrxTasAutoForward, "Auto forward");
-			Check(g_Config.m_KrxTickControlPause, "Auto pause");
-			Check(g_Config.m_KrxTickControlStep, "Step");
+			Slider(g_Config.m_KrxTickControlTicks, "Ticks", 1, 10, false, "Sets the tick speed rewinding/forwarding");
+			CUIRect Toggles[4], Rest;
+			Body.HSplitTop(20, &Rest, &Body);
+			for(int I = 0; I < 4; ++I)
+			{
+				Rest.VSplitLeft(Rest.w / (4 - I), &Toggles[I], &Rest);
+				if(I != 3)
+					Toggles[I].VSplitRight(5, &Toggles[I], nullptr);
+			}
+			static CButtonContainer s_aTools[4];
+			int *apValues[] = {&g_Config.m_KrxTasAutoRewind, &g_Config.m_KrxTasAutoForward, &g_Config.m_KrxTickControlPause, &g_Config.m_KrxTickControlStep};
+			const char *apNames[] = {"Auto rewind", "Auto forward", "Auto pause", "Step"};
+			const char *apTips[] = {"Automatically rewinds when frozen to a safe position", "Automatically forward when frozen to 1 tick before unfreezing", "When forwarding/rewinding automatically pauses TAS", "When pressing forward/rewind only does it by 1 tick(i.e. steps)"};
+			for(int I = 0; I < 4; ++I)
+			{
+				if(DoButton_Menu(&s_aTools[I], Localize(apNames[I]), 0, &Toggles[I], BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, *apValues[I] ? ColorRGBA(0, 1, 0, .5f) : ColorRGBA(1, 1, 1, .5f)))
+					*apValues[I] ^= 1;
+				Ui()->DoToolTip(&s_aTools[I], &Toggles[I], Localize(apTips[I]));
+			}
 		}
-		if(Card(Right, 105, "Fake Aim"))
+		if(Card(Right, 90, "Fake Aim"))
 		{
-			const char *apModes[] = {"Robot", "Spin", "Rand", "Smooth"};
+			const char *apModes[] = {"Robot aim", "Spin", "Rand", "Smooth"};
 			Choice(g_Config.m_KrxTasFakeAimMode, "", apModes, 4, 9);
+			Body.HSplitTop(5, nullptr, &Body);
 			if(Action("Add fake aim", 11))
 				GameClient()->m_Tas.AddFakeAim();
 		}
-		if(Card(Right, 165 + (g_Config.m_KrxTasDrawPath ? 45 : 0) + (g_Config.m_KrxTasDrawPredictionPath ? 95 : 0), "Visuals"))
+		if(Card(Right, (g_Config.m_KrxTasDrawPath ? 175 : 105) + (g_Config.m_KrxTasDrawPredictionPath ? 120 : 0), "Visuals"))
 		{
-			Check(g_Config.m_KrxTasDrawStartEndPos, "Draw start/end pos");
-			Check(g_Config.m_KrxTasDrawPath, "Draw replay path");
+			Check(g_Config.m_KrxTasDrawStartEndPos, "Draw start/end pos", false, "Draws the start and the end position of the replay");
+			Check(g_Config.m_KrxTasDrawPath, "Draw replay path", false, "Draw path during replay");
 			if(g_Config.m_KrxTasDrawPath)
 			{
-				Check(g_Config.m_KrxTasDrawPathSegmented, "Segmented", true);
+				const float OriginalX = Body.x, OriginalWidth = Body.w;
+				Body.VSplitLeft(20, nullptr, &Body);
+				Check(g_Config.m_KrxTasDrawPathSegmented, "Segmented", false, "Draw segmented path during replay");
 				const char *apModes[] = {"Full line", "Dotted"};
 				Choice(g_Config.m_KrxTasDrawPathMode, "", apModes, 2, 10);
-				Color(g_Config.m_KrxTasDrawPathColor, "Path color", 21, 0x55ff80);
+				Body.HSplitTop(5, nullptr, &Body);
+				Color(g_Config.m_KrxTasDrawPathColor, "Color", 21, 0x55ff80);
+				Body.x = OriginalX;
+				Body.w = OriginalWidth;
 			}
-			Check(g_Config.m_KrxTasDrawPredictionPath, "Draw prediction path");
+			Check(g_Config.m_KrxTasDrawPredictionPath, "Draw prediction path", false, "Draws the prediction path of your moves when recording a TAS");
 			if(g_Config.m_KrxTasDrawPredictionPath)
 			{
+				Body.VSplitLeft(20, nullptr, &Body);
 				const char *apModes[] = {"Full line", "Dotted"};
 				Choice(g_Config.m_KrxTasDrawPredictionPathMode, "", apModes, 2, 11);
+				Body.HSplitTop(5, nullptr, &Body);
 				Color(g_Config.m_KrxTasDrawPredictionPathColor, "Local color", 22, 0x55ff80);
+				Body.HSplitTop(5, nullptr, &Body);
 				Color(g_Config.m_KrxTasDrawPredictionPathColorFrozen, "Frozen color", 23, 0x1ff80);
+				Body.HSplitTop(5, nullptr, &Body);
 				Color(g_Config.m_KrxTasDrawPredictionPathColorOthers, "Others color", 24, 0x80ff80);
 			}
 		}

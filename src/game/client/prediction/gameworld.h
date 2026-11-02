@@ -112,6 +112,7 @@ public:
 	// the copy never marks or mutates the source world.
 	void CopyWorldIsolated(const CGameWorld *pFrom);
 	void RebindCollision(CCollision *pCollision);
+	void RebindTuning(CTuningParams *pTuningList) { m_pTuningList = pTuningList; }
 	CEntity *FindMatch(int ObjId, int ObjType, const void *pObjData);
 	void Clear();
 

@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <condition_variable>
 
 namespace OpenKrx
 {
@@ -120,62 +121,168 @@ namespace OpenKrx
 			}
 	}
 
+	namespace
+	{
+		float EvaluateInWorld(const CFent::CCandidate &Candidate, const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, CGameWorld &World, CCollision *pCollision = nullptr)
+		{
+			World.CopyWorldIsolated(&Source);
+			if(pCollision)
+				World.RebindCollision(pCollision);
+			auto *pCharacter = World.GetCharacterById(Id);
+			if(!pCharacter || Candidate.m_vInputs.empty())
+				return FLT_MAX;
+			vec2 Origin = pCharacter->Core()->m_Pos;
+			float Speeds = length(pCharacter->Core()->m_Vel), Score = 0;
+			CNetObj_PlayerInput Input{};
+			for(uint32_t Packed : Candidate.m_vInputs)
+			{
+				Input = UnpackFentInput(Packed);
+				Tick(World, Id, Input);
+				pCharacter = World.GetCharacterById(Id);
+				if(!pCharacter)
+					return FLT_MAX;
+				const auto *pCell = Field.At(pCharacter->Core()->m_Pos);
+				if(!pCell || !pCell->Reachable())
+					return FLT_MAX;
+				if(!LightTiles && pCharacter->m_FreezeTime > 0)
+					return FLT_MAX;
+				const bool Frozen = pCharacter->m_FreezeTime > 0;
+				if(!Frozen)
+				{
+					const float Alignment = dot(pCharacter->Core()->m_Vel, pCell->m_Flow);
+					if(Alignment > 0)
+						return FLT_MAX;
+					Score += Alignment * 1000.0f;
+				}
+				const int Index = World.Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos);
+				if(World.Collision()->GetTileIndex(Index) == TILE_FINISH || World.Collision()->GetFrontTileIndex(Index) == TILE_FINISH)
+					return -1e9f;
+				Speeds += length(pCharacter->Core()->m_Vel);
+			}
+			Score = Score - distance(pCharacter->Core()->m_Pos, Origin) - Speeds / Candidate.m_vInputs.size();
+			Origin = pCharacter->Core()->m_Pos;
+			Speeds = length(pCharacter->Core()->m_Vel);
+			vec2 LastPosition = Origin;
+			for(int I = 0; I < 12; ++I)
+			{
+				Tick(World, Id, Input);
+				pCharacter = World.GetCharacterById(Id);
+				if(!pCharacter)
+					break;
+				LastPosition = pCharacter->Core()->m_Pos;
+				const auto *pCell = Field.At(pCharacter->Core()->m_Pos);
+				if(!pCell || !pCell->Reachable() || (!LightTiles && pCharacter->m_FreezeTime > 0))
+					break;
+				const bool Frozen = pCharacter->m_FreezeTime > 0;
+				if(!Frozen)
+					Score += dot(pCharacter->Core()->m_Vel, pCell->m_Flow) * 1750.0f;
+				Speeds += length(pCharacter->Core()->m_Vel);
+			}
+			return Score - distance(LastPosition, Origin) - Speeds / 11.0f;
+		}
+	}
+
 	float CFent::Evaluate(const CCandidate &Candidate, const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles)
 	{
 		CGameWorld World;
-		World.CopyWorldIsolated(&Source);
-		auto *pCharacter = World.GetCharacterById(Id);
-		if(!pCharacter || Candidate.m_vInputs.empty())
-			return FLT_MAX;
-		vec2 Origin = pCharacter->Core()->m_Pos;
-		float Speeds = length(pCharacter->Core()->m_Vel), Score = 0;
-		CNetObj_PlayerInput Input{};
-		for(uint32_t Packed : Candidate.m_vInputs)
-		{
-			Input = UnpackFentInput(Packed);
-			Tick(World, Id, Input);
-			pCharacter = World.GetCharacterById(Id);
-			if(!pCharacter)
-				return FLT_MAX;
-			const auto *pCell = Field.At(pCharacter->Core()->m_Pos);
-			if(!pCell || !pCell->Reachable())
-				return FLT_MAX;
-			if(!LightTiles && pCharacter->m_FreezeTime > 0)
-				return FLT_MAX;
-			const bool Frozen = pCharacter->m_FreezeTime > 0;
-			if(!Frozen)
-			{
-				const float Alignment = dot(pCharacter->Core()->m_Vel, pCell->m_Flow);
-				if(Alignment > 0)
-					return FLT_MAX;
-				Score += Alignment * 1000.0f;
-			}
-			const int Index = World.Collision()->GetPureMapIndex(pCharacter->Core()->m_Pos);
-			if(World.Collision()->GetTileIndex(Index) == TILE_FINISH || World.Collision()->GetFrontTileIndex(Index) == TILE_FINISH)
-				return -1e9f;
-			Speeds += length(pCharacter->Core()->m_Vel);
-		}
-		Score = Score - distance(pCharacter->Core()->m_Pos, Origin) - Speeds / Candidate.m_vInputs.size();
-		Origin = pCharacter->Core()->m_Pos;
-		Speeds = length(pCharacter->Core()->m_Vel);
-		vec2 LastPosition = Origin;
-		for(int I = 0; I < 12; ++I)
-		{
-			Tick(World, Id, Input);
-			pCharacter = World.GetCharacterById(Id);
-			if(!pCharacter)
-				break;
-			LastPosition = pCharacter->Core()->m_Pos;
-			const auto *pCell = Field.At(pCharacter->Core()->m_Pos);
-			if(!pCell || !pCell->Reachable() || (!LightTiles && pCharacter->m_FreezeTime > 0))
-				break;
-			const bool Frozen = pCharacter->m_FreezeTime > 0;
-			if(!Frozen)
-				Score += dot(pCharacter->Core()->m_Vel, pCell->m_Flow) * 1750.0f;
-			Speeds += length(pCharacter->Core()->m_Vel);
-		}
-		return Score - distance(LastPosition, Origin) - Speeds / 11.0f;
+		return EvaluateInWorld(Candidate, Source, Id, Field, LightTiles, World);
 	}
+
+	struct CFent::CEvaluator::CImpl
+	{
+		struct CContext
+		{
+			std::unique_ptr<CCollision> m_pCollision;
+			CGameWorld m_World;
+		};
+		const CGameWorld &m_Source;
+		const CFlowField &m_Field;
+		int m_Id;
+		bool m_LightTiles;
+		std::vector<std::unique_ptr<CContext>> m_vContexts;
+		std::vector<std::thread> m_vThreads;
+		std::mutex m_Mutex;
+		std::condition_variable m_Start, m_Finished;
+		std::vector<CCandidate> *m_pPopulation = nullptr;
+		const std::atomic<bool> *m_pCancel = nullptr;
+		unsigned m_Generation = 0, m_Remaining = 0;
+		bool m_Stop = false;
+
+		CImpl(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads) :
+			m_Source(Source), m_Field(Field), m_Id(Id), m_LightTiles(LightTiles)
+		{
+			NumThreads = std::max(1u, NumThreads);
+			for(unsigned I = 0; I < NumThreads; ++I)
+			{
+				auto pContext = std::make_unique<CContext>();
+				// Laser prediction temporarily changes collision tiles. Sharing
+				// that buffer between candidates would race even with own worlds.
+				pContext->m_pCollision = Source.Collision()->CreateIsolatedCopy();
+				m_vContexts.push_back(std::move(pContext));
+			}
+			for(unsigned I = 0; I < NumThreads; ++I)
+				m_vThreads.emplace_back([this, I] { Worker(I); });
+		}
+		~CImpl() { Stop(); }
+		void Stop()
+		{
+			{
+				std::lock_guard Lock(m_Mutex);
+				m_Stop = true;
+			}
+			m_Start.notify_all();
+			for(auto &Thread : m_vThreads)
+				if(Thread.joinable())
+					Thread.join();
+		}
+		void Worker(unsigned Index)
+		{
+			unsigned LastGeneration = 0;
+			std::unique_lock Lock(m_Mutex);
+			while(true)
+			{
+				m_Start.wait(Lock, [&] { return m_Stop || m_Generation != LastGeneration; });
+				if(m_Stop)
+					return;
+				LastGeneration = m_Generation;
+				auto &Population = *m_pPopulation;
+				const auto &Cancel = *m_pCancel;
+				const size_t Count = Population.size(), Tasks = m_vContexts.size();
+				// 2d76b0: quotient/remainder partition, longer ranges first.
+				const size_t Begin = Index * (Count / Tasks) + std::min<size_t>(Index, Count % Tasks);
+				const size_t End = Begin + Count / Tasks + (Index < Count % Tasks);
+				auto &Context = *m_vContexts[Index];
+				Lock.unlock();
+				for(size_t I = Begin; I < End && !Cancel.load(); ++I)
+				{
+					const float Score = EvaluateInWorld(Population[I], m_Source, m_Id, m_Field, m_LightTiles, Context.m_World, Context.m_pCollision.get());
+					// Invalid evaluation preserves the previous score (2d83c0).
+					if(Score != FLT_MAX)
+						Population[I].m_Score = Score;
+				}
+				Lock.lock();
+				if(--m_Remaining == 0)
+					m_Finished.notify_one();
+			}
+		}
+		void Evaluate(std::vector<CCandidate> &vPopulation, const std::atomic<bool> &Cancel)
+		{
+			if(vPopulation.empty() || Cancel.load())
+				return;
+			std::unique_lock Lock(m_Mutex);
+			m_pPopulation = &vPopulation;
+			m_pCancel = &Cancel;
+			m_Remaining = m_vThreads.size();
+			++m_Generation;
+			m_Start.notify_all();
+			m_Finished.wait(Lock, [&] { return m_Remaining == 0; });
+		}
+	};
+
+	CFent::CEvaluator::CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads) :
+		m_pImpl(std::make_unique<CImpl>(Source, Id, Field, LightTiles, NumThreads)) {}
+	CFent::CEvaluator::~CEvaluator() = default;
+	void CFent::CEvaluator::Evaluate(std::vector<CCandidate> &vPopulation, const std::atomic<bool> &Cancel) { m_pImpl->Evaluate(vPopulation, Cancel); }
 
 	CFent::~CFent() { Stop(); }
 
@@ -214,28 +321,27 @@ namespace OpenKrx
 			std::vector<CPathPoint> vPath;
 			int FrozenTicks = 0;
 			bool FinishPending = false;
+			CNetObj_PlayerInput Base{};
+			const unsigned Workers = std::min<unsigned>(Settings.m_Actions, std::max(1u, std::thread::hardware_concurrency()));
+			CEvaluator Evaluator(World, m_Id, Field, Settings.m_LightTiles, Workers);
 			for(int SearchTick = 0; SearchTick <= Settings.m_Ticks && !m_Cancel.load(); ++SearchTick)
 			{
 				auto *pCharacter = World.GetCharacterById(m_Id);
 				if(!pCharacter)
 					break;
-				CNetObj_PlayerInput Base{};
-				Base.m_WantedWeapon = pCharacter->GetWeaponGot(WEAPON_LASER) ? WEAPON_LASER + 1 : pCharacter->GetWeaponGot(WEAPON_GRENADE) ? WEAPON_GRENADE + 1 :
-													  pCharacter->GetWeaponGot(WEAPON_SHOTGUN)         ? WEAPON_SHOTGUN + 1 :
-																			     0;
+				// 2db290 carries the last consumed input into the next batch.
+				// Weapon preference is grenade, then shotgun, then laser.
+				if(pCharacter->GetWeaponGot(WEAPON_GRENADE))
+					Base.m_WantedWeapon = WEAPON_GRENADE + 1;
+				else if(pCharacter->GetWeaponGot(WEAPON_SHOTGUN))
+					Base.m_WantedWeapon = WEAPON_SHOTGUN + 1;
+				else if(pCharacter->GetWeaponGot(WEAPON_LASER))
+					Base.m_WantedWeapon = WEAPON_LASER + 1;
 				auto vPopulation = InitialPopulation(Random, Settings.m_Actions, Settings.m_ActionTicks, Base, Settings.m_MouseRadius);
 				float Mutation = 1;
 				for(int Generation = 0; Generation < Settings.m_Generations && !m_Cancel.load(); ++Generation)
 				{
-					for(auto &Candidate : vPopulation)
-					{
-						if(m_Cancel.load())
-							break;
-						const float Score = Evaluate(Candidate, World, m_Id, Field, Settings.m_LightTiles);
-						// 2d83c0 leaves the previous score untouched on invalid paths.
-						if(Score != FLT_MAX)
-							Candidate.m_Score = Score;
-					}
+					Evaluator.Evaluate(vPopulation, m_Cancel);
 					MsvcSort(vPopulation.begin(), vPopulation.end(), (ptrdiff_t)vPopulation.size(), [](const auto &A, const auto &B) { return A.m_Score < B.m_Score; });
 					// Both 2d8aa0 (evaluation) and its caller 2dac60 sort.
 					MsvcSort(vPopulation.begin(), vPopulation.end(), (ptrdiff_t)vPopulation.size(), [](const auto &A, const auto &B) { return A.m_Score < B.m_Score; });
@@ -299,28 +405,45 @@ namespace OpenKrx
 				// extra evaluation after the last crossover/mutation pass.
 				const auto &Best = vPopulation.front();
 				FrozenTicks = 0;
+				int UsedJumps = 0;
 				for(uint32_t Packed : Best.m_vInputs)
 				{
 					if(m_Cancel.load())
 						break;
 					const auto Input = UnpackFentInput(Packed);
+					Base = Input;
 					vInputs.push_back(Input);
+					// 2db290 compares displayed jump counts before/after the
+					// tick, so air jumps and jump-count tiles also get markers.
+					const int Before = pCharacter->IsGrounded() ? 0 : UsedJumps;
+					const auto &PreviousCore = *pCharacter->Core();
+					if((PreviousCore.m_TriggeredEvents & COREEVENT_GROUND_JUMP) || Before == 1)
+						UsedJumps = PreviousCore.m_JumpedTotal + 1;
+					else
+						UsedJumps = PreviousCore.m_JumpedTotal > 1 ? PreviousCore.m_JumpedTotal : Before;
 					Tick(World, m_Id, Input);
 					pCharacter = World.GetCharacterById(m_Id);
 					if(!pCharacter)
 						break;
-					vPath.push_back({pCharacter->Core()->m_Pos, (pCharacter->Core()->m_TriggeredEvents & COREEVENT_GROUND_JUMP) != 0});
+					const auto &Core = *pCharacter->Core();
+					const bool GroundJump = Core.m_TriggeredEvents & COREEVENT_GROUND_JUMP;
+					int After = GroundJump ? 1 : UsedJumps;
+					if(UsedJumps == 1)
+						After += Core.m_JumpedTotal;
+					else if(Core.m_JumpedTotal > 1)
+						After = Core.m_JumpedTotal;
+					vPath.push_back({Core.m_Pos, GroundJump || After != UsedJumps});
 					if(pCharacter->m_FreezeTime > 0)
 						++FrozenTicks;
 					const vec2 Tile((float)(int)(pCharacter->Core()->m_Pos.x / 32.0f), (float)(int)(pCharacter->Core()->m_Pos.y / 32.0f));
-					if((!Settings.m_LightTiles && pCharacter->m_FreezeTime != 0) || (Settings.m_LightTiles && FrozenTicks >= 250) || FinishPending || distance(Tile, Field.Goal() / 32.0f) <= 5)
+					if((!Settings.m_LightTiles && pCharacter->m_FreezeTime > 0) || (Settings.m_LightTiles && FrozenTicks > 250) || FinishPending || distance(Tile, Field.Goal() / 32.0f) <= 5)
 						goto Completed;
 					if(Best.m_Score == -1e9f)
 						FinishPending = true;
 				}
 				{
 					std::lock_guard Lock(m_Mutex);
-					m_vPath = vPath;
+					m_vPath.insert(m_vPath.end(), vPath.begin() + m_vPath.size(), vPath.end());
 				}
 			}
 		Completed:
@@ -369,6 +492,10 @@ namespace OpenKrx
 		m_pCollision = Collision()->CreateIsolatedCopy();
 		m_pInitial = std::make_unique<CGameWorld>();
 		m_pInitial->CopyWorldIsolated(pSource);
+		// Incoming tune messages can update the live world's list while the
+		// background search is reading it. Freeze that input with the snapshot.
+		std::copy_n(pSource->TuningList(), m_aSearchTuning.size(), m_aSearchTuning.begin());
+		m_pInitial->RebindTuning(m_aSearchTuning.data());
 		m_pInitial->RebindCollision(m_pCollision.get());
 		m_pInitial->m_WorldConfig.m_KrxPrediction = true;
 		m_pInitial->m_WorldConfig.m_KrxExplosionStrengthValid = true;

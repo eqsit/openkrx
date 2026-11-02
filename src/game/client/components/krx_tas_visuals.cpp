@@ -166,7 +166,7 @@ namespace OpenKrx
 			if(auto *pCharacter = World.GetCharacterById(Id))
 			{
 				aPrev[Id] = pCharacter->Core()->m_Pos;
-				aInputs[Id] = Id == m_aIds[g_Config.m_ClDummy] ? GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy] : pCharacter->DiagnosticCurrentInput();
+				aInputs[Id] = Id == GameClient()->m_aLocalIds[g_Config.m_ClDummy] ? GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy] : pCharacter->DiagnosticCurrentInput();
 				aPredict[Id] = pCharacter->Core()->m_Vel != vec2(0, 0);
 			}
 		for(int Tick = 0; Tick <= 50; ++Tick)
@@ -229,7 +229,7 @@ namespace OpenKrx
 			TextRender()->Text(4, Y, 6, aText);
 		}
 		TextRender()->Text(4, Y, 6, "Reload:");
-		if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[g_Config.m_ClDummy]))
+		if(auto *pCharacter = m_pWorld->GetCharacterById(GameClient()->m_aLocalIds[g_Config.m_ClDummy]))
 		{
 			static int s_Weapon = -1, s_ReloadTick = -1, s_Jumps = 0;
 			const auto &Core = *pCharacter->Core();
@@ -289,6 +289,8 @@ namespace OpenKrx
 	void CKrxTas::OnRender()
 	{
 		UpdateVault();
+		if(g_Config.m_KrxTasFakeAim)
+			AddFakeAim();
 		if(g_Config.m_KrxSaveReplayToFile)
 		{
 			g_Config.m_KrxSaveReplayToFile = 0;
