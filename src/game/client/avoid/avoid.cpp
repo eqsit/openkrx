@@ -123,9 +123,9 @@ namespace OpenKrx
 							 Decision->m_TargetX != Input.m_TargetX || Decision->m_TargetY != Input.m_TargetY);
 		if(g_Config.m_AvoidDebug && (Changed || (m_DebugCounter++ % 20) == 0))
 		{
-			const auto *pLocal = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
+			const auto *pLocal = pGameClient->KrxPredictedWorld().GetCharacterById(ClientId);
 			if(!pLocal)
-				pLocal = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+				pLocal = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 			const vec2 Velocity = pLocal ? pLocal->Core()->m_Vel : vec2(0, 0);
 			const vec2 HookPos = pLocal ? pLocal->Core()->m_HookPos : vec2(0, 0);
 			const int HookState = pLocal ? pLocal->Core()->m_HookState : -1;
@@ -133,7 +133,7 @@ namespace OpenKrx
 				ClientId, Pos.x, Pos.y, WasFrozen ? 1 : 0, Decision.has_value() ? 1 : 0,
 				Decision ? Decision->m_Direction : 0, Decision ? Decision->m_Hook : 0, Decision ? Decision->m_Jump : 0,
 				Input.m_Direction, Input.m_Hook, ManualHook ? 1 : 0, (int)m_Planner.LastPlan().size(), (long long)Elapsed,
-				DecisionLife, pGameClient->m_PredictedWorld.GameTick(), Velocity.x, Velocity.y, HookState, HookPos.x, HookPos.y,
+				DecisionLife, pGameClient->KrxPredictedWorld().GameTick(), Velocity.x, Velocity.y, HookState, HookPos.x, HookPos.y,
 				Input.m_TargetX, Input.m_TargetY, Output.m_TargetX, Output.m_TargetY, Settings.m_CheckTicks, Settings.m_KickInTicks,
 				Input.m_Jump, pGameClient->m_Controls.m_PhysicalJump);
 		}

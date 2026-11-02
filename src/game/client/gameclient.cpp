@@ -155,6 +155,8 @@ void CGameClient::OnConsoleInit()
 					      &m_KrxMovementPreTas,
 					      &m_KrxMiscPreTas,
 					      &m_PreTasVisuals,
+					      &m_Tas,
+					      &m_Fent,
 					      &m_Spectator,
 					      &m_Emoticon,
 					      &m_InfoMessages,
@@ -623,6 +625,7 @@ void CGameClient::OnConnected()
 
 void CGameClient::OnReset()
 {
+	m_Fent.OnReset();
 	InvalidateSnapshot();
 
 	m_Avoid.m_Trace.Reset();
@@ -783,6 +786,7 @@ void CGameClient::UpdatePositions()
 		ResetMultiView();
 
 	UpdateRenderedCharacters();
+	m_Tas.ApplyRenderState();
 }
 
 void CGameClient::OnRender()
@@ -825,6 +829,7 @@ void CGameClient::OnRender()
 	}
 
 	// update camera data prior to CControls::OnRender to allow CControls::m_aTargetPos to compensate using camera data
+	m_Fent.UpdateScanCamera();
 	m_Camera.UpdateCamera();
 
 	UpdateSpectatorCursor();
@@ -2365,7 +2370,8 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 	}
 
 	if(DummySwapped)
-		m_Camera.UpdateCamera();
+		m_Fent.UpdateScanCamera();
+	m_Camera.UpdateCamera();
 
 	float ShowDistanceZoom = m_Camera.m_Zoom;
 	float Zoom = m_Camera.m_Zoom;
@@ -2696,7 +2702,8 @@ void CGameClient::OnPredict()
 
 	const int EndTick = Client()->PredGameTick(g_Config.m_ClDummy) + g_Config.m_ClFastInput;
 	const int PredictionTick = g_Config.m_ClFastInput ?
-		Client()->PredGameTick(g_Config.m_ClDummy) + g_Config.m_ClFastInputOthers : Client()->GetPredictionTick();
+					   Client()->PredGameTick(g_Config.m_ClDummy) + g_Config.m_ClFastInputOthers :
+					   Client()->GetPredictionTick();
 	bool SavedFastInputWorld = false;
 	// predict
 	for(int Tick = Client()->GameTick(g_Config.m_ClDummy) + 1; Tick <= EndTick; Tick++)

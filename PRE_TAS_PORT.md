@@ -54,7 +54,9 @@ original/port A/B и пиксельный A/B оригинального мен�
 help links, prediction tooltips, Discord restart flow. Консольные параметры,
 которых нет в оригинальном меню, не вынесены в выдуманную дополнительную карточку.
 Пользовательские дополнения manual jump/weapon restore оставлены в OpenKRX.
-TAS, Pathfinding и Fent/Legit/Basic остаются за границей этой задачи.
+TAS, Pathfinding и Fent остаются будущими задачами; актуальный список —
+[REMAINING_FEATURES.md](REMAINING_FEATURES.md). Legit и Basic исключены
+пользователем 2026-11-01: не нужны вообще, не реализовывать.
 
 Локальные исследовательские Evidence не публикуются вместе с исходниками. Подробные Evidence/ограничения: `misc/REVIEW.md`, `movement/AUDIT.md`,
 `visuals/REPORT.md`, `prediction/*.json`. Итоговые проверки и точная идентичность
@@ -63,4 +65,8 @@ TAS, Pathfinding и Fent/Legit/Basic остаются за границей эт
 Первичный бэкап до работы:
 `/home/a/backups/openkrx-before-pre-tas-20261101-155937` —1891file source.tar.gz,
 SHA256 `f4372b8827c98cf1bd983c396ea8d38016d13c28ae2a328d30d6fb93b2e6fcf9`,
-HEAD/status/patch и Git bundle. Коммит/публикация релиза не выполнялись.
+HEAD/status/patch и Git bundle.
+
+Перенос опубликован в [релизе v0.1.4](https://github.com/eqsit/openkrx/releases/tag/v0.1.4):
+Linux и Windows x86_64, исходник сборок `9d0aaa10f4bf1c271fce8dc579840f1194596939`.
+Код отправлен в `origin/main`; итог публикации и проверки записаны в JOURNAL.md.

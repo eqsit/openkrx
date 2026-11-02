@@ -26,6 +26,8 @@ void CKrxMovementPreTas::OnReset()
 
 bool CKrxMovementPreTas::UpdateFastInput()
 {
+	if(GameClient()->m_Tas.Active())
+		return false;
 	// REA 23e070 copies all ten input words, derives direction from physical
 	// keys, and compares the seven non-aim action fields with the old cache.
 	const int Slot = g_Config.m_ClDummy;
@@ -56,7 +58,7 @@ void CKrxMovementPreTas::GhostMove(CNetObj_PlayerInput &Input)
 		m_GhostToggle = true;
 		return;
 	}
-	const int WorldTick = GameClient()->m_PredictedWorld.GameTick();
+	const int WorldTick = GameClient()->KrxPredictedWorld().GameTick();
 	if(m_GhostLastTick % 2 == 0)
 	{
 		if(!m_GhostToggle)
@@ -221,7 +223,7 @@ void CKrxMovementPreTas::AutoEdge(CNetObj_PlayerInput &Input)
 		{
 			auto Candidate = Input;
 			Candidate.m_Direction = Direction;
-			const float Score = EdgeDistance(GameClient()->m_PredictedWorld, Id, Candidate, m_EdgeTarget.x);
+			const float Score = EdgeDistance(GameClient()->KrxPredictedWorld(), Id, Candidate, m_EdgeTarget.x);
 			if(Score >= 0)
 			{
 				if(Score <= 0.2f)

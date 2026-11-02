@@ -274,8 +274,8 @@ namespace OpenKrx
 		const int Slot = g_Config.m_ClDummy;
 		const int LocalId = pGameClient->m_aLocalIds[Slot];
 		const int DummyId = pGameClient->m_aLocalIds[!Slot];
-		const CCharacter *pLocal = pGameClient->m_PredictedWorld.GetCharacterById(LocalId);
-		const CCharacter *pDummy = pGameClient->m_PredictedWorld.GetCharacterById(DummyId);
+		const CCharacter *pLocal = pGameClient->KrxPredictedWorld().GetCharacterById(LocalId);
+		const CCharacter *pDummy = pGameClient->KrxPredictedWorld().GetCharacterById(DummyId);
 		if(!pLocal || !pDummy || DummyId < 0 || DummyId >= MAX_CLIENTS)
 			return;
 		const auto Decision = DummyFlyDecision(pLocal->m_Pos, pDummy->m_Pos,
@@ -464,13 +464,13 @@ namespace OpenKrx
 	{
 		if(!g_Config.m_KrxAutoShotgun || !(Input.m_Fire & 1) || !Playing(pGameClient, Input, ClientId))
 			return Input;
-		const CCharacter *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
-		const CCharacter *pLocal = pGameClient->m_PredictedWorld.GetCharacterById(ClientId);
+		const CCharacter *pAuthoritative = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
+		const CCharacter *pLocal = pGameClient->KrxPredictedWorld().GetCharacterById(ClientId);
 		if(!pAuthoritative || !pLocal || !const_cast<CCharacter *>(pAuthoritative)->GetWeaponGot(WEAPON_SHOTGUN) ||
 			const_cast<CCharacter *>(pLocal)->GetActiveWeapon() != WEAPON_SHOTGUN)
 			return Input;
 		const vec2 Mouse = pGameClient->m_Controls.m_aMousePos[g_Config.m_ClDummy];
-		const auto Result = SearchShotgunWorld(pGameClient->m_PredictedWorld, ClientId, MouseInput(pGameClient, Input), Mouse,
+		const auto Result = SearchShotgunWorld(pGameClient->KrxPredictedWorld(), ClientId, MouseInput(pGameClient, Input), Mouse,
 			g_Config.m_KrxAutoShotgunTicks, g_Config.m_KrxAutoShotgunPoints, (float)g_Config.m_KrxAutoShotgunFov,
 			g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunHighestVel, pGameClient->m_Controls.GetMaxMouseDistance());
 		if(Result.m_Found)
@@ -490,18 +490,18 @@ namespace OpenKrx
 			g_Config.m_KrxUnfreezeBotSilent = 1;
 		}
 		const int Slot = g_Config.m_ClDummy;
-		if(!m_aUnfreezePulse[Slot].Release(Input, pGameClient->m_GameWorld.GameTick()))
+		if(!m_aUnfreezePulse[Slot].Release(Input, pGameClient->KrxGameWorld().GameTick()))
 			return Input;
 		if(!g_Config.m_KrxUnfreezeBot || (Input.m_Fire & 1) || !Playing(pGameClient, Input, ClientId))
 		{
 			m_LastUnfreezeAim = vec2(0, 0);
 			return Input;
 		}
-		CCharacter *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		CCharacter *pAuthoritative = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 		if(!pAuthoritative || pAuthoritative->DiagnosticReloadTimer() > 0 ||
 			IsKrxCharacterFrozen(pGameClient, ClientId) || !pAuthoritative->GetWeaponGot(WEAPON_LASER))
 			return Input;
-		const CGameWorld &Source = pGameClient->m_PredictedWorld;
+		const CGameWorld &Source = pGameClient->KrxPredictedWorld();
 		if(!const_cast<CGameWorld &>(Source).GetCharacterById(ClientId))
 			return Input;
 		CNetObj_PlayerInput ProbeInput = MouseInput(pGameClient, Input);
@@ -601,18 +601,18 @@ namespace OpenKrx
 	CNetObj_PlayerInput CRescueBots::AdjustAutoAled(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId)
 	{
 		const int Slot = g_Config.m_ClDummy;
-		if(!m_aAledPulse[Slot].Release(Input, pGameClient->m_GameWorld.GameTick()))
+		if(!m_aAledPulse[Slot].Release(Input, pGameClient->KrxGameWorld().GameTick()))
 			return Input;
 		if(!g_Config.m_KrxAutoAled || (Input.m_Fire & 1) || !Playing(pGameClient, Input, ClientId))
 			return Input;
-		CCharacter *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		CCharacter *pAuthoritative = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 		if(!pAuthoritative || pAuthoritative->DiagnosticReloadTimer() > 0 || IsKrxCharacterFrozen(pGameClient, ClientId))
 			return Input;
 		const int TargetId = CMediumBots::ClosestPlayer(pGameClient);
 		if(TargetId < 0)
 			return Input;
 		CGameWorld Source;
-		Source.CopyWorldIsolated(&pGameClient->m_PredictedWorld);
+		Source.CopyWorldIsolated(&pGameClient->KrxPredictedWorld());
 		Source.m_WorldConfig.m_PredictWeapons = true;
 		CCharacter *pLocal = Source.GetCharacterById(ClientId);
 		CCharacter *pTarget = Source.GetCharacterById(TargetId);

@@ -25,7 +25,7 @@ namespace OpenKrx
 	{
 		bool IsKrxFng(CGameClient *pGameClient)
 		{
-			return pGameClient->m_GameWorld.m_WorldConfig.m_IsFNG ||
+			return pGameClient->KrxGameWorld().m_WorldConfig.m_IsFNG ||
 			       str_find_nocase(pGameClient->Client()->ServerInfo().m_aGameType, "fng") != nullptr;
 		}
 
@@ -264,7 +264,7 @@ namespace OpenKrx
 			ClientId = pGameClient->m_aLocalIds[g_Config.m_ClDummy];
 		if(ClientId < 0 || ClientId >= MAX_CLIENTS)
 			return false;
-		const auto *pCharacter = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		const auto *pCharacter = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 		if(!pCharacter)
 			return false;
 		// 2b43a0 reads game type; 2b4310 reads the adjacent server *name*.
@@ -424,10 +424,10 @@ namespace OpenKrx
 
 	CNetObj_PlayerInput CRocketSave::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
 	{
-		const auto *pCharacter = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		const auto *pCharacter = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 		const bool Valid = g_Config.m_RocketRestoreWeapon && g_Config.m_KrxGrenadeSaver && pCharacter &&
-			pGameClient->Client()->State() == IClient::STATE_ONLINE &&
-			!pGameClient->m_Snap.m_SpecInfo.m_Active && pGameClient->m_Snap.m_pLocalCharacter;
+				   pGameClient->Client()->State() == IClient::STATE_ONLINE &&
+				   !pGameClient->m_Snap.m_SpecInfo.m_Active && pGameClient->m_Snap.m_pLocalCharacter;
 		if(!Valid || m_RestoreClientId != ClientId || m_RestoreSlot != g_Config.m_ClDummy)
 			CancelWeaponRestore();
 		if(Valid)
@@ -453,14 +453,14 @@ namespace OpenKrx
 					m_WeaponRestore.Prepare(Previous);
 			}
 			const bool Issued = Output.m_Fire != Input.m_Fire && (Output.m_Fire & 1) &&
-				OwnsPendingFire(Output.m_Fire, ClientId, g_Config.m_ClDummy);
+					    OwnsPendingFire(Output.m_Fire, ClientId, g_Config.m_ClDummy);
 			if(Issued)
 				m_WeaponRestore.OnIssued(pCharacter->GetAttackTick());
 			if(!Issued && m_ReleaseModulo == 0 && !(Output.m_Fire & 1) && m_WeaponRestore.NeedsSafeExit() &&
-				!IsKrxCharacterFrozen(pGameClient, ClientId) && pGameClient->m_PredictedWorld.GetCharacterById(ClientId))
+				!IsKrxCharacterFrozen(pGameClient, ClientId) && pGameClient->KrxPredictedWorld().GetCharacterById(ClientId))
 			{
 				CGameWorld Snapshot;
-				Snapshot.CopyWorldIsolated(&pGameClient->m_PredictedWorld);
+				Snapshot.CopyWorldIsolated(&pGameClient->KrxPredictedWorld());
 				Snapshot.m_WorldConfig.m_IsFNG = IsKrxFng(pGameClient);
 				Snapshot.m_WorldConfig.m_PredictTiles = true;
 				Snapshot.m_WorldConfig.m_PredictFreeze = 1;
@@ -495,7 +495,7 @@ namespace OpenKrx
 
 	CNetObj_PlayerInput CRocketSave::AdjustInputCore(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId, bool ManualJump)
 	{
-		const auto *pAuthoritative = pGameClient->m_GameWorld.GetCharacterById(ClientId);
+		const auto *pAuthoritative = pGameClient->KrxGameWorld().GetCharacterById(ClientId);
 		// Reference fire pulses; the requested manual-jump extension is applied below.
 		bool CanFire = true;
 		// 0x1402ba150 releases a generated shot on a randomly selected tick
@@ -503,7 +503,7 @@ namespace OpenKrx
 		// if the feature has since been disabled.
 		if(m_ReleaseModulo != 0)
 		{
-			if(!ShouldReleaseFire(pGameClient->m_GameWorld.GameTick(), m_ReleaseModulo, Input.m_Fire))
+			if(!ShouldReleaseFire(pGameClient->KrxGameWorld().GameTick(), m_ReleaseModulo, Input.m_Fire))
 				CanFire = false;
 			else
 			{
@@ -520,7 +520,7 @@ namespace OpenKrx
 		CanFire = CanFire && !(Input.m_Fire & 1) && pAuthoritative->Core()->m_aWeapons[WEAPON_GRENADE].m_Got;
 		if(!CanFire && !ManualJump)
 			return Input;
-		CGameWorld &Source = pGameClient->m_PredictedWorld;
+		CGameWorld &Source = pGameClient->KrxPredictedWorld();
 		if(!Source.GetCharacterById(ClientId))
 			return Input;
 		CGameWorld Snapshot;

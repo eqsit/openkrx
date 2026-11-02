@@ -11,11 +11,13 @@
 #include <game/client/components/key_binder.h>
 #include <game/client/gameclient.h>
 #include <game/client/ui.h>
+#include <game/client/ui_listbox.h>
 #include <game/client/ui_scrollregion.h>
 #include <game/editor/editor.h>
 #include <game/localization.h>
 
 #include <algorithm>
+#include <cmath>
 
 // Layout recovered from KRX 0x1402482d0 and its six page renderers.
 // Evidence and original conditional card sizes: research/easy-port-20261030/.
@@ -42,23 +44,18 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		static CUi::SDropDownState s_AgentDropDown;
 		static CScrollRegion s_AgentDropDownScroll;
 		s_AgentDropDown.m_SelectionPopupContext.m_pScrollRegion = &s_AgentDropDownScroll;
-		const char *apAgents[] = {"Basic (Later)", "Legit (Later)", "Blatant", "Fent (Later)"};
-		const int Agent = Ui()->DoDropDown(&Button, g_Config.m_AvoidAgentType, apAgents, 4, s_AgentDropDown);
+		const char *apAgents[] = {"Blatant", "Fent"};
+		const int Agent = 2 + Ui()->DoDropDown(&Button, std::clamp(g_Config.m_AvoidAgentType - 2, 0, 1), apAgents, 2, s_AgentDropDown);
 		if(Agent != g_Config.m_AvoidAgentType)
 		{
 			g_Config.m_AvoidAgentType = Agent;
-			if(Agent != 2)
-				g_Config.m_AvoidFreeze = 0;
+			g_Config.m_AvoidFreeze = 0;
 		}
-		if(g_Config.m_AvoidAgentType == 2)
-			RenderSettingsAvoid(MainView);
-		else
+		if(Agent == 2)
 		{
-			MainView.HSplitTop(10.0f, nullptr, &MainView);
-			MainView.HSplitTop(40.0f, &Button, &MainView);
-			Ui()->DoLabel(&Button, Localize("This agent will be added later. Blatant is available."), 14.0f, TEXTALIGN_ML);
+			RenderSettingsAvoid(MainView);
+			return;
 		}
-		return;
 	}
 
 	static CScrollRegion s_aScrollRegions[6];
@@ -99,15 +96,6 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(pTip)
 			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};
-	const auto Later = [&](const char *pText) {
-		Body.HSplitTop(20.0f, &Row, &Body);
-		CUIRect Badge;
-		Row.VSplitRight(40.0f, &Row, &Badge);
-		TextRender()->TextColor(ColorRGBA(1, 1, 1, 0.45f));
-		Ui()->DoLabel(&Row, Localize(pText), 13.0f, TEXTALIGN_ML);
-		Ui()->DoLabel(&Badge, Localize("Later"), 10.0f, TEXTALIGN_MR);
-		TextRender()->TextColor(TextRender()->DefaultTextColor());
-	};
 	const auto Slider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false, const char *pTip = nullptr) {
 		Body.HSplitTop(20.0f, &Row, &Body);
 		if(Indent)
@@ -118,7 +106,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};
 	const auto Text = [&](char *pValue, size_t Size, const char *pText, int Index, const char *pEmpty = nullptr) {
-		static CLineInput s_aInputs[6];
+		static CLineInput s_aInputs[10];
 		Body.HSplitTop(20.0f, &Row, &Body);
 		CUIRect Label;
 		if(pText && *pText)
@@ -162,8 +150,8 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			color_cast<ColorRGBA>(ColorHSLA(Default)), false);
 	};
 	const auto Choice = [&](int &Value, const char *pText, const char **ppNames, int Count, int Index, bool Indent = false) {
-		static CUi::SDropDownState s_aDropDowns[8];
-		static CScrollRegion s_aDropDownScrolls[8];
+		static CUi::SDropDownState s_aDropDowns[12];
+		static CScrollRegion s_aDropDownScrolls[12];
 		Body.HSplitTop(20.0f, &Row, &Body);
 		if(Indent)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
@@ -177,7 +165,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		Value = Ui()->DoDropDown(&Row, Value, ppNames, Count, s_aDropDowns[Index]);
 	};
 	const auto Key = [&](int Index, const char *pLabel, const char *pCommand) {
-		static CButtonContainer s_aKeys[16], s_aClear[16];
+		static CButtonContainer s_aKeys[24], s_aClear[24];
 		CBindSlot Current = EMPTY_BIND_SLOT;
 		for(int Modifier = 0; Modifier < KeyModifier::COMBINATION_COUNT; ++Modifier)
 			for(int KeyIndex = 0; KeyIndex < KEY_LAST; ++KeyIndex)
@@ -445,7 +433,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxFeaturesHudGradientRainbow, "Rainbow");
 			}
 			Check(g_Config.m_KrxNotifications, "Notifications", false, "Shows notifications in top right corner from bots");
-			Later("TAS HUD");
+			Check(g_Config.m_KrxTasHud, "TAS HUD");
 		}
 		if(Card(Left, g_Config.m_KrxWatermark ? 180.0f : 65.0f, "Watermark"))
 		{
@@ -608,46 +596,313 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_KrxSuperDyncam, "Super dyncam", false, "Enables super zoom when using dyncam");
 		}
 	}
+	else if(g_Config.m_KrxMenuTab == 3)
+	{
+		const auto Action = [&](const char *pText, int Index) {
+			static CButtonContainer s_aActions[8];
+			Body.HSplitTop(20, &Row, &Body);
+			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row);
+		};
+		const float Height = 185 + (g_Config.m_KrxFentLightTile ? 20 : 0) + (g_Config.m_KrxFentAdvancedSettings ? 60 : 0);
+		if(Card(Left, Height, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/fentbot"))
+		{
+			Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction", false, "Different from settings player prediction - this completely removes all characters");
+			Check(g_Config.m_KrxFentLightTile, "Unfreeze", false, "Supports going through light tiles");
+			if(g_Config.m_KrxFentLightTile)
+				Slider(g_Config.m_KrxFentLightTileRadius, "Radius", 0, 20, false, "Radius for the light tiles");
+			Check(g_Config.m_KrxFentAdvancedSettings, "Advanced Settings");
+			if(g_Config.m_KrxFentAdvancedSettings)
+			{
+				Slider(g_Config.m_KrxFentTicks, "Fent ticks", 1000, 10000);
+				Slider(g_Config.m_KrxFentTweakerActions, "Tweaker inputs", 50, 5000);
+				Slider(g_Config.m_KrxFentTweakerTicks, "Tweaker ticks", 1, 30);
+				Slider(g_Config.m_KrxFentTweakerDosage, "Tweaker dosage", 1, 500);
+			}
+			else
+			{
+				const char *apQuality[] = {"Low", "Mid", "Max"};
+				Choice(g_Config.m_KrxFentQualitySetting, "Quality", apQuality, 3, 8);
+			}
+			Body.HSplitTop(5, nullptr, &Body);
+			if(Action(g_Config.m_AvoidFreeze ? "Stop" : "Enable", 0))
+				g_Config.m_AvoidFreeze ^= 1;
+		}
+		if(Card(Left, 145, "Visuals"))
+		{
+			Check(g_Config.m_AvoidDrawPath, "Render path", false, "Shows visuals for path");
+			Check(g_Config.m_KrxPathFindingRenderTunnels, "Render tunnels", false, "Shows visuals for your created tunnels");
+			Check(g_Config.m_KrxPathFindingRenderFlowField, "Render pathfinding", false, "Shows visuals for pathfinding");
+			Check(g_Config.m_KrxFentSpectateScan, "Spectate scan", false, "Spectates the latest position of the scan");
+		}
+		if(Card(Right, 105, "Pathfinding"))
+		{
+			if(Action("Set goal", 1))
+				g_Config.m_KrxPathFinding = 1;
+			if(Action("Clear", 2))
+				g_Config.m_KrxPathFindingClear = 1;
+		}
+		if(Card(Right, 165, "Tunnels"))
+		{
+			Check(g_Config.m_KrxPathFindingTunnelMode, "Tunnel editor", false, "Fent bot will ignore the tiles you highlight creating a tunnel");
+			if(Action("Auto tunnels", 3))
+				g_Config.m_KrxPathFindingAutoTunnel = 1;
+			Slider(g_Config.m_KrxPathFindingAutoTunnelWidth, "Tunnel width", 0, 10);
+			if(Action("Clear tunnels", 4))
+				g_Config.m_KrxPathFindingTunnelClear = 1;
+		}
+	}
 	else if(g_Config.m_KrxMenuTab == 4)
 	{
-		if(Card(Left, 165.0f, "Main"))
+		GameClient()->m_Tas.CheckAutoSyncVault();
+		const auto Action = [&](const char *pText, int Index) {
+			static CButtonContainer s_aActions[16];
+			Body.HSplitTop(20, &Row, &Body);
+			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row);
+		};
+		const bool HasReplay = GameClient()->m_Tas.Replay().m_aFrames[0].size() > 50;
+		if(Card(Left, HasReplay ? 135 : 105, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/tas"))
 		{
-			Later("TPS");
-			Later("Start recording TAS");
-			Later("Pause TAS");
-			Later("Playback replay");
-			Later("Clear current replay");
+			Slider(g_Config.m_KrxTasTps, "TPS", 1, 50, false, "Sets the tick speed of TAS(default teeworlds TPS: 50)");
+			static CButtonContainer s_aTransport[3];
+			CUIRect Buttons[3], Rest;
+			Body.HSplitTop(5, nullptr, &Body);
+			Body.HSplitTop(20, &Rest, &Body);
+			const float Width = Rest.w / 3;
+			Rest.VSplitLeft(Width, &Buttons[0], &Rest);
+			Rest.VSplitLeft(Width, &Buttons[1], &Buttons[2]);
+			if(DoButton_Menu(&s_aTransport[0], g_Config.m_KrxRecordReplay ? Localize("Stop recording TAS") : Localize("Start recording TAS"), g_Config.m_KrxRecordReplay, &Buttons[0]))
+				g_Config.m_KrxRecordReplay ^= 1;
+			if(DoButton_Menu(&s_aTransport[1], g_Config.m_KrxTasPause ? Localize("Unpause") : Localize("Pause"), g_Config.m_KrxTasPause, &Buttons[1]))
+				g_Config.m_KrxTasPause ^= 1;
+			const bool FentBusy = GameClient()->m_Fent.Busy();
+			if(DoButton_Menu(&s_aTransport[2], FentBusy ? Localize("Fent: searching...") : g_Config.m_KrxLoadReplay ? Localize("Stop replay") :
+																  Localize("Playback replay"),
+				   g_Config.m_KrxLoadReplay, &Buttons[2]) &&
+				!FentBusy)
+				g_Config.m_KrxLoadReplay ^= 1;
+			if(HasReplay)
+			{
+				Body.HSplitTop(10, nullptr, &Body);
+				static bool s_ConfirmClear = false;
+				if(!s_ConfirmClear)
+				{
+					if(Action("Clear current replay", 3))
+						s_ConfirmClear = true;
+				}
+				else
+				{
+					CUIRect Confirm, Cancel;
+					Body.HSplitTop(20, &Row, &Body);
+					Row.VSplitMid(&Confirm, &Cancel, 5);
+					static CButtonContainer s_Clear, s_Cancel;
+					if(DoButton_Menu(&s_Clear, Localize("Confirm"), 0, &Confirm))
+					{
+						g_Config.m_KrxTasRespawn = 1;
+						s_ConfirmClear = false;
+					}
+					if(DoButton_Menu(&s_Cancel, Localize("Cancel"), 0, &Cancel))
+						s_ConfirmClear = false;
+				}
+			}
 		}
-		if(Card(Left, 185.0f, "Settings"))
+		if(Card(Left, 135 + (g_Config.m_KrxTasAutoReplay && g_Config.m_KrxAutoSaveReplayEnabled ? 20 : 0), "Settings"))
 		{
-			Later("Enable sound");
-			Later("Enable effects");
-			Later("Show real aim");
-			Later("Predict players");
-			Later("Auto Replay");
-			Later("Auto Save Replay");
+			CUIRect SettingsLeft, SettingsRight;
+			Body.VSplitMid(&SettingsLeft, &SettingsRight, 10);
+			Body = SettingsLeft;
+			Check(g_Config.m_KrxTasUseSound, "Enable sound", false, "Enables using sounds in the TAS world");
+			Check(g_Config.m_KrxTasShowEffects, "Enable effects", false, "Enables showing effects(like hammer hit, double jump, ...) in TAS world");
+			Check(g_Config.m_KrxTasShowAim, "Show real aim", false, "Shows where you are aiming while replaying a TAS");
+			Check(g_Config.m_KrxTasPlayerPrediction, "Predict players", false, "When enabled, adds every tee to the TAS world");
+			Body = SettingsRight;
+			Check(g_Config.m_KrxTasAutoReplay, "Auto Replay");
+			if(g_Config.m_KrxTasAutoReplay)
+			{
+				Check(g_Config.m_KrxTasAutoReplayFreeze, "On freeze", true, "Restarts auto replay when frozen");
+				Check(g_Config.m_KrxTasAutoReplayKill, "Kill on end", true, "Kills on end of replay");
+			}
+			Check(g_Config.m_KrxAutoSaveReplayEnabled, "Auto Save Replay");
+			if(g_Config.m_KrxAutoSaveReplayEnabled)
+				Slider(g_Config.m_KrxAutoSaveReplayInterval, "Seconds", 10, 120, true);
 		}
-		if(Card(Left, 130.0f, "Hotkeys"))
+		if(Card(Left, 185, "Hotkeys"))
 		{
-			Later("Record");
-			Later("Replay");
-			Later("Rewind");
-			Later("Forward");
+			Key(16, "Record:", "toggle krx_recordreplay 1 0");
+			Key(17, "Replay:", "toggle krx_loadreplay 1 0");
+			Key(18, "Respawn:", "+toggle krx_tasrespawn 1 0");
+			Key(19, "Pause:", "toggle krx_taspause 0 1");
+			Key(20, "Rewind:", "+toggle krx_tasrewind 1 0");
+			Key(21, "Forward:", "+toggle krx_tasforward 1 0");
 		}
-		if(Card(Right, 200.0f, "Replay"))
+		if(Card(Right, 355, "Replay"))
 		{
-			Later("Selected replay:");
-			Later("Load");
-			Later("Save");
-			Later("Delete");
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, Localize("Selected replay:"), 13, TEXTALIGN_ML);
+			// 263510: popup browser, immediate children, activation opens a
+			// directory or loads a replay. Keep its list stable across frames.
+			struct CReplayBrowser
+			{
+				struct CEntry
+				{
+					std::string m_Name;
+					bool m_Directory;
+				};
+				CMenus *m_pMenus = nullptr;
+				std::string m_Directory;
+				std::vector<CEntry> m_vEntries;
+				CListBox m_List;
+				int m_Selected = -1;
+				void Populate()
+				{
+					m_vEntries.clear();
+					for(const auto &File : m_pMenus->GameClient()->m_Tas.ReplayFiles())
+					{
+						if(File.compare(0, m_Directory.size(), m_Directory) != 0)
+							continue;
+						const auto Name = File.substr(m_Directory.size());
+						const auto Slash = Name.find('/');
+						m_vEntries.push_back({Name.substr(0, Slash), Slash != std::string::npos});
+					}
+					std::sort(m_vEntries.begin(), m_vEntries.end(), [](const auto &A, const auto &B) {
+						return A.m_Directory != B.m_Directory ? A.m_Directory > B.m_Directory : A.m_Name < B.m_Name;
+					});
+					m_vEntries.erase(std::unique(m_vEntries.begin(), m_vEntries.end(), [](const auto &A, const auto &B) { return A.m_Name == B.m_Name && A.m_Directory == B.m_Directory; }), m_vEntries.end());
+					if(!m_Directory.empty())
+						m_vEntries.insert(m_vEntries.begin(), {"..", true});
+					m_Selected = -1;
+					m_List.ScrollToSelected();
+				}
+				static CUi::EPopupMenuFunctionResult Render(void *pContext, CUIRect View, bool Active)
+				{
+					auto &Browser = *static_cast<CReplayBrowser *>(pContext);
+					auto *pMenus = Browser.m_pMenus;
+					Browser.m_List.SetActive(Active);
+					Browser.m_List.DoStart(20, Browser.m_vEntries.size(), 1, 3, Browser.m_Selected, &View, false);
+					for(const auto &Entry : Browser.m_vEntries)
+					{
+						const auto Item = Browser.m_List.DoNextItem(&Entry);
+						if(!Item.m_Visible)
+							continue;
+						CUIRect Icon, Label;
+						Item.m_Rect.VSplitLeft(20, &Icon, &Label);
+						pMenus->TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+						pMenus->Ui()->DoLabel(&Icon, Entry.m_Directory ? Entry.m_Name == ".." ? FontIcon::FOLDER_TREE : FontIcon::FOLDER : FontIcon::FILE, 12, TEXTALIGN_ML);
+						pMenus->TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+						pMenus->Ui()->DoLabel(&Label, Entry.m_Name.c_str(), 12, TEXTALIGN_ML);
+					}
+					Browser.m_Selected = Browser.m_List.DoEnd();
+					if(Browser.m_List.WasItemActivated() && Browser.m_Selected >= 0 && Browser.m_Selected < (int)Browser.m_vEntries.size())
+					{
+						const auto Entry = Browser.m_vEntries[Browser.m_Selected];
+						if(!Entry.m_Directory)
+						{
+							str_copy(g_Config.m_KrxReplayFile, (Browser.m_Directory + Entry.m_Name).c_str());
+							pMenus->GameClient()->m_Tas.LoadReplay(g_Config.m_KrxReplayFile);
+							return CUi::POPUP_CLOSE_CURRENT;
+						}
+						if(Entry.m_Name == "..")
+						{
+							Browser.m_Directory.pop_back();
+							const auto Slash = Browser.m_Directory.find_last_of('/');
+							Browser.m_Directory.resize(Slash == std::string::npos ? 0 : Slash + 1);
+						}
+						else
+							Browser.m_Directory += Entry.m_Name + "/";
+						Browser.Populate();
+					}
+					return CUi::POPUP_KEEP_OPEN;
+				}
+			};
+			static CReplayBrowser s_Browser;
+			static SPopupMenuId s_BrowserPopup;
+			static CButtonContainer s_OpenBrowser;
+			const auto &Files = GameClient()->m_Tas.ReplayFiles();
+			Body.HSplitTop(20, &Row, &Body);
+			if(DoButton_Menu(&s_OpenBrowser, *g_Config.m_KrxReplayFile ? g_Config.m_KrxReplayFile : Localize("Select replay"), 0, &Row))
+			{
+				GameClient()->m_Tas.RefreshFiles();
+				s_Browser.m_pMenus = this;
+				s_Browser.Populate();
+				Ui()->DoPopupMenu(&s_BrowserPopup, Ui()->MouseX(), Ui()->MouseY(), 300, 250, &s_Browser, CReplayBrowser::Render);
+			}
+			Text(g_Config.m_KrxReplayFile, sizeof(g_Config.m_KrxReplayFile), "", 6);
+			Text(g_Config.m_KrxReplayFileDescription, sizeof(g_Config.m_KrxReplayFileDescription), "Description:", 7);
+			const auto &Replay = GameClient()->m_Tas.Replay();
+			char aInfo[256];
+			str_format(aInfo, sizeof(aInfo), "Author: %s", Replay.m_Author.c_str());
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
+			str_format(aInfo, sizeof(aInfo), "Total Time: %dm %.2fs (%d t)", (int)Replay.m_aFrames[0].size() / 3000, std::fmod(Replay.m_aFrames[0].size() / 50.0f, 60.0f), (int)Replay.m_aFrames[0].size());
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
+			str_format(aInfo, sizeof(aInfo), "Map: %s", Replay.m_Map.c_str());
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
+			str_format(aInfo, sizeof(aInfo), "Finish Time: %dm %.2fs (%d t)", GameClient()->m_Tas.FinishTicks() / 3000, std::fmod(GameClient()->m_Tas.FinishTicks() / 50.0f, 60.0f), GameClient()->m_Tas.FinishTicks());
+			Body.HSplitTop(20, &Row, &Body);
+			Ui()->DoLabel(&Row, aInfo, 13, TEXTALIGN_ML);
+			if(Action("Load", 6))
+				g_Config.m_KrxLoadReplayFromFile = 1;
+			if(Action("Save replay", 7))
+				g_Config.m_KrxSaveReplayToFile = 1;
+			if(Action("Delete", 8))
+				GameClient()->m_Tas.DeleteReplay(g_Config.m_KrxReplayFile);
+			if(Action("Validate replay", 9))
+				GameClient()->m_Tas.ValidateReplay();
+			if(Action("Get replay time", 12))
+				GameClient()->m_Tas.GetReplayTime();
+			const bool HasLegacy = std::any_of(Files.begin(), Files.end(), [](const auto &Name) { return str_endswith(Name.c_str(), ".json"); });
+			if(HasLegacy && Action("Convert replays to new format", 13))
+				GameClient()->m_Tas.ConvertLegacyReplays();
+			Body.HSplitTop(25, &Row, &Body);
+			Ui()->DoLabel(&Row, GameClient()->m_Tas.Status().c_str(), 10, TEXTALIGN_ML);
 		}
-		if(Card(Right, 85.0f, "Replay Vault"))
-			Later("Auto sync");
-		if(Card(Right, 145.0f, "Tick Control"))
+		if(Card(Right, 105, "Replay Vault"))
 		{
-			Later("Pause");
-			Later("Ticks");
-			Later("Step");
+			CUIRect Sync, Rest;
+			Body.HSplitTop(20, &Row, &Rest);
+			Row.VSplitMid(&Body, &Sync, 10);
+			Check(g_Config.m_KrxTasReplayVaultAutoSync, "Auto Sync");
+			Body = Sync;
+			if(Action("Sync now", 10))
+				GameClient()->m_Tas.SyncVault();
+			Body = Rest;
+		}
+		if(Card(Right, 165, "Tools"))
+		{
+			Slider(g_Config.m_KrxTickControlTicks, "Ticks", 0, 10, false, "Sets the tick speed rewinding/forwarding");
+			Check(g_Config.m_KrxTasAutoRewind, "Auto rewind");
+			Check(g_Config.m_KrxTasAutoForward, "Auto forward");
+			Check(g_Config.m_KrxTickControlPause, "Auto pause");
+			Check(g_Config.m_KrxTickControlStep, "Step");
+		}
+		if(Card(Right, 105, "Fake Aim"))
+		{
+			const char *apModes[] = {"Robot", "Spin", "Rand", "Smooth"};
+			Choice(g_Config.m_KrxTasFakeAimMode, "", apModes, 4, 9);
+			if(Action("Add fake aim", 11))
+				GameClient()->m_Tas.AddFakeAim();
+		}
+		if(Card(Right, 165 + (g_Config.m_KrxTasDrawPath ? 45 : 0) + (g_Config.m_KrxTasDrawPredictionPath ? 95 : 0), "Visuals"))
+		{
+			Check(g_Config.m_KrxTasDrawStartEndPos, "Draw start/end pos");
+			Check(g_Config.m_KrxTasDrawPath, "Draw replay path");
+			if(g_Config.m_KrxTasDrawPath)
+			{
+				Check(g_Config.m_KrxTasDrawPathSegmented, "Segmented", true);
+				const char *apModes[] = {"Full line", "Dotted"};
+				Choice(g_Config.m_KrxTasDrawPathMode, "", apModes, 2, 10);
+				Color(g_Config.m_KrxTasDrawPathColor, "Path color", 21, 0x55ff80);
+			}
+			Check(g_Config.m_KrxTasDrawPredictionPath, "Draw prediction path");
+			if(g_Config.m_KrxTasDrawPredictionPath)
+			{
+				const char *apModes[] = {"Full line", "Dotted"};
+				Choice(g_Config.m_KrxTasDrawPredictionPathMode, "", apModes, 2, 11);
+				Color(g_Config.m_KrxTasDrawPredictionPathColor, "Local color", 22, 0x55ff80);
+				Color(g_Config.m_KrxTasDrawPredictionPathColorFrozen, "Frozen color", 23, 0x1ff80);
+				Color(g_Config.m_KrxTasDrawPredictionPathColorOthers, "Others color", 24, 0x80ff80);
+			}
 		}
 	}
 	else if(g_Config.m_KrxMenuTab == 5)

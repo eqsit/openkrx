@@ -2376,6 +2376,7 @@ set_src(ENGINE_SHARED GLOB_RECURSE src/engine/shared
   krx_pre_tas_misc_config.h
   krx_pre_tas_movement_config.h
   krx_pre_tas_visuals_config.h
+  krx_tas_config.h
   linereader.cpp
   linereader.h
   localization.h
@@ -2648,6 +2649,8 @@ if(CLIENT)
     avoid/avoid.h
     avoid/blatant.cpp
     avoid/blatant.h
+    avoid/fent.cpp
+    avoid/fent.h
     avoid/rocket_save.cpp
     avoid/rocket_save.h
     avoid/simulation.cpp
@@ -2707,6 +2710,11 @@ if(CLIENT)
     components/krx_movement_pre_tas.cpp
     components/krx_movement_pre_tas.h
     components/krx_name_data.h
+    components/krx_tas.cpp
+    components/krx_tas.h
+    components/krx_tas_path.cpp
+    components/krx_tas_vault.cpp
+    components/krx_tas_visuals.cpp
     components/krx_visuals_pre_tas.cpp
     components/krx_visuals_pre_tas.h
     components/local_server.cpp
@@ -2776,8 +2784,17 @@ if(CLIENT)
     krx/aimbot.h
     krx/bots.cpp
     krx/bots.h
+    krx/flow_field.cpp
+    krx/flow_field.h
     krx/misc.cpp
     krx/misc.h
+    krx/msvc_sort.h
+    krx/replay.cpp
+    krx/replay.h
+    krx/replay_fake_aim.cpp
+    krx/replay_fake_aim.h
+    krx/replay_vault.cpp
+    krx/replay_vault.h
     krx/rescue.cpp
     krx/rescue.h
     krx/visuals.cpp

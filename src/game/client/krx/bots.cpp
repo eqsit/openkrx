@@ -173,7 +173,7 @@ namespace OpenKrx
 		int BestId = -1;
 		// Entity order matters for ties. The original iterates the authoritative
 		// world's character list, not client IDs in ascending order.
-		for(auto *pCharacter = static_cast<CCharacter *>(pGameClient->m_GameWorld.FindFirst(CGameWorld::ENTTYPE_CHARACTER));
+		for(auto *pCharacter = static_cast<CCharacter *>(pGameClient->KrxGameWorld().FindFirst(CGameWorld::ENTTYPE_CHARACTER));
 			pCharacter; pCharacter = static_cast<CCharacter *>(pCharacter->TypeNext()))
 		{
 			const int Id = pCharacter->GetId();
@@ -235,7 +235,7 @@ namespace OpenKrx
 	{
 		CSlot &Current = State(pGameClient);
 		const int Id = pGameClient->m_aLocalIds[g_Config.m_ClDummy];
-		if(!pGameClient->m_GameWorld.GetCharacterById(Id))
+		if(!pGameClient->KrxGameWorld().GetCharacterById(Id))
 			return Input;
 		if(!g_Config.m_KrxBalanceBot)
 		{
@@ -255,7 +255,7 @@ namespace OpenKrx
 		{
 			auto Candidate = Input;
 			Candidate.m_Direction = Directions[Index];
-			Scores[Index] = BalanceScore(pGameClient->m_PredictedWorld, Id, Current.m_BalanceTarget, Candidate, Offset);
+			Scores[Index] = BalanceScore(pGameClient->KrxPredictedWorld(), Id, Current.m_BalanceTarget, Candidate, Offset);
 		}
 		float Best = 9999.0f;
 		for(int Index = 0; Index < 3; ++Index)
@@ -286,7 +286,7 @@ namespace OpenKrx
 		const int Slot = g_Config.m_ClDummy;
 		const int Id = pGameClient->m_aLocalIds[Slot];
 		CGameWorld Source;
-		Source.CopyWorldIsolated(&pGameClient->m_PredictedWorld);
+		Source.CopyWorldIsolated(&pGameClient->KrxPredictedWorld());
 		ConfigureProbe(Source);
 		const auto *pLocal = Source.GetCharacterById(Id);
 		if(!pLocal)
@@ -435,7 +435,7 @@ namespace OpenKrx
 			Current.m_JetRidePosition = Pos;
 			return Input;
 		}
-		auto *pLocal = pGameClient->m_GameWorld.GetCharacterById(Id);
+		auto *pLocal = pGameClient->KrxGameWorld().GetCharacterById(Id);
 		if(!pLocal)
 			return Input;
 		if(pLocal->GetWeaponAmmo(pLocal->GetActiveWeapon()) == 0 || !pLocal->Core()->m_Jetpack)
@@ -486,7 +486,7 @@ namespace OpenKrx
 			return Input;
 		const int Slot = g_Config.m_ClDummy;
 		const int Id = pGameClient->m_aLocalIds[Slot];
-		const CGameWorld &Source = pGameClient->m_PredictedWorld;
+		const CGameWorld &Source = pGameClient->KrxPredictedWorld();
 		// GetCharacterById is a non-const lookup over the character array; the
 		// prediction world is only read here.
 		if(!const_cast<CGameWorld &>(Source).GetCharacterById(Id))

@@ -761,6 +761,7 @@ MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CF
 #include "krx_pre_tas_misc_config.h"
 #include "krx_pre_tas_movement_config.h"
 #include "krx_pre_tas_visuals_config.h"
+#include "krx_tas_config.h"
 MACRO_CONFIG_INT(KrxPredictionTeleports, krx_predictionteleports, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction teleport support on/off")
 MACRO_CONFIG_INT(KrxPredictionAdvancedSettings, krx_predictionadvancedsettings, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show advanced prediction settings")
 MACRO_CONFIG_INT(KrxPredictionPlayers, krx_predictionplayers, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction player collision loop on/off")

@@ -111,6 +111,7 @@ public:
 	// link parent/child (neither worlds nor entities), so destroying entities in
 	// the copy never marks or mutates the source world.
 	void CopyWorldIsolated(const CGameWorld *pFrom);
+	void RebindCollision(CCollision *pCollision);
 	CEntity *FindMatch(int ObjId, int ObjType, const void *pObjData);
 	void Clear();
 

@@ -283,6 +283,20 @@ void CControls::OnMessage(int Msg, void *pRawMsg)
 
 int CControls::SnapInput(int *pData)
 {
+	// 23e670 -> 2f7650: playback bypasses the live input/bot pipeline and
+	// always supplies a full input, including unchanged frames.
+	if(g_Config.m_KrxLoadReplay && !g_Config.m_KrxRecordReplay)
+	{
+		// A completed Fent search must be imported before playback can inspect
+		// the replay. Otherwise this branch only sees its neutral prefix.
+		GameClient()->m_Fent.Update();
+		GameClient()->m_Tas.ProcessInput();
+		auto &Input = m_aInputData[g_Config.m_ClDummy];
+		if(!Input.m_TargetX && !Input.m_TargetY)
+			Input.m_TargetX = 1;
+		mem_copy(pData, &Input, sizeof(Input));
+		return sizeof(Input);
+	}
 	GameClient()->m_KrxMiscPreTas.BeforeSnapInput();
 	// Original 23e670 runs AutoTeam before rebuilding player flags.
 	GameClient()->m_KrxMisc.AutoTeam(GameClient());
@@ -528,6 +542,16 @@ int CControls::SnapInput(int *pData)
 	}
 	else
 		GameClient()->m_Avoid.m_Trace.Reset();
+
+	// GoodCrack 23e670 -> 2f7750: TAS update precedes final packet copy.
+	GameClient()->m_Fent.Update();
+	const bool TasRecording = GameClient()->m_Tas.ProcessInput();
+	if(TasRecording)
+	{
+		const auto NetworkInput = GameClient()->m_Tas.NetworkInput();
+		mem_copy(pData, &NetworkInput, sizeof(NetworkInput));
+		return sizeof(NetworkInput);
+	}
 
 	// copy and return size
 	m_aLastData[g_Config.m_ClDummy] = m_aInputData[g_Config.m_ClDummy];
