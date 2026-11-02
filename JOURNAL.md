@@ -2210,3 +2210,61 @@ original constructor+copy сохраняютnullptr иteleout0, какпорт.
 Хеши11проверенныхsrcфайлов совпадают с началом обоих этапов;parallelTASправки
 не трогались. NativeoriginalA/B,полный18.9/20.3physicscontract иpixelA/B
 не получены,полная1:1не заявляется. verification.json хранит точные хеши/выходы.
+
+
+## 2026-11-02 — релиз v0.1.7 (Linux + Windows + исходники)
+
+По запросу пользователя опубликовано текущее состояние проекта: исходник
+`11fe25ea16c8d4b941bf520a2412a827fa030e0c` отправлен origin/main (fast-forward
+a40946e..11fe25e), annotated tag v0.1.7 указывает на него, релиз создан:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.7
+GitHub API подтвердил published/draft=false/prerelease=false и все4asset
+digest/size. Отдельно приложен архив исходников коммита релиза.
+
+Коммит 11fe25e объединяет ранее незакоммиченную работу по TAS (описана в
+том же дереве): конвертация legacy JSON→`.tas` вынесена в отменяемый фоновый
+worker с публикацией через `.tmp`+rename и сообщением из `OnRender`; мир TAS
+явно включает PredictTiles/PredictFreeze/PredictWeapons/PredictDDRace/
+KrxPrediction; определение старта/финиша гонки вынесено в `TouchesRaceTile`
+(PureMapIndex + пересечённый отрезок); fake aim берёт живой мир; сохранённая
+запись получает автора из `player_name`; в меню подписи Load/Clear и правки
+раскладки/выравнивания. Плюс запись аудита Blatant/Rocket 2026-11-02 в
+HANDOFF/JOURNAL (исходники приложения по этому аудиту не менялись).
+
+Сборки: Linux RelWithDebInfo (`DDNet`/`DDNet-Server`) и Windows mingw64 Release
+(target `DDNet.exe`, DISCORD=ON/DISCORD_DYNAMIC=OFF) в `/home/a/openkrx-build`,
+все1920trackedфайлов совпали по SHA256 с деревом сборки. Обнаружено расхождение
+инфраструктуры: `ssh home` (192.168.1.54) сейчас указывает на эту же станцию
+(`hostname arch`), host key verification failed; локальный `/home/a/openkrx-build`
+содержит прежние build/build-win деревья, поэтому сборка выполнена локально, а
+не на отдельном втором ПК. Для GUI-проверок на этой станции отсутствовал
+`xdotool` — установлен из official repo (pacman), других изменений системы нет.
+
+Проверки пакетов: Linux — `research/release-v017/tas_restore_live.py` на
+распакованном stripped пакете (приватный сервер/Xvfb/XDG_DATA_HOME): запись и
+rewind TAS, загрузка записи, выравнивание dummy, fake aim, асинхронная
+конвертация legacy JSON (`Converted 1 replays`) с идентичным содержимым `.tas`,
+`exit 0`. Windows — `research/release-v017/wine_smoke.py` под Wine11.21 с
+приватным префиксом: запуск, отрисовка TAS-страницы (screenshot), `exit 0`.
+
+Упаковка: `research/release-v017/package_release.py`, при упаковке сверены
+868 (Linux) и886 (Windows) файлов внутри архивов и SHA256SUMS. Исправлен
+дефект упаковки: libwinpthread-1.dll/libssp-0.dll, скопированные CMake в
+build-win, абортят под Wine (`unimplemented function clock_gettime64`); в
+пакет, как и в прежних релизах, берутся копии из `/usr/x86_64-w64-mingw32/bin`.
+
+Релизные артефакты:
+- OpenKRX-linux-x86_64.tar.gz:51 305 671байт,
+  SHA256 892b9eda4288f7dc2ea335fa83420656238f877de4e488a6308c75e88e7bf1ee.
+- OpenKRX-windows-x86_64.zip:60 426 221байт,
+  SHA256 8d6364fb541732c38d3cda461f4ede2edb686d09b63d79a3e2259e7bd0dd7655.
+- OpenKRX-sources-v0.1.7.tar.gz:49 132 365байт,
+  SHA256 a87c601ac611acf741c054054db2112845b41519d7f61e7dedbb683b0523eb3e.
+- SHA256SUMS-v0.1.7.txt:283байта,
+  SHA256 c527c7281a600509d8a7a3cadd02887798b3c92cde8935d86d696f19be86b0d2.
+Linux raw dist/OpenKRX 0fd43a7ac7d9870cee9d139afe53f0ba581864938acb51e44eed2efd56594d41,
+stripped 2a5ee44555aa16518e6761d6422e518dbb8c5bc40c022761006a42e840bb7930;
+Windows OpenKRX.exe 93e5598707d1a542fd12a99e0de54b4668f501bd552d05a10a5214a309f38c8e.
+Архивы не содержат пользовательских настроек, пользовательских TAS и
+аналитического PE. Полная 1:1 идентичность/пиксельный A/B не заявляются,
+Windows проверена только под Wine.
