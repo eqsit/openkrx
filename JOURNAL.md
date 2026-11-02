@@ -2268,3 +2268,44 @@ Windows OpenKRX.exe 93e5598707d1a542fd12a99e0de54b4668f501bd552d05a10a5214a309f3
 Архивы не содержат пользовательских настроек, пользовательских TAS и
 аналитического PE. Полная 1:1 идентичность/пиксельный A/B не заявляются,
 Windows проверена только под Wine.
+
+
+## 2026-11-02 — v0.1.7: готовые TAS в пакетах и отдельным ассетом
+
+По запросу пользователя в релиз v0.1.7 добавлены готовые TAS-записи. Источник —
+оригинальный KRX vault (`https://github.com/krxclient/krx-replays`, тот же, что
+клиент скачивает через TAS → Replay Vault → Sync now / `krx_syncvault`);
+локально это 179 файлов, установленных ранее по hash-manifest
+`research/tas-path-fent-20261101/installed-replays.json`.
+
+Проверено независимым разбором: 179/179 файлов декодируются (uint32 длина +
+zlib JSON), 0 битых, 1 010 553 кадра `replay_local`, 154 разные карты, авторы из
+публичного репозитория. Совпадает с native-эталоном (reference_files=179
+frames=1010553).
+
+Упаковано дважды: папка `replays/` внутри Linux/Windows архивов (клиент видит их
+рядом с `data/`) и отдельный ассет `OpenKRX-tas-replays-v0.1.7.zip` с
+`replays/` + README + `replays/SHA256SUMS` для уже распакованных установок.
+Примечание: сами `.tas` не содержат карт — запись проигрывается на своей карте,
+которую клиент качает с сервера; карты в пакет не входят.
+
+Пакеты пересобраны из тех же бинарников (dist/OpenKRX 0fd43a7a…, OpenKRX.exe
+93e55987… не менялись), при упаковке сверены 1048 (Linux) и 1067 (Windows)
+файлов. Linux-пакет повторно прогнан end-to-end (`tas-restore-11`, exit0:
+запись/rewind, загрузка, dummy, fake aim, async legacy-конвертация); Windows —
+Wine, startup/render/exit0. Первый прогон `tas-restore-10` упал на повторном
+использовании каталога прогона (`Replay already exists. Save again to
+overwrite.`), то есть на артефакте теста, а не на клиенте; повтор на свежем
+каталоге прошёл.
+
+Обновлённые артефакты (GitHub API подтвердил digests/sizes):
+- OpenKRX-linux-x86_64.tar.gz:62 813 441байт,
+  SHA256 00d351f8aa811023bc90a2fea0c162e396e3957323d96f8484f757a547284cb8.
+- OpenKRX-windows-x86_64.zip:71 917 551байт,
+  SHA256 1328cc7c72f086b9d0df31dc753f68c267c95870c0e6b0b0e03b473a33208d3d.
+- OpenKRX-tas-replays-v0.1.7.zip:11 488 602байта,
+  SHA256 adec09dbe5b1d36f3b8ea905da0117bf6079d826b4162c6b2cac56ccd979dd59.
+- OpenKRX-sources-v0.1.7.tar.gz (без изменений):49 132 365байт,
+  SHA256 a87c601ac611acf741c054054db2112845b41519d7f61e7dedbb683b0523eb3e.
+- SHA256SUMS-v0.1.7.txt:380байт,
+  SHA256 bb4b0a5c764702b7684372bdb898ce62ea1876736b48f261110e6b776b3f02c1.
