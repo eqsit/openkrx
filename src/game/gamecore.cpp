@@ -55,14 +55,19 @@ bool CTuningParams::Get(const char *pName, float *pValue) const
 
 float CTuningParams::GetWeaponFireDelay(int Weapon) const
 {
+	return GetWeaponFireDelayMilliseconds(Weapon) / 1000.0f;
+}
+
+float CTuningParams::GetWeaponFireDelayMilliseconds(int Weapon) const
+{
 	switch(Weapon)
 	{
-	case WEAPON_HAMMER: return (float)m_HammerFireDelay / 1000.0f;
-	case WEAPON_GUN: return (float)m_GunFireDelay / 1000.0f;
-	case WEAPON_SHOTGUN: return (float)m_ShotgunFireDelay / 1000.0f;
-	case WEAPON_GRENADE: return (float)m_GrenadeFireDelay / 1000.0f;
-	case WEAPON_LASER: return (float)m_LaserFireDelay / 1000.0f;
-	case WEAPON_NINJA: return (float)m_NinjaFireDelay / 1000.0f;
+	case WEAPON_HAMMER: return (float)m_HammerFireDelay;
+	case WEAPON_GUN: return (float)m_GunFireDelay;
+	case WEAPON_SHOTGUN: return (float)m_ShotgunFireDelay;
+	case WEAPON_GRENADE: return (float)m_GrenadeFireDelay;
+	case WEAPON_LASER: return (float)m_LaserFireDelay;
+	case WEAPON_NINJA: return (float)m_NinjaFireDelay;
 	default: dbg_assert_failed("invalid weapon");
 	}
 }
@@ -195,7 +200,8 @@ void CCharacterCore::Reset()
 void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 {
 	m_MoveRestrictions = !m_pWorld || !m_pWorld->m_IsClientPrediction || g_Config.m_KrxPredictionMoveRestriction ?
-		m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos) : 0;
+				     m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos) :
+				     0;
 	m_TriggeredEvents = 0;
 
 	// get ground state

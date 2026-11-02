@@ -470,18 +470,11 @@ int CControls::SnapInput(int *pData)
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.JetRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoAled(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		GameClient()->m_KrxMovementPreTas.AutoEdge(m_aInputData[KrxSlot]);
-		// Main aimbot refreshes its private candidates even with master disabled,
-		// before Avoid consumes the cache, following the recovered coordinator.
-		auto AimbotSettings = CurrentKrxAimbotSettings();
-		// Reference 26d2d0 runs the weapon aimbot before Avoid; rescue aim wins.
-		AimbotSettings.m_HookIsAutomated = m_aPhysicalHook[KrxSlot] == 0 &&
-						   m_aInputData[KrxSlot].m_Hook != 0;
-		const auto AimDecision = GameClient()->m_Aimbot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId, m_aMousePos[KrxSlot], AimbotSettings);
-		m_aInputData[KrxSlot] = AimDecision.m_Input;
-		if(AimDecision.m_ChangeVisibleAim)
-			m_aMousePos[KrxSlot] = AimDecision.m_VisibleAim;
 		GameClient()->m_MediumVisuals.UpdateIdentity();
 		GameClient()->m_KrxMiscPreTas.BeforeInput();
+		// Settings are current, while AutoDrag's target world is from the preceding refresh.
+		auto AimbotSettings = CurrentKrxAimbotSettings();
+		GameClient()->m_Aimbot.SetSettings(AimbotSettings);
 		TracePipelineStart = g_Config.m_AvoidDebug ? time_get_nanoseconds().count() : 0;
 		TraceRaw = m_aInputData[g_Config.m_ClDummy];
 		TraceEvaluated = true;
@@ -489,6 +482,13 @@ int CControls::SnapInput(int *pData)
 			GameClient(), m_aInputData[g_Config.m_ClDummy],
 			GameClient()->m_aLocalIds[g_Config.m_ClDummy], m_aMousePos[g_Config.m_ClDummy], m_aPhysicalHook[g_Config.m_ClDummy] != 0);
 		TraceAvoid = m_aInputData[g_Config.m_ClDummy];
+		// 26d2d0 runs Avoid before the main aimbot. AutoDrag above consumes
+		// the retained private world from the preceding aimbot refresh.
+		// Preserve that order before fake aim and the later Rocket Save pass.
+		const auto AimDecision = GameClient()->m_Aimbot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId, m_aMousePos[KrxSlot], AimbotSettings);
+		m_aInputData[KrxSlot] = AimDecision.m_Input;
+		if(AimDecision.m_ChangeVisibleAim)
+			m_aMousePos[KrxSlot] = AimDecision.m_VisibleAim;
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.FakeAim(GameClient(), m_aInputData[KrxSlot]);
 		GameClient()->m_KrxMisc.AfterAvoid(GameClient());
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoUnfreeze(GameClient(), m_aInputData[KrxSlot], KrxClientId);
@@ -690,7 +690,8 @@ float CControls::GetMinMouseDistance() const
 float CControls::GetMaxMouseDistance() const
 {
 	float CameraMaxDistance = 200.0f;
-	float FollowFactor = (g_Config.m_ClDyncam ? g_Config.m_ClDyncamFollowFactor : g_Config.m_ClMouseFollowfactor) / 100.0f;
+	// 2ba5ba: multiply by float .01 before the camera-distance division.
+	float FollowFactor = (g_Config.m_ClDyncam ? g_Config.m_ClDyncamFollowFactor : g_Config.m_ClMouseFollowfactor) * 0.01f;
 	float DeadZone = g_Config.m_ClDyncam ? g_Config.m_ClDyncamDeadzone : g_Config.m_ClMouseDeadzone;
 	float MaxDistance = g_Config.m_ClDyncam ? g_Config.m_ClDyncamMaxDistance : g_Config.m_ClMouseMaxDistance;
 	return std::min(FollowFactor != 0.0f ? CameraMaxDistance / FollowFactor + DeadZone : MaxDistance, MaxDistance);

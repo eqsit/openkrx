@@ -102,6 +102,14 @@ Fent; отдельный выдуманный путь Blatant не добавл
 
 ## Проверки и ограничения
 
+- Дополнительная проверка реальных оригинальных записей AiP-Gores: **13 053
+  кадра, 0 расхождений позиции** в Linux native simulation (3 записи оригинала,
+  ранее снятые под Wine). Стенд должен передавать DDNet extended flags:
+  без них fallback ошибочно выводит jetpack из tuning strength.
+- На одном private сервере Low: оригинал под Wine31.55–38.26с,
+  OpenKRX Linux32.98–34.64с (по3 прогона). Это ограниченный замер случайного
+  поиска; подробности и хеши — research/fent-fidelity-20261102/ORIGINAL_AB_RESULT.md.
+
 - Native на ssh home: **2 357 031 проверка, 0 ошибок**, 179 настоящих `.tas`,
   **1 010 553 кадра**; codec roundtrip, 100k packed inputs, flow, physics,
   fake aim с hook/jetpack, MSVC sort ties/permutations, legacy JSON.

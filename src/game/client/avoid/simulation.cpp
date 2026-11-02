@@ -186,12 +186,11 @@ namespace OpenKrx
 
 	bool CGameWorldSimulation::Frozen() const
 	{
-		// 0x1402cd750 treats the tee as frozen while the freeze counter or any of
-		// the deep/live freeze flags is set; a destroyed character cannot move
-		// either, so death ends the search just like a freeze.
+		// 2cc900/cd750 read character+318 (tile contact) and +319 (deep),
+		// not +31a (persistent live freeze).
 		if(!m_pLocal)
 			return true;
-		return m_pLocal->m_FreezeTime > 0 || m_pLocal->Core()->m_DeepFrozen || m_pLocal->Core()->m_LiveFrozen;
+		return m_pLocal->m_FreezeTime > 0 || m_pLocal->Core()->m_DeepFrozen || m_pLocal->Core()->m_IsInFreeze;
 	}
 
 	bool CGameWorldSimulation::OnUnfreezeTile() const
@@ -234,7 +233,8 @@ namespace OpenKrx
 		// the map. Keep that test independent of the speculative movement world.
 		if(m_pGameClient && m_pGameClient->IntersectCharacter(m_pLocal->m_Pos, To, HitPos, m_LocalClientId) != -1)
 			return std::nullopt;
-		const int Hit = m_World.Collision()->IntersectLineTeleHook(m_pLocal->m_Pos, To, &HitPos, nullptr, nullptr);
+		int TeleNumber = 0;
+		const int Hit = m_World.Collision()->IntersectLineTeleHook(m_pLocal->m_Pos, To, &HitPos, nullptr, &TeleNumber);
 		if(Hit == TILE_SOLID && HitPos != vec2(0, 0))
 			return HitPos;
 		return std::nullopt;

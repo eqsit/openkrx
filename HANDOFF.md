@@ -1,4 +1,70 @@
-# Аудит Blatant / Rocket — 2026-11-02, исправления пока запрещены
+# Текущее состояние: исправления Blatant / Rocket — 2026-11-02
+
+Пользователь после аудита разрешил backup+исправления и затем явно запросил
+push исходников и Linux/Windows GitHub Release. Готовится v0.1.8; состояние
+публикации фиксировать по реальному результату, не по плану.
+Полный backup до правок:
+`/home/a/backups/openkrx-before-parity-fix-20261102-143338/` (zstd проверен).
+
+Исправлены все13групп из `research/codex/parity-audit-20261102/RESULT.md`:
+IsInFreeze vs LiveFrozen и terminal flags, switch/game order, TAS forced
+death/stopper, retained/pruned AutoDrag world, Super gate, Rocket normalization
+и mouse radius, Avoid→aimbot→Rocket order, hooktele ray, death contact producer,
+dynamic blast tuning, reload float order. Transient disable/freeze сохраняют
+план; reconnect/cid/slot resets сохранены. Manual-jump rescue, confirmed weapon
+restore и Fire-sync сохранены. Полная1:1 идентичность не заявляется.
+
+Отчёт: `research/codex/parity-fix-20261102/{RESULT.md,verification.json}`.
+13 native suites exit0: в том числе1381 policy checks,2357031 TAS/path/Fent,
+13053 позиций старых original Fent записей без расхождений. Два private
+live-прогона проверили rescue+выстрел+возврат, GDB подтвердил123цикла pipeline
+и неизменность плана на3 gates. Linux client/server собраны локально,
+установленный OpenKRX SHA25650ee629954fe42fe7b75c62db1c7c356382557211a5f3b65a8d62fce05059fd8.
+
+Оба desktop-файла запускают текущий scripts/openkrx.sh. После скриншота
+«x11 not available» подтверждён неработающий X11 :1 и рабочий native Wayland.
+Launcher выбирает Wayland при доступном сокете и отсутствии явно заданного
+SDL-драйвера. Настоящий запуск с пользовательскими graphics-настройками в
+private XDG: Wayland/OpenGL/NVIDIA, exit0, личный конфиг неизменен.
+
+Личный config не подменять пакетным/тестовым. Его внешний клиент сохранил
+изменения в14:35:20 до наших private tests; эти изменения сохранены.
+Пользователь требует оставить настройки пакетов как в v0.1.7: исходные defaults
+(включая cl_antiping0), без копирования личного конфига. Подробнее о сборках,
+упаковке и публикации: `research/release-v018/`.
+
+Все сборки локальные, без ssh home. Windows cross-build теперь входит в явный
+запрос релиза; дополнительные Windows runtime/ВМ сравнения не запрошены.
+
+# Предыдущее состояние рабочего пространства — 2026-11-02
+
+Сессия теперь на машине сборки: `/home/a/openkrx`, локальные деревья
+`/home/a/openkrx-build/{source,build,build-win}`. Проектный скилл и AGENTS.md
+обновлены: собирать локально, старый build-remote.sh здесь не использовать.
+Пользователь запретил дополнительные запуски/сравнения Windows ради различий
+с Linux и использование ВМ. Текущий TAS принят пользователем; дальнейшая
+полировка мелочей TAS сейчас не требуется.
+
+Существующая диагностика `openkrx_avoid_debug` имеет default0 в коде. В личном
+конфиге было1: выставлено0, очищен только путь logfile, ранее принудительно
+добавленный нашим launcher. Launcher больше не создаёт client-logs/ и не
+передаёт logfile без запроса. Другие настройки не менялись; резервная копия:
+`/home/a/backups/openkrx-logs-build-20261102-142910/`.
+Сборка v0.1.7 не менялась; desktop build hash исправлен на фактический0fd43a7a….
+
+Завершена проверка уже снятых оригинальных Fent-записей: **13 053 позиции,
+0 расхождений** (3 прогона AiP-Gores). Ошибка старой fixture: без DDNet extended
+flags она выводила jetpack=true из ненулевого jetpack_strength. Исправлен
+стенд, не production physics. Native fixture запущена локально, exit0.
+Данные/хеши/границы: `research/fent-fidelity-20261102/ORIGINAL_AB_RESULT.md`,
+`original-replay-verification.json`, `original-replay-physics-3.log`.
+Прежние замеры Low на одном сервере: оригинал Wine31.55/33.64/38.26с,
+OpenKRX Linux32.98/34.64/34.49с. Это ограниченное сравнение; не доказательство
+идентичности всех карт/платформ. Новых запусков оригинала/Windows/ВМ не было.
+На момент этой исторической записи правки аудита ещё не вносились;
+текущее исправленное состояние описано выше.
+
+# История: аудит Blatant / Rocket до разрешения исправлений — 2026-11-02
 
 Повторная analysis-сверка выявила13групп расхождений. Критично: originalhazard
 проверяетIsInFreeze318, а порт ошибочноLiveFrozen31a;Deep319. Отличаются
@@ -11,7 +77,7 @@ research/codex/parity-audit-20261102/{RESULT,COVERAGE}.md.
 наsshhome exit0;originalnativeA/Bнет. Старые утверждения о совпадении
 timer/deep/live и оaimbot-before-Avoid ошибочны,новый отчёт приоритетен.
 
-# Актуальная сборка: OpenKRX v0.1.7, 2026-11-02
+# Предыдущий релиз: OpenKRX v0.1.7, 2026-11-02
 
 Исходник `11fe25ea16c8d4b941bf520a2412a827fa030e0c` отправлен origin/main,
 annotated tag v0.1.7. Linux/Windows пакеты и архив исходников опубликованы:
@@ -49,7 +115,7 @@ https://github.com/eqsit/openkrx/releases/tag/v0.1.6
 rewind из первого снятого снимка с синхронизацией DummyInput/HammerInput,
 очистка реальных входов в neutral50, порядок playback/autoreplay, отказ
 `LoadReplay` во время записи, отдельное LastReplayTimeTicks; Fent оценивает
-кандидатов в изолированных мирах с общей коллизией и бюджетом; попап
+кандидатов параллельно в изолированных мирах с отдельной коллизией каждого worker; попап
 Save replay и обновлённые кнопки транспорта TAS. Матрица и ограничения
 по-прежнему в TAS_PATH_FENT.md; отчёт аудита —
 research/fent-fidelity-20261102/tas-controller-audit.md.

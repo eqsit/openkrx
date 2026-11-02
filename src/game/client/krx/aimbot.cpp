@@ -59,7 +59,7 @@ namespace OpenKrx
 		}
 		bool Frozen(const CCharacter *pCharacter)
 		{
-			return pCharacter && (pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_LiveFrozen);
+			return pCharacter && (pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_IsInFreeze);
 		}
 		bool Active(CGameClient *pGameClient, int Id)
 		{
@@ -464,6 +464,9 @@ namespace OpenKrx
 		}
 	} // namespace
 
+	CAimbot::CAimbot() = default;
+	CAimbot::~CAimbot() = default;
+
 	void CAimbot::OnReset()
 	{
 		m_HookTarget = m_WeaponTarget = m_ClientId = m_Slot = -1;
@@ -473,6 +476,7 @@ namespace OpenKrx
 		m_FireLength = 0;
 		m_FireCounter = -1;
 		m_vCachedTargets.clear();
+		m_pTargetWorld.reset();
 	}
 	CAimbotDecision CAimbot::SearchWorld(const CGameWorld &Source, CNetObj_PlayerInput Input, int ClientId, vec2 PhysicalMouse, const CAimbotSettings &Settings, float MouseRadius, bool TeamPlay, const std::array<bool, MAX_CLIENTS> *pFriends)
 	{
@@ -495,7 +499,8 @@ namespace OpenKrx
 			m_ClientId = ClientId;
 			m_Slot = Slot;
 		}
-		CGameWorld World;
+		m_pTargetWorld = std::make_unique<CGameWorld>();
+		auto &World = *m_pTargetWorld;
 		World.CopyWorldIsolated(&Source);
 		World.m_WorldConfig.m_PredictTiles = true;
 		World.m_WorldConfig.m_PredictFreeze = 1;
@@ -508,7 +513,7 @@ namespace OpenKrx
 			return Decision;
 		const int Weapon = pLocal->GetActiveWeapon();
 		const bool Fng = World.m_WorldConfig.m_IsFNG;
-		const auto *pTuning = pLocal->GetTuning(pLocal->GetOverriddenTuneZone());
+		const auto *pTuning = pGameClient ? &pGameClient->m_aTuning[0] : pLocal->GetTuning(pLocal->GetOverriddenTuneZone());
 		float Range = pTuning->m_HookLength + 56.0f;
 		const bool WeaponEnabled = Weapon >= WEAPON_HAMMER && Weapon <= WEAPON_LASER && Settings.m_aWeapons[Weapon].m_Enabled;
 		if(WeaponEnabled)
@@ -523,71 +528,17 @@ namespace OpenKrx
 				delete pCharacter;
 			pEntity = pNext;
 		}
-		for(CEntity *pEntity = World.FindFirst(CGameWorld::ENTTYPE_CHARACTER); pEntity; pEntity = pEntity->TypeNext())
-		{
-			auto *pTarget = static_cast<CCharacter *>(pEntity);
-			const int Id = pTarget->GetCid();
-			if(Id == ClientId || !Active(pGameClient, Id))
-				continue;
-			if(pGameClient && (pGameClient->m_aClients[Id].m_Spec || pGameClient->m_aClients[ClientId].m_Spec))
-				continue;
-			if(!(Fng && !TeamPlay) && (!pTarget->CanCollide(ClientId) || pLocal->Core()->m_HookHitDisabled || pTarget->Core()->m_Solo || pLocal->Core()->m_Solo))
-				continue;
-			const bool Friend = pFriends ? (*pFriends)[Id] : pGameClient && pGameClient->m_aClients[Id].m_Friend;
-			const bool TargetFrozen = pGameClient ? IsKrxCharacterFrozen(pGameClient, Id) : Frozen(pTarget);
-			// The carrier really stores the local position, not target position.
-			// Consequently equal scores retain the first eligible entity order.
-			m_vCachedTargets.push_back({Id, TargetFrozen, pLocal->m_Pos, pTarget->m_Pos - pLocal->m_Pos, Friend});
-		}
-		m_CachedLocalPosition = pLocal->m_Pos;
-		m_CachedHookLength = pTuning->m_HookLength;
 		m_CachedSettings = Settings;
-		auto Select = [&](const CAimbotWeaponSettings &Setting, bool Hook) {
-			int Best = -1;
-			float Score = std::numeric_limits<float>::max();
-			for(const auto &Target : m_vCachedTargets)
-			{
-				if((Setting.m_IgnoreFriends && Target.m_Friend) || !InSelectionFov(Target.m_Difference, Mouse, Setting.m_Fov))
-					continue;
-				const vec2 Reference = Setting.m_Priority == 0 ? Mouse + pLocal->m_Pos : Setting.m_Priority == 1 ? pLocal->m_Pos :
-																   vec2(0, 0);
-				const float Distance = distance(Reference, Target.m_LocalPosition);
-				const float Max = Hook ? pTuning->m_HookLength + 30.0f : Weapon == WEAPON_HAMMER ? (float)pTuning->m_HookLength :
-														   pTuning->m_LaserReach + 30.0f;
-				if(Distance > Max || Distance >= Score)
-					continue;
-				if(!Hook && Fng && ((TeamPlay && SameGameTeam(pGameClient, World, ClientId, Target.m_ClientId)) || Target.m_Frozen))
-					continue;
-				Best = Target.m_ClientId;
-				Score = Distance;
-			}
-			return Best;
-		};
-		m_HookTarget = Select(Settings.m_Hook, true);
-		if(WeaponEnabled)
-			m_WeaponTarget = Select(Settings.m_aWeapons[Weapon], false);
-		Decision.m_HookTarget = m_HookTarget;
-		Decision.m_WeaponTarget = m_WeaponTarget;
-		// Original private world keeps only local, selected hook and selected weapon targets.
-		if(m_HookTarget >= 0 || m_WeaponTarget >= 0)
-			for(CEntity *pEntity = World.FindFirst(CGameWorld::ENTTYPE_CHARACTER); pEntity;)
-			{
-				CEntity *pNext = pEntity->TypeNext();
-				const int Id = static_cast<CCharacter *>(pEntity)->GetCid();
-				if(Id != ClientId && Id != m_HookTarget && Id != m_WeaponTarget && !static_cast<CCharacter *>(pEntity)->m_IsLocal)
-					delete pEntity;
-				pEntity = pNext;
-			}
 		const auto *pAuth = pGameClient ? pGameClient->KrxGameWorld().GetCharacterById(ClientId) : pLocal;
 		if(!Settings.m_Enabled || !(Input.m_PlayerFlags & PLAYERFLAG_PLAYING) || !pAuth ||
 			(pGameClient ? IsKrxCharacterFrozen(pGameClient, ClientId) || pGameClient->m_Snap.m_SpecInfo.m_Active : Frozen(pAuth)))
 			return Decision;
+		CollectTargets(World, pGameClient, TeamPlay, pFriends);
+		SelectTargets(World, pGameClient, Mouse, Settings, TeamPlay);
+		PruneTargets(World);
+		Decision.m_HookTarget = m_HookTarget;
+		Decision.m_WeaponTarget = m_WeaponTarget;
 		auto ApplyAim = [&](vec2 Aim, bool Silent) {
-			// A hook injected by other KRX automation owns the aim this tick.
-			// Recovered order ran the aimbot before Avoid, so an automatic hook
-			// always kept its own direction afterwards.
-			if(Settings.m_HookIsAutomated && !m_AutoHookIssued)
-				return;
 			Decision.m_Input = WithAim(Decision.m_Input, Aim);
 			if(!Silent)
 			{
@@ -600,7 +551,7 @@ namespace OpenKrx
 			Decision.m_Input.m_Hook = 0;
 			m_AutoHookIssued = false;
 		}
-		if(Settings.m_Hook.m_Enabled && !Settings.m_HookIsAutomated && (Decision.m_Input.m_Hook || Settings.m_AutoHook) && m_HookTarget >= 0)
+		if(Settings.m_Hook.m_Enabled && (Decision.m_Input.m_Hook || Settings.m_AutoHook) && m_HookTarget >= 0)
 		{
 			const auto Aim = HookAim(World, ClientId, m_HookTarget, Decision.m_Input, Mouse, Settings, Radius);
 			if(Aim && *Aim != vec2(0, 0))
@@ -660,23 +611,101 @@ namespace OpenKrx
 			ApplyAim(*Aim, Settings.m_aWeapons[Weapon].m_Silent);
 		return Decision;
 	}
-	std::optional<vec2> CAimbot::FindDragAim(const CGameWorld &Source, int ClientId, CGameClient *pGameClient, vec2 Mouse) const
+	void CAimbot::CollectTargets(CGameWorld &World, CGameClient *pGameClient, bool TeamPlay,
+		const std::array<bool, MAX_CLIENTS> *pFriends)
 	{
-		if(m_ClientId != ClientId || m_vCachedTargets.empty())
-			return std::nullopt;
-		int TargetId = -1;
-		float Best = std::numeric_limits<float>::max();
-		for(const auto &Target : m_vCachedTargets)
+		const int ClientId = m_ClientId;
+		auto *pLocal = World.GetCharacterById(ClientId);
+		m_vCachedTargets.clear();
+		if(!pLocal)
+			return;
+		const bool Fng = World.m_WorldConfig.m_IsFNG;
+		for(CEntity *pEntity = World.FindFirst(CGameWorld::ENTTYPE_CHARACTER); pEntity; pEntity = pEntity->TypeNext())
 		{
-			if((m_CachedSettings.m_Hook.m_IgnoreFriends && Target.m_Friend) || !InSelectionFov(Target.m_Difference, Mouse, 315))
+			auto *pTarget = static_cast<CCharacter *>(pEntity);
+			const int Id = pTarget->GetCid();
+			if(Id == ClientId || !Active(pGameClient, Id))
 				continue;
-			const float Score = distance(Target.m_LocalPosition, m_CachedLocalPosition);
-			if(Score <= m_CachedHookLength + 30.0f && Score < Best)
-			{
-				TargetId = Target.m_ClientId;
-				Best = Score;
-			}
+			if(pGameClient && (pGameClient->m_aClients[Id].m_Spec || pGameClient->m_aClients[ClientId].m_Spec))
+				continue;
+			if(!(Fng && !TeamPlay) && (!pTarget->CanCollide(ClientId) || pLocal->Core()->m_HookHitDisabled || pTarget->Core()->m_Solo || pLocal->Core()->m_Solo))
+				continue;
+			const bool Friend = pFriends ? (*pFriends)[Id] : pGameClient && pGameClient->m_aClients[Id].m_Friend;
+			const bool TargetFrozen = pGameClient ? IsKrxCharacterFrozen(pGameClient, Id) : Frozen(pTarget);
+			// The carrier really stores the local position, not target position.
+			// Consequently equal scores retain the first eligible entity order.
+			m_vCachedTargets.push_back({Id, TargetFrozen, pLocal->m_Pos, pTarget->m_Pos - pLocal->m_Pos, Friend});
 		}
+	}
+
+	void CAimbot::SelectTargets(CGameWorld &World, CGameClient *pGameClient, vec2 Mouse,
+		const CAimbotSettings &Settings, bool TeamPlay)
+	{
+		const int ClientId = m_ClientId;
+		auto *pLocal = World.GetCharacterById(ClientId);
+		m_HookTarget = m_WeaponTarget = -1;
+		if(!pLocal)
+			return;
+		const auto *pTuning = pGameClient ? &pGameClient->m_aTuning[0] : pLocal->GetTuning(pLocal->GetOverriddenTuneZone());
+		const int Weapon = pLocal->GetActiveWeapon();
+		const bool WeaponEnabled = Weapon >= WEAPON_HAMMER && Weapon <= WEAPON_LASER && Settings.m_aWeapons[Weapon].m_Enabled;
+		const bool Fng = World.m_WorldConfig.m_IsFNG;
+		auto Select = [&](const CAimbotWeaponSettings &Setting, bool Hook) {
+			int Best = -1;
+			float Score = std::numeric_limits<float>::max();
+			for(const auto &Target : m_vCachedTargets)
+			{
+				if((Setting.m_IgnoreFriends && Target.m_Friend) || !InSelectionFov(Target.m_Difference, Mouse, Setting.m_Fov))
+					continue;
+				const vec2 Reference = Setting.m_Priority == 0 ? Mouse + pLocal->m_Pos : Setting.m_Priority == 1 ? pLocal->m_Pos :
+																   vec2(0, 0);
+				const float Distance = distance(Reference, Target.m_LocalPosition);
+				const float Max = Hook ? pTuning->m_HookLength + 30.0f : Weapon == WEAPON_HAMMER ? (float)pTuning->m_HookLength :
+														   pTuning->m_LaserReach + 30.0f;
+				if(Distance > Max || Distance >= Score)
+					continue;
+				if(!Hook && Fng && ((TeamPlay && SameGameTeam(pGameClient, World, ClientId, Target.m_ClientId)) || Target.m_Frozen))
+					continue;
+				Best = Target.m_ClientId;
+				Score = Distance;
+			}
+			return Best;
+		};
+		m_HookTarget = Select(Settings.m_Hook, true);
+		if(WeaponEnabled)
+			m_WeaponTarget = Select(Settings.m_aWeapons[Weapon], false);
+	}
+
+	void CAimbot::PruneTargets(CGameWorld &World)
+	{
+		const int ClientId = m_ClientId;
+		// Original private world keeps only local, selected hook and selected weapon targets.
+		if(m_HookTarget >= 0 || m_WeaponTarget >= 0)
+			for(CEntity *pEntity = World.FindFirst(CGameWorld::ENTTYPE_CHARACTER); pEntity;)
+			{
+				CEntity *pNext = pEntity->TypeNext();
+				const int Id = static_cast<CCharacter *>(pEntity)->GetCid();
+				if(Id != ClientId && Id != m_HookTarget && Id != m_WeaponTarget && !static_cast<CCharacter *>(pEntity)->m_IsLocal)
+					delete pEntity;
+				pEntity = pNext;
+			}
+	}
+
+	std::optional<vec2> CAimbot::FindDragAim(const CGameWorld &Source, int ClientId, CGameClient *pGameClient, vec2 Mouse)
+	{
+		if(m_ClientId != ClientId || !m_pTargetWorld)
+			return std::nullopt;
+		const bool TeamPlay = pGameClient && pGameClient->m_Snap.m_pGameInfoObj &&
+				      (pGameClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS);
+		// 2d1940 repeats collect/select/prune on the retained private world,
+		// temporarily changing only hook FOV and priority before HookAim.
+		auto Settings = m_CachedSettings;
+		Settings.m_Hook.m_Fov = 315;
+		Settings.m_Hook.m_Priority = 1;
+		CollectTargets(*m_pTargetWorld, pGameClient, TeamPlay, nullptr);
+		SelectTargets(*m_pTargetWorld, pGameClient, Mouse, Settings, TeamPlay);
+		PruneTargets(*m_pTargetWorld);
+		const int TargetId = m_HookTarget;
 		if(TargetId < 0)
 			return std::nullopt;
 		CNetObj_PlayerInput Input{};
