@@ -1,26 +1,47 @@
-# Текущий перенос: TAS / Pathfinding / Fent, 2026-11-02
+# Актуальная сборка: OpenKRX v0.1.5, 2026-11-02
 
-В исходниках реализован блок №34–74 (41 название) и Path ESP №27 для Fent.
-Матрица, использование, проверки и ограничения — TAS_PATH_FENT.md.
-Legit/Basic исключены. Не заявлять абсолютное 1:1: original native A/B и
-pixel A/B всё ещё не получены. №39 — исходные флаг/меню без consumer.
+TAS / Pathfinding / Fent (№34–74, 41 название) и Path ESP №27 перенесены.
+Матрица реализации/ограничения/использование — TAS_PATH_FENT.md.
+№39 сохраняет original flag/menu: в найденных refs нет consumer, reset
+всегда prediction=true. Legit/Basic исключены. Не заявлять абсолютное1:1:
+полное native original A/B и pixel A/B не проведены.
 
-C++ собирается и native fixtures запускаются только ssh home. Linux build13
-проверен private client/server/Xvfb: ранний Playback ждёт Fent; после передачи
-89 кадров playback двигает реальную tee. Ранее native4: 2,357,031 checks/errors0;
-extended dummy/fakeaim/autosave/tunnel/vault/cancel и freeze-live5 прошли.
-Vault async: 179 файлов, max main-thread heartbeat14.18ms/p99 13.02ms.
-Браузер replay теперь popup с папками/.. и загрузкой по Enter/double-click.
-Show real aim выключен по умолчанию в оригинале; для recorded aim его включают.
-Прерванный Fent не передаёт готовую запись; это не означает ошибку алгоритма.
+Исходник7470801c773f5db498a5c829f651948385891730 отправлен origin/main;
+annotated tagv0.1.5 указывает на него. По явному запросу пользователя
+опубликованы Windows/Linux и SHA256SUMS:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.5
+Оба архива проверены через GitHub asset digest/size, внутри868Linux/886Windows
+файлов. Windows19DLL, toolchain-current pthread/ssp,668imports/missing0.
 
-Пользователь явно запросил push и Windows/Linux на GitHub. Готовится v0.1.5;
-не считать старые файлы dist/*.zip/*.tar.gz новыми до финальной упаковки.
-Новая Windows-сборка build-windows-2 успешна; после последних UI/auto-sync
-правок нужны финальные сборки, запуск пакетов и публикация. Исследования:
-research/tas-path-fent-20261101/. owned-evidence.json — локальная подборка
-полных inline Evidence, не экспорт потерянного при лимите/выключении MCP ledger.
-Личный config не переписывать, пользовательский клиент/его local server не закрывать.
+C++ сборки Linux14 и Windows3 и native fixtures выполнялись только sshhome;
+все1920tracked files исходного7470801 совпали с home. Linux/Windows packages
+проверены: Linux private server/client/Xvfb, Windows private Wine/Xvfb (TAS menu,
+exit0). Native4:2,357,031checks/errors0,179files/1,010,553frames. Extended dummy,
+4fakeaim,autosave,tunnel,Vault/cache,cancel/disconnect и freeze-live5 прошли.
+Последний stripped Linux package: Fent83frames,playback60,liveX362 против272,
+exit0. Vault179files: max main heartbeat14.18ms/p9913.02ms.
+
+Браузер TAS — popup с папками/.., Enter/doubleclick load. Vault/flow async,
+установка Vault8files/2msbudget. AutoSync только при показе TAS page.
+Show real aim default0 в оригинале: recorded взгляд только при включении.
+Playback не меняет mouse/camera. Прерванный Fent не передаёт готовую запись;
+это не ошибка GA. При ещё работающем Fent ранний Playback объясняет ожидание;
+completed worker serviced перед playback; при успехе сообщение с числом кадров.
+
+dist/OpenKRX SHA2560ee0d01d3fc4702969aff29b193040876370ea6c9370c4662f38674e3b8adc1e;
+оба ярлыка обновлены на него. Уже открытый клиент требует перезапуска.
+Личный config не переписывался тестами; пользовательские процессы не закрывали.
+179готовых TAS оригинального Vault установлены локально в replays/ (gitignored,
+manifestinstalled-replays.json); в goodcrack.zip готовых TAS не оказалось.
+В пакетах готовые TAS доступны через Vault Sync; пользовательских записей нет.
+
+Evidence/tests/build/package/release отчёты: research/tas-path-fent-20261101/.
+RESULT.md,verification.json,package-verification.json,release.json.
+REA167+12controller+18codec,18полных inline records. owned-evidence.json —
+локальная подборка, не экспорт потерянного при лимите/выключении MCP ledger.
+Финальная analysis binary_session open=false,cleanup_pending=false; own tests завершены.
+Новый README отменён пользователем; отдельный README в репозиторий не добавлялся.
+Существующая краткая инструкция внутри пакетов обновлена для v0.1.5.
 
 Ниже сохранена история предыдущих релизов; текущая сводка выше приоритетна.
 

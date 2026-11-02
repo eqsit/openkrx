@@ -116,7 +116,7 @@ Fent; отдельный выдуманный путь Blatant не добавл
 - Регрессии Avoid, tile/projectile physics, Fire-sync, Rocket restore и
   pre-TAS movement/prediction прошли. Тестовая карта для projectile fixture
   выбирается самим runner: `--map` подставляет AiP-Gores и для неё непригоден.
-- Окончательная Windows-сборка проверяется под Wine; это не нативный Windows
+- Окончательная Windows-сборка проверена под Wine; это не нативный Windows
   A/B оригинала. Pixel A/B меню, редкие physics сценарии и все варианты карт
   остаются отдельной проверкой. Само наличие пункта меню их не доказывает.
 
