@@ -1,8 +1,11 @@
-# Текущее состояние: исправления Blatant / Rocket — 2026-11-02
+# Текущий релиз: OpenKRX v0.1.8 — 2026-11-02
 
 Пользователь после аудита разрешил backup+исправления и затем явно запросил
-push исходников и Linux/Windows GitHub Release. Готовится v0.1.8; состояние
-публикации фиксировать по реальному результату, не по плану.
+push исходников и Linux/Windows GitHub Release. **v0.1.8 опубликован**:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.8
+Исходники main и annotated tag отправлены; release commit
+`efc1475e1fd96991c8a726888a4039e6f108f2b0`. GitHub API подтвердил5assets/digests/sizes,
+latest=v0.1.8; public SHA256SUMS download200, bytes совпали.
 Полный backup до правок:
 `/home/a/backups/openkrx-before-parity-fix-20261102-143338/` (zstd проверен).
 
@@ -33,8 +36,16 @@ private XDG: Wayland/OpenGL/NVIDIA, exit0, личный конфиг неизм�
 (включая cl_antiping0), без копирования личного конфига. Подробнее о сборках,
 упаковке и публикации: `research/release-v018/`.
 
-Все сборки локальные, без ssh home. Windows cross-build теперь входит в явный
-запрос релиза; дополнительные Windows runtime/ВМ сравнения не запрошены.
+Все сборки локальные, без ssh home. Windows MinGW cross-build exit0,
+PE/DLL dependency closure проверен:20 PE/19DLL, missing0; нового Windows
+runtime-прогона не было. Linux из финального пакета запущен через OpenKRX.sh
+в native Wayland, OpenGL/NVIDIA, private profile, exit0. Конфиги каждого пакета
+побайтно совпадают с v0.1.7, data/DLL/replays сохранены. Linux1049/Windows1067
+файлов сверены по manifest. Git source archive точно соответствует тегу.
+Артефакты: Linux7ae9b74f…0edc, Windowsd6345d72…52ae0,
+source d17a52e3…ebb45, replaysacfada06…2865; полный JSON в
+`research/release-v018/package-verification.json`. Старые v0.1.7 архивы не
+менялись на GitHub; текущие dist platform archives теперь содержат v0.1.8.
 
 # Предыдущее состояние рабочего пространства — 2026-11-02
 

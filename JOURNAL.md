@@ -2410,3 +2410,41 @@ commit/tag/publish и локальный Windows cross-build; Windows runtime/В
 запрошены. Настройки оставить как в текущих пакетах: config headers совпадают
 с v0.1.7, cl_antiping default0; личный config не включать. Новый релизv0.1.8,
 результаты упаковки/публикации в `research/release-v018/` и следующей записи.
+
+
+## 2026-11-02 — v0.1.8 опубликован: исправления Avoid/Rocket, Linux и Windows
+
+По явному запросу пользователя исходники commit efc1475e1fd96991c8a726888a4039e6f108f2b0
+и annotated tagv0.1.8 отправлены origin/main/tag (atomic push).
+Релиз https://github.com/eqsit/openkrx/releases/tag/v0.1.8 опубликован как latest,
+не draft/prerelease.5asset SHA256/size подтверждены GitHub API, публичный
+SHA256SUMS URL вернул200 и совпал с локальным. Сначала загружен draft,
+публикация только после проверки всех digest. Git tag остался на code commit;
+эта запись документации не меняет содержимое собранного кода/тега.
+
+Linux native client/server ранее прошли13suites и private live/GDB.
+Windows локально пересобран MinGW,Release,DISCORDON/DYNAMICOFF,DDNet.exe;
+PE32+x86-64,20PE images/19DLL, все non-system зависимости присутствуют.
+Первые3«missing»статического allowlist (ktmw32,wldap32,bcryptprimitives)
+оказались штатными Windows SDK imports: соответствующие import libs проверены.
+Нового Windows runtime/Wine/VM прогона не было, это явно написано в release notes.
+Windows binary SHA2567b241ba7b8d9bba70fde31d3d750f9a76177c7234013f58e4788d30bc7cca9ed.
+
+Пакеты созданы из проверенных v0.1.7 archives с заменой executable/docs/BUILD
+и manifests; data/DLL/replays и все cfg побайтно сохранены. Config headers
+не менялись,cl_antiping default0; личный settings_ddnet.cfg не включали.
+Сохранён также inert run-visible.cfg из прежнего Windows zip (не autoexec).
+179TAS остаются в обоих пакетах и отдельномzip. Linux содержит OpenKRX.sh с
+native Wayland выбором; финальный stripped пакет: Wayland/OpenGL/NVIDIA,
+FIFOecho/quit,exit0,personalcfg hash прежний.1049/1067file SHA сверены.
+
+Артефакты v0.1.8:
+- Linux tar.gz62815898bytes,7ae9b74fe36779dd776a4b15158cfde00339c944c850384605e8093011dc0edc.
+- Windows zip71919327bytes,d6345d72ef91ed6d7d32219e12b6b0cc75e37ecf48d22fb685800d9db1c52ae0.
+- Source tar.gz49143508bytes,d17a52e3cf976d35d33cb365e49f06480ab5a12adf2b64a9a4995c717f5ebb45.
+- Replays zip11479009bytes,acfada06769ec04e3d23c480594a7649ec94925b68b37e9d0571a13e8d8d2865.
+- SHA256SUMS380bytes,816fd9b1e57ded7741a5ce91244d2d5542c32957baffc88c3404d802064c545f.
+
+Полные package/build/PE/native/publication evidence в research/release-v018/.
+Ранее Git HTTP proxy дал502; direct git-c http.proxy= и gh с очищенными
+proxy env отработали. Другие настройки сети/глобальный git config не меняли.
