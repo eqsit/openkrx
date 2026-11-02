@@ -11,7 +11,27 @@ research/codex/parity-audit-20261102/{RESULT,COVERAGE}.md.
 наsshhome exit0;originalnativeA/Bнет. Старые утверждения о совпадении
 timer/deep/live и оaimbot-before-Avoid ошибочны,новый отчёт приоритетен.
 
-# Актуальная сборка: OpenKRX v0.1.6, 2026-11-02
+# Актуальная сборка: OpenKRX v0.1.7, 2026-11-02
+
+Исходник `11fe25ea16c8d4b941bf520a2412a827fa030e0c` отправлен origin/main,
+annotated tag v0.1.7. Linux/Windows пакеты и архив исходников опубликованы:
+https://github.com/eqsit/openkrx/releases/tag/v0.1.7
+
+Содержимое v0.1.7 (поверх v0.1.6): конвертация legacy JSON→`.tas` вынесена в
+отменяемый фоновый worker (`.tmp`+rename, результат из `OnRender`, меню TAS
+больше не блокируется); мир TAS явно включает PredictTiles/PredictFreeze/
+PredictWeapons/PredictDDRace/KrxPrediction; старт/финиш гонки через общий
+`TouchesRaceTile` (PureMapIndex + пересечённый отрезок); fake aim из живого
+мира; автор сохранённой записи из `player_name`; подписи Load/Clear и правки
+раскладки/выравнивания меню.
+
+Артефакты: `dist/OpenKRX` 0fd43a7ac7d9870cee9d139afe53f0ba581864938acb51e44eed2efd56594d41,
+stripped `dist/OpenKRX-linux-x86_64` 2a5ee44555aa16518e6761d6422e518dbb8c5bc40c022761006a42e840bb7930,
+`dist/OpenKRX.exe` 93e5598707d1a542fd12a99e0de54b4668f501bd552d05a10a5214a309f38c8e.
+Проверки, детали упаковки и ограничения — в конце JOURNAL.md
+(`2026-11-02 — релиз v0.1.7`) и `research/release-v017/`.
+
+# Предыдущая сборка: OpenKRX v0.1.6, 2026-11-02
 
 Исходник `e60b7e4ef0cc24563b403cf04e9058dc3388892d` отправлен origin/main,
 annotated tag v0.1.6. Windows/Linux пакеты опубликованы:
