@@ -52,6 +52,7 @@ namespace OpenKrx
 			World.m_WorldConfig.m_PredictFreeze = 1;
 			World.m_WorldConfig.m_PredictWeapons = true;
 			World.m_WorldConfig.m_PredictDDRace = true;
+			World.m_WorldConfig.m_KrxPrediction = true;
 		}
 
 		void TickWorld(CGameWorld &World, int Id, const CNetObj_PlayerInput &Input, bool Direct = true)
@@ -67,7 +68,9 @@ namespace OpenKrx
 
 		bool Frozen(const CCharacter *pCharacter)
 		{
-			return !pCharacter || pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_LiveFrozen;
+			// New Life36a8d0 observes persistent freeze, tile contact and deep;
+			// LiveFrozen is a different byte and is not part of this predicate.
+			return !pCharacter || pCharacter->m_FreezeTime > 0 || pCharacter->Core()->m_DeepFrozen || pCharacter->Core()->m_IsInFreeze;
 		}
 
 		void FilterHookPlayers(CGameClient *pGameClient, CGameWorld &World, int LocalId)
@@ -142,20 +145,13 @@ namespace OpenKrx
 
 	void CMediumBots::OnReset()
 	{
-		m_aSlots = {};
+		// The original reset leaves these process-static locks/latches alive.
 	}
 
 	CMediumBots::CSlot &CMediumBots::State(CGameClient *pGameClient)
 	{
-		const int Slot = g_Config.m_ClDummy;
-		CSlot &Result = m_aSlots[Slot];
-		const int Id = pGameClient->m_aLocalIds[Slot];
-		if(Result.m_ClientId != Id)
-		{
-			Result = {};
-			Result.m_ClientId = Id;
-		}
-		return Result;
+		(void)pGameClient;
+		return m_State;
 	}
 
 	int CMediumBots::ClosestPlayer(CGameClient *pGameClient, vec2 Position, int SourceId)
@@ -196,6 +192,7 @@ namespace OpenKrx
 	{
 		CGameWorld Copy;
 		Copy.CopyWorldIsolated(&World);
+		Copy.m_WorldConfig.m_KrxPrediction = true;
 		if(!Copy.GetCharacterById(ClientId))
 			return -1;
 		for(int Step = 0; Step <= Ticks; ++Step)
@@ -211,6 +208,7 @@ namespace OpenKrx
 	{
 		CGameWorld Copy;
 		Copy.CopyWorldIsolated(&World);
+		Copy.m_WorldConfig.m_KrxPrediction = true;
 		if(!Copy.GetCharacterById(ClientId))
 			return -1.0f;
 		if(!Copy.GetCharacterById(TargetId))

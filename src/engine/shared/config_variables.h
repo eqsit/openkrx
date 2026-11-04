@@ -730,7 +730,7 @@ MACRO_CONFIG_INT(ClUnpredictedShadowAlpha, cl_unpredicted_shadow_alpha, 10, 0, 1
 MACRO_CONFIG_INT(ClPredictFreeze, cl_predict_freeze, 1, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Predict freeze tiles (0 = off, 1 = on, 2 = partial (allow a small amount of movement in freeze)")
 // OpenKRX: names, defaults and ranges recovered from the supplied KRX image.
 MACRO_CONFIG_INT(AvoidFreeze, krx_avoidfreeze, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid freeze on/off")
-MACRO_CONFIG_INT(AvoidAgentType, krx_avoid_tile_agent_type, 0, 0, 3, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid agent type (0 = basic, 1 = legit, 2 = blatant, 3 = fent)")
+MACRO_CONFIG_INT(AvoidAgentType, krx_avoid_tile_agent_type, 0, 0, 4, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid agent type (0 = basic, 1 = legit, 2 = blatant, 3 = fent, 4 = pilot)")
 MACRO_CONFIG_INT(AvoidPlayerPrediction, krx_avoidtileplayerprediction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid tile player prediction on/off")
 MACRO_CONFIG_INT(AvoidNsif, krx_avoid_tile_nsif, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid tile nsif on/off")
 MACRO_CONFIG_INT(AvoidAfkProtection, krx_avoid_tile_afk_protection, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid tile afk protection on/off")
@@ -762,6 +762,11 @@ MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CF
 #include "krx_pre_tas_movement_config.h"
 #include "krx_pre_tas_visuals_config.h"
 #include "krx_tas_config.h"
+#include "krx_new_movement_config.h"
+MACRO_CONFIG_INT(PilotBudgetMs, openkrx_pilot_budget_ms, 8, 0, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot search time budget in milliseconds (0 = full original population; an in-progress candidate finishes before returning)")
+#include "krx_new_tas_config.h"
+#include "krx_new_misc_visuals_config.h"
+#include "krx_new_classic_config.h"
 MACRO_CONFIG_INT(KrxPredictionTeleports, krx_predictionteleports, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction teleport support on/off")
 MACRO_CONFIG_INT(KrxPredictionAdvancedSettings, krx_predictionadvancedsettings, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show advanced prediction settings")
 MACRO_CONFIG_INT(KrxPredictionPlayers, krx_predictionplayers, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prediction player collision loop on/off")
@@ -780,7 +785,7 @@ MACRO_CONFIG_INT(KrxPixelWalk, krx_pixelwalk, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_
 MACRO_CONFIG_INT(KrxQuickStop, krx_quickstop, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Quick Stop")
 MACRO_CONFIG_INT(KrxQuickStopGrounded, krx_quickstop_grounded, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Quick Stop only when grounded")
 MACRO_CONFIG_INT(KrxKillOnFreeze, krx_killonfreeze, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Kills on freeze on/off")
-MACRO_CONFIG_INT(KrxHideBubble, krx_hidebubble, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Hide Chat Bubble")
+MACRO_CONFIG_INT(KrxHideBubble, krx_hidebubble, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Hide chat/menu player flags and keep helpers active while the UI is open")
 MACRO_CONFIG_INT(KrxMoonwalk, krx_moonwalk, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Moonwalk Bot")
 MACRO_CONFIG_INT(KrxAutoTeam, krx_auto_team, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto team on join on/off")
 MACRO_CONFIG_INT(KrxAutoTeamPreferred, krx_auto_team_preferred, 1, 1, 63, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto team on join preferred team number 1-63")
@@ -794,7 +799,7 @@ MACRO_CONFIG_INT(KrxSuperDyncam, krx_superdyncam, 0, 0, 1, CFGFLAG_CLIENT | CFGF
 MACRO_CONFIG_INT(KrxCustomColorRainbowSpeed, krx_customcolorrainbowspeed, 50, 1, 200, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Speed of the rainbow effect")
 MACRO_CONFIG_INT(KrxCustomFreezeColorTee, krx_customfreezecolortee, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Enable custom color for frozen tees")
 MACRO_CONFIG_COL(KrxCustomFreezeColorTeeCol, krx_customfreezecolorteecol, 5635968, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom color for frozen tees")
-MACRO_CONFIG_INT(KrxCustomTheme, krx_customtheme, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom Theme")
+MACRO_CONFIG_INT(KrxCustomTheme, krx_customtheme, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom Theme")
 MACRO_CONFIG_INT(KrxRainbowMenu, krx_rainbowmenu, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Rainbow Menu")
 MACRO_CONFIG_COL(KrxCustomAccentColor, krx_custom_accent_color, 10223580, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom Theme Accent Color")
 MACRO_CONFIG_COL(KrxCustomBgColor, krx_custom_bg_color, 11796248, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom Theme Background Color")
@@ -823,6 +828,8 @@ MACRO_CONFIG_INT(KrxFakeAimMode, krx_fake_aim_mode, 0, 0, 5, CFGFLAG_CLIENT | CF
 MACRO_CONFIG_INT(KrxFakeAimVisible, krx_fake_aim_visible, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_fake_aim_visible")
 MACRO_CONFIG_INT(KrxFakeAimSpeed, krx_fake_aim_speed, 20, -50, 50, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_fake_aim_speed")
 MACRO_CONFIG_INT(KrxDummyFly, krx_dummyfly, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_dummyfly")
+MACRO_CONFIG_INT(KrxDummyFlyHook, krx_dummyflyhook, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Allow Dummy Fly to use hook assistance")
+MACRO_CONFIG_INT(KrxDummyFlyKinta, krx_dummyflykinta, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Allow Dummy Fly directional movement beneath an overhead surface")
 MACRO_CONFIG_INT(KrxAutoAled, krx_autoaled, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_autoaled")
 MACRO_CONFIG_INT(KrxUnfreezeBot, krx_unfreezebot, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_unfreezebot")
 MACRO_CONFIG_INT(KrxUnfreezeBotAdvanced, krx_unfreezebotadvancedsettings, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_unfreezebotadvancedsettings")
@@ -842,6 +849,7 @@ MACRO_CONFIG_INT(KrxUnfreezeBotCurDirTicks, krx_unfreezebotcurdirticks, 21, 1, 1
 MACRO_CONFIG_INT(KrxUnfreezeBotEsp, krx_unfreezebotesp, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_unfreezebotesp")
 MACRO_CONFIG_INT(KrxAutoShotgunHighestVel, krx_autoshotgunhighestvel, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_autoshotgunhighestvel")
 MACRO_CONFIG_INT(KrxAimbot, krx_aimbot, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_aimbot")
+MACRO_CONFIG_INT(KrxAimbotPerfectSilent, krx_aimbot_perfect_silent, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Generate automatic aimbot presses on even predicted ticks (25 TPS servers)")
 MACRO_CONFIG_INT(KrxAimbotAutoHookKey, krx_aimbot_autohook_key, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_aimbot_autohook_key")
 MACRO_CONFIG_INT(KrxAimbotAutoShootKey, krx_aimbot_autoshoot_key, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_aimbot_autoshoot_key")
 MACRO_CONFIG_INT(KrxAimbotDrawFov, krx_aimbot_drawfov, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "krx_aimbot_drawfov")

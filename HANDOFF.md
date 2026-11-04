@@ -1,3 +1,133 @@
+# OpenKRX: текущая сборка после переноса OpenKRX-new — 2026-11-04
+
+Версия OpenKRX-new стала основным деревом: содержимое перенесено из
+`/home/a/openkrx-new` в `/home/a/openkrx`, отдельный клиент `dist/OpenKRX-new`,
+ярлык `openkrx-new` и профиль `user-data` больше не используются (ярлык удалён,
+профиль оставлен снимком в `user-data/`). Личный профиль
+`~/.local/share/ddnet` не перезаписывался.
+
+Работать в `/home/a/openkrx`; сборка — `/home/a/openkrx-build/build` (Linux) и
+`/home/a/openkrx-build/build-win` (Windows cross-build). Прямые локальные правки,
+без Web orchestration. Новая задача включает Basic и Legit.
+
+Перенесены все пять агентов Avoid, новая Auto Edge, Perfect Silent, изменения
+Dummy Fly/Auto Shotgun/Unfreeze, Blatant ESP, Fent, TAS Analyzer/Fake Aim,
+Tile Editor и Pathfinding, Now Playing/Trail, новые настройки и benchmarks.
+Сверка: `research/new-krx-20261103/COVERAGE.md` — 395 строк, статусы и ограничения.
+Итог и проверки: `research/new-krx-20261103/RESULT.md`.
+
+Pilot: исправлено ограничение переноса одним потоком при наличии лазеров.
+Каждому работнику выделены свои collision/tuning/world; проверка и оценка
+траектории объединены. В оригинале два прохода тоже есть. Наш лимит
+`openkrx_pilot_budget_ms` по умолчанию 8 мс, 0 — весь исходный population.
+Меньше кандидатов может снизить качество; это не жёсткий предел всей задержки
+кадра и не найденное исправление оригинала. Его FPS в такой сцене не измеряли.
+Случайные хуки и направления есть в оригинальном генераторе.
+
+Blatant: актуальная запись death — 99999 и DeepFrozen. Ранняя трактовка поля
+в preview1/2 была ошибочной; contact IsInFreeze обработчик не пишет.
+См. `DEATH_FIELD_CORRECTION.md`. Реальные Track/Aimbot ESP перенесены.
+Ручной прыжок, возврат оружия и поддержка helpers в чате/меню сохранены.
+
+TAS: фактический клиент с dummy выявил перепутывание абсолютных слотов при
+загрузке и запись неприменённого dummy input при Forward. Оба исправлены.
+Повторный интеграционный прогон требует успешный Fake Aim и `Valid run`
+после сохранения/загрузки. Analyzer завершился; подробности — TAS_INTEGRATION.md.
+
+Нативные проверки проходят: Avoid 648 + 396 сравнений, Movement 39992,
+Classic 184, Fent 213, rescue 31, TAS/editor 111, replay 2357101; реальные
+попадания пяти оружий, физика death/tele, Rocket и возврат оружия.
+Отдельный Rocket клиент/сервер: один спасённый ручной прыжок, один выстрел,
+возврат к молотку, без заморозки в проверенной сцене. Настоящие меню и ESP
+отрисованы в изолированных процессах; это не pixel A/B.
+
+analysis/Ghidra Evidence по новому unpacked PE b3010f41… экспортированы, собственные
+сессии закрыты. Полное совпадение packed EXE/hook, original runtime/pixel A/B,
+все различия DDNet 19.5/20.3, тайминги и RNG не доказаны. Linux MPRIS,
+графические и файловые адаптации явно описаны в отчётах. DDoS/flood исключён;
+массовый спам и vote-kick не расширялись. Не выдавать эту сборку за доказанную
+100% копию оригинального поведения.
+
+---
+
+# OpenKRX-new: отдельная тестовая сборка новой KRX — 2026-11-04
+
+Рабочее дерево `/home/a/openkrx-new`, сборка `/home/a/openkrx-new-build/build`.
+Текущий dist/OpenKRX-new SHA256
+`023784e8e52fc0e6b0b4be353b6739c40763d843b15d050d8a15e9da43d02cde`.
+Ярлык `openkrx-new` запускает scripts/openkrx-new.sh с отдельным
+`XDG_DATA_HOME=/home/a/openkrx-new/user-data`. Открытый процесс не перезапускался.
+Старые OpenKRX и beta не заменены; 846 исходных файлов/артефактов/ярлыков
+проверены по сохранённому manifest без изменений. Личный профиль не перезаписывать.
+
+Это промежуточный перенос, а не заявление о полном1:1. Текущая задача и границы:
+research/new-krx-20261103/TASK.md. Доказательства — реальные analysis/Ghidra по новому
+unpacked_krx.exe SHA b3010f41…; не приравнивать это к packedEXE/hook runtime A/B.
+Новая просьба пользователя «вообще всё» включает Basic/Legit, несмотря на старое
+исключение в историческом плане. DDoS/flood исключён; массовый спам не расширяется.
+
+Перенесены Basic/Legit, Pilot, AutoEdge, Analyzer/TileEditor/multigoal Flow,
+новый TAS FakeAim, NowPlaying/Trail/benchmark и подтверждённые изменения helpers.
+Blatant: нулевой Anchor AutoDrag теперь отсутствует; death99999 сDeepFrozen (исправлено после уточнения поля321; IsInFreeze320 не пишется этим обработчиком).
+Pilot: обнаружены реальные stalls в переносе; private collision/tuning perworker,
+объединённая validate+score, budget default8ms (0 — полный исходный population).
+Budget — адаптация OpenKRX, а не фикс из original. Original тоже делает separate
+validate+score; originalruntime не замерялся. Random hook/aim есть в original,
+поэтому отдельный empty-air hook сам по себе не доказывает ошибку переноса.
+
+Preview2 прошёл native проверки Avoid648, movement39992, Classic184, TAS111,
+replay2357101, real Aimbot hits5weapons, physics death/tele, rescue31 и bots;
+Pilot scores reference-equal/source-unchanged на full/budget. Реальные6вкладок
+отрисованы в owned private Xvfb/GDB child; не считать это проверкой кнопок или
+pixel A/B. Первый preview-smoke показывал browser: его старые скриншоты не
+доказывают меню. Достоверные текущие — preview-smoke-2/tab-*.png иpilot-menu.png.
+
+Осталось: полный ledger старых и новых функций, deep Fent и оставшиеся
+Rocket/physics/input/registry gates; проверить найденные реальные расхождения,
+обновить финальные отчёты, закончить Evidence export и закрыть ownedREA.
+Нельзя объявлять задачу завершённой только по успешным собственным тестам.
+
+Ниже сохранена история исходного OpenKRX до отделения дерева.
+
+# Локальная сборка: исправлен TAS Fake Aim — 2026-11-02
+
+Fake Aim пересчитывает из m_pInitialWorld, а не текущего live world. Отказ
+не меняет запись; пустая запись/нет стартового мира имеют отдельные сообщения.
+Кнопка применяется к уже записанным/загруженным кадрам. Linux dist обновлён,
+оба desktop hash323fb987…; Windows остался предыдущим. Открытый клиент надо
+перезапустить. Личный config не меняли. Предыдущие chat/menu правки сохранены.
+Native2357063checks/errors0; private live4modes/rewind/load exit0.
+
+Rocket Save изучен без изменения алгоритма/настроек:10private UDP-delay runs.
+В одной сцене стабильные0/60/150/300ms не сорвали сейв; с AntiPing0 при150/300
+есть predicted freeze7/15frames, но authoritative freeze0. Burst+60ms при
+RTT150/margin20:7late replies и5predicted freeze; margin80 в повторном
+сценарии дал0/0. Это проверка конкретной сцены, не universal fix/успех-rate.
+Полный отчёт и границы: research/fake-aim-ping-20261102/RESULT.md,
+latency-summary.json, deployment.json. Rocket/личный margin не менялись.
+
+# Локальная сборка поверх v0.1.8: чат и настройки — 2026-11-02
+
+Пользователь запросил продолжение работы Avoid/Rocket Save и других helpers
+при открытом чате/настройках; `krx_hidebubble` теперь default1. При1 SnapInput
+явно ставит PLAYING и проходит обычный pipeline в чате и меню. При0 сохранены
+CHATTING/IN_MENU и прежняя блокировка. Tooltip существующей галочки обновлён.
+Сам алгоритм Avoid/Rocket не менялся. Это локальные незакоммиченные изменения;
+GitHub v0.1.8 пока содержит прежнюю версию без этой правки.
+
+analysis-agents6.8.0 установлен локально в `/home/a/.local/share/analysis-tools`, без
+изменения MCP-регистраций. CLI валидировал122сохранённых Evidence и выбрал
+original SnapInput `ev_5da54cf271dd388fb62412d110b1c91dcc29b3de338b2f3241129747eb3cbbb2`
+для PE0477b21e…. Оригинал скрывает чат сохранением прежних флагов; обычное меню
+выставляет IN_MENU и пропускает helpers. Поддержка меню и явный PLAYING вместо
+stale flags — адаптация под запрос, не доказанная1:1функция оригинала.
+
+Linux/Windows собраны отдельно из31cc03e+ровно3изменённыхsrcфайлов, обе сборки
+успешны. Установлены dist/OpenKRX и dist/OpenKRX.exe, оба OpenKRX.desktop
+обновлены; личный config не изменён, explicit krx_hidebubble override отсутствует.
+Игровые/runtime-проверки не проводились по прямой просьбе пользователя:
+он проверит самостоятельно. Backup и хеши — research/chat-menu-automation-20261102/deployment.json.
+
 # Текущий релиз: OpenKRX v0.1.8 — 2026-11-02
 
 Пользователь после аудита разрешил backup+исправления и затем явно запросил

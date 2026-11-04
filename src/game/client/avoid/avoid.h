@@ -29,6 +29,7 @@ namespace OpenKrx
 			int m_ElapsedUs = 0;
 		};
 		void OnReset();
+		void Render(CGameClient *pGameClient);
 		CAvoidTrace m_Trace;
 		const CDiagnostic &Diagnostic() const { return m_Diagnostic; }
 		// Called inside CControls::SnapInput after preparing player input and before

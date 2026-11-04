@@ -8,6 +8,7 @@
 #include <base/time.h>
 
 #include <engine/graphics.h>
+#include <engine/image.h>
 #include <engine/shared/config.h>
 #include <engine/textrender.h>
 
@@ -30,6 +31,15 @@ namespace OpenKrx
 	{
 		m_LastTrail = m_LastIdentity = 0;
 		m_HudPhase = m_WatermarkPhase = 0;
+		for(auto &Trail : m_aTeeTrail)
+			Trail.fill({});
+	}
+
+	void CMediumVisuals::OnShutdown()
+	{
+		m_NowPlaying.Stop();
+		Graphics()->UnloadTexture(&m_NowPlayingArt);
+		m_pNowPlayingArt.reset();
 	}
 
 	// 307c10 and308a00 use accumulated float .01 increments, draw the segment
@@ -203,7 +213,7 @@ namespace OpenKrx
 		if(!g_Config.m_KrxAimbot)
 			return;
 		const int Id = GameClient()->m_aLocalIds[g_Config.m_ClDummy];
-		if(Id < 0)
+		if(Id < 0 || Id >= MAX_CLIENTS || !GameClient()->KrxPredictedWorld().GetCharacterById(Id))
 			return;
 		if(g_Config.m_KrxAimbotDrawFov)
 		{
@@ -219,12 +229,20 @@ namespace OpenKrx
 		}
 		if(!g_Config.m_KrxAimbotTargetBox)
 			return;
-		for(int Target : {GameClient()->m_Aimbot.HookTarget(), GameClient()->m_Aimbot.WeaponTarget()})
+		const int HookTarget = GameClient()->m_Aimbot.HookTarget(), WeaponTarget = GameClient()->m_Aimbot.WeaponTarget();
+		const auto *pLocal = GameClient()->KrxPredictedWorld().GetCharacterById(Id);
+		const int Weapon = pLocal->GetActiveWeapon();
+		const int aWeaponEnabled[] = {g_Config.m_KrxAimbotWeaponHammer, g_Config.m_KrxAimbotWeaponGun, g_Config.m_KrxAimbotWeaponShotgun, g_Config.m_KrxAimbotWeaponGrenade, g_Config.m_KrxAimbotWeaponLaser};
+		const bool WeaponEnabled = Weapon >= WEAPON_HAMMER && Weapon <= WEAPON_LASER && aWeaponEnabled[Weapon];
+		for(int TargetIndex = 0; TargetIndex < 2; ++TargetIndex)
 		{
+			const int Target = TargetIndex == 0 ? HookTarget : WeaponTarget;
+			if((TargetIndex == 0 && !g_Config.m_KrxAimbotWeaponHook) || (TargetIndex == 1 && (!WeaponEnabled || (Target == HookTarget && g_Config.m_KrxAimbotWeaponHook))))
+				continue;
 			if(Target < 0 || Target >= MAX_CLIENTS || !GameClient()->m_aClients[Target].m_Active)
 				continue;
 			const vec2 Pos = GameClient()->m_aClients[Target].m_RenderPos;
-			const ColorRGBA Color = Target == GameClient()->m_Aimbot.HookTarget() ? ColorRGBA(1, 0, 0, 1) : ColorRGBA(1, .65f, 0, 1);
+			const ColorRGBA Color = TargetIndex == 0 ? ColorRGBA(1, 0, 0, 1) : ColorRGBA(1, .65f, 0, 1);
 			WorldLine(Pos + vec2(-21, -21), Pos + vec2(21, -21), Color, 3);
 			WorldLine(Pos + vec2(21, -21), Pos + vec2(21, 21), Color, 3);
 			WorldLine(Pos + vec2(21, 21), Pos + vec2(-21, 21), Color, 3);
@@ -276,24 +294,30 @@ namespace OpenKrx
 		{
 			std::vector<const char *> Enabled;
 			const auto Add = [&](int Value, const char *Name) {if(Value)Enabled.push_back(Name); };
-			Add(g_Config.m_KrxAimbot, "Aimbot");
+			// Recovered 13610 feature list2cbaa0; stable length sort below.
+			Add(g_Config.m_KrxMassMentionSpam, "Mass Mention Spam");
+			Add(g_Config.m_KrxKillsay, "Killsay/Deathsay");
+			Add(g_Config.m_KrxFancyChatFont, "Fancy Chat Font");
+			Add(g_Config.m_KrxChatRepeater, "Chat Repeater");
 			Add(g_Config.m_AvoidFreeze, "Avoid Freeze");
-			Add(g_Config.m_KrxAutoFire, "Auto Fire");
-			Add(g_Config.m_KrxAutoRehook, "Auto Rehook");
-			Add(g_Config.m_KrxBalanceBot, "Balance Bot");
-			Add(g_Config.m_KrxHookRide, "Hook Ride");
-			Add(g_Config.m_KrxJetRide, "Jet Ride");
-			Add(g_Config.m_KrxAutoAled, "Auto Aled");
-			Add(g_Config.m_KrxDummyFly, "Dummy Fly");
-			Add(g_Config.m_KrxQuickStop, "Quick Stop");
-			Add(g_Config.m_KrxPixelWalk, "Pixel Walk");
-			Add(g_Config.m_KrxAutoShotgun, "Auto Shotgun");
-			Add(g_Config.m_KrxUnfreezeBot, "Auto Unfreeze");
-			Add(g_Config.m_KrxAutoJumpSave, "Auto Jump Save");
-			Add(g_Config.m_KrxFakeAim, "Fake Aim");
 			Add(g_Config.m_KrxMoonwalk, "Moonwalk");
-			Add(g_Config.m_KrxHookSpam, "Hook Spam");
-			Add(g_Config.m_KrxIdStealer, "ID Stealer");
+			Add(g_Config.m_KrxHookRide, "Hook Ride");
+			Add(g_Config.m_KrxIdStealer, "Id Stealer");
+			Add(g_Config.m_KrxAutoFire, "Auto Fire");
+			Add(g_Config.m_KrxFakeAim, "Fake Aim");
+			Add(g_Config.m_KrxAimbot, "Aimbot");
+			Add(g_Config.m_KrxGhostMove, "Ghost Move");
+			Add(g_Config.m_KrxQuickStop, "Quick Stop");
+			Add(g_Config.m_KrxAutoJumpSave, "Auto Jump Save");
+			Add(g_Config.m_KrxAutoVoteKick, "Auto Vote Kick");
+			Add(g_Config.m_KrxAutoRehook, "Auto Rehook");
+			Add(g_Config.m_KrxModDetector, "Mod Detector");
+			Add(g_Config.m_KrxEmoteSpam, "Emote Spam");
+			Add(g_Config.m_KrxGrenadeSaver, "Grenade Saver");
+			Add(g_Config.m_KrxUnfreezeBot, "Auto Unfreeze");
+			Add(g_Config.m_KrxAutoAled, "Auto Aled");
+			Add(g_Config.m_KrxAutoShotgun, "Auto Shotgun");
+			Add(g_Config.m_AvoidTrackPoints, "Track Point");
 			const float Size = g_Config.m_KrxFeaturesHudFontSize;
 			std::stable_sort(Enabled.begin(), Enabled.end(), [&](const char *a, const char *b) { return TextRender()->TextWidth(Size, a) > TextRender()->TextWidth(Size, b); });
 			for(const char *Name : Enabled)
@@ -331,8 +355,13 @@ namespace OpenKrx
 	{
 		if(!g_Config.m_KrxTrail || GameClient()->m_Snap.m_SpecInfo.m_Active)
 			return;
+		if(g_Config.m_KrxTrailType == 4)
+		{
+			RenderTeeTrail();
+			return;
+		}
 		const int64_t Now = time_get();
-		const int Rate = g_Config.m_KrxTrailMode == 1 ? 100 : 50;
+		const int Rate = g_Config.m_KrxTrailType == 1 ? 100 : 50;
 		if(m_LastTrail && Now - m_LastTrail < time_freq() / Rate)
 			return;
 		m_LastTrail = Now;
@@ -344,7 +373,7 @@ namespace OpenKrx
 		p.m_Friction = .7f;
 		p.m_EndSize = 0;
 		int Group = CParticles::GROUP_PROJECTILE_TRAIL;
-		switch(g_Config.m_KrxTrailMode)
+		switch(g_Config.m_KrxTrailType)
 		{
 		case 0:
 			p.m_Spr = SPRITE_PART_SMOKE;
@@ -367,6 +396,7 @@ namespace OpenKrx
 			p.m_Rotspeed = 2 * pi;
 			p.m_Gravity = 500;
 			p.m_Friction = .9f;
+			p.m_FlowAffected = 0;
 			Group = CParticles::GROUP_GENERAL;
 			break;
 		default:
@@ -382,6 +412,195 @@ namespace OpenKrx
 			break;
 		}
 		GameClient()->m_Particles.Add(Group, &p);
+	}
+
+	void CMediumVisuals::RenderTeeTrail()
+	{
+		// REA371b40: a 200-tick ring per tee, newest-first path, adjacent
+		// duplicate removal, endpoint interpolation and per-point taper/fade.
+		// The current DDNet render/prediction flags replace old private offsets.
+		const int Slot = g_Config.m_ClDummy;
+		for(int Id = 0; Id < 128; ++Id)
+		{
+			if(Id != GameClient()->m_Snap.m_LocalClientId)
+				continue;
+			auto &History = m_aTeeTrail[Id];
+			const auto &ClientData = GameClient()->m_aClients[Id];
+			if(!ClientData.m_Active || !GameClient()->m_Snap.m_aCharacters[Id].m_Active)
+			{
+				History.fill({});
+				continue;
+			}
+			const int Tick = ClientData.m_IsPredicted ? Client()->PredGameTick(Slot) : Client()->GameTick(Slot);
+			const float Intra = ClientData.m_IsPredicted ? Client()->PredIntraGameTick(Slot) : Client()->IntraGameTick(Slot);
+			if(Tick < 0)
+				continue;
+			History[Tick % 200] = {ClientData.m_RenderPos, Tick};
+			std::vector<CTrailPoint> Points;
+			const int Length = std::clamp(g_Config.m_ClTeeTrailLength, 5, 200);
+			const int Count = std::min(200, Length + (ClientData.m_IsPredicted ? 0 : 2));
+			for(int Age = 0; Age < Count; ++Age)
+			{
+				const int Wanted = Tick - Age;
+				if(Wanted < 0)
+					break;
+				const CTrailPoint Point = ClientData.m_IsPredicted ? CTrailPoint{ClientData.m_aPredPos[Wanted % 200], ClientData.m_aPredTick[Wanted % 200]} : History[Wanted % 200];
+				if(Point.m_Tick != Wanted)
+					break;
+				if(Points.empty() || Point.m_Position != Points.back().m_Position)
+					Points.push_back(Point);
+			}
+			if(Points.size() < 3)
+				continue;
+			Points.front().m_Position = ClientData.m_RenderPos;
+			Points.back().m_Position = mix(Points.back().m_Position, Points[Points.size() - 2].m_Position, Intra);
+			struct CVertex
+			{
+				vec2 m_Left, m_Right;
+				ColorRGBA m_Color;
+			};
+			std::vector<CVertex> Vertices;
+			for(size_t Index = 0; Index < Points.size(); ++Index)
+			{
+				const auto &Point = Points[Index];
+				const float Fraction = Index == 0 ? 0.f : Index + 1 == Points.size() ? 1.f :
+												       (Index + Intra - 1.f) / (Points.size() - 2.f);
+				ColorRGBA Color(0, 0, 0, 1);
+				switch(g_Config.m_ClTeeTrailColorMode)
+				{
+				case 0: Color = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClTeeTrailColor)); break;
+				case 1: Color = ClientData.m_RenderInfo.m_ColorBody; break;
+				case 2:
+					Color = color_cast<ColorRGBA>(ColorHSLA(std::fmod((float)((Id * 6361 + Point.m_Tick) % 1000000) * (.5f / Length), 1.f), 1, .5f));
+					break;
+				case 3:
+				{
+					const size_t OtherIndex = Index < 2 ? std::min(Index + 2, Points.size() - 1) : Index - 2;
+					const auto &Other = Points[OtherIndex];
+					const float Speed = distance(Point.m_Position, Other.m_Position) / std::max(1, std::abs(Point.m_Tick - Other.m_Tick));
+					const unsigned Packed = (1 - (int)(Speed * Speed / -12.5f)) * 0xff00u;
+					Color = color_cast<ColorRGBA>(ColorHSLA(Packed));
+					break;
+				}
+				// The shipped "Random" case4 has no RGB writer in371b40.
+				default: break;
+				}
+				float Alpha = g_Config.m_ClTeeTrailAlpha / 100.f;
+				if(GameClient()->IsOtherTeam(Id))
+					Alpha *= g_Config.m_ClShowOthersAlpha / 100.f;
+				Color.a = g_Config.m_ClTeeTrailFade ? Alpha * (1.f - Fraction) : Alpha;
+				const float Width = g_Config.m_ClTeeTrailTaper ? g_Config.m_ClTeeTrailWidth * (1.f - Fraction) : (float)g_Config.m_ClTeeTrailWidth;
+				const vec2 Pos = Point.m_Position;
+				const vec2 Previous = Index == 0 ? Pos - normalize(Points[1].m_Position - Pos) : Points[Index - 1].m_Position;
+				const vec2 Next = Index + 1 == Points.size() ? Pos + normalize(Pos - Previous) : Points[Index + 1].m_Position;
+				const vec2 Before = normalize(Pos - Previous), After = normalize(Next - Pos);
+				const vec2 Normal(-Before.y, Before.x);
+				const vec2 Tangent = normalize(Before + After);
+				vec2 Miter(-Tangent.y, Tangent.x);
+				if(Miter == vec2(0, 0))
+					Miter = Normal;
+				const float Denom = dot(Miter, Normal);
+				const float Extension = Denom > .001f ? std::min(Width / Denom, Width * 3.f) : Width;
+				Vertices.push_back({Pos + Miter * Extension, Pos - Miter * Extension, Color});
+			}
+			Graphics()->TextureClear();
+			if(g_Config.m_ClTeeTrailWidth == 0)
+			{
+				Graphics()->LinesBegin();
+				for(size_t Index = 1; Index < Points.size(); ++Index)
+				{
+					Graphics()->SetColor(Vertices[Index].m_Color);
+					IGraphics::CLineItem Line(Points[Index - 1].m_Position.x, Points[Index - 1].m_Position.y, Points[Index].m_Position.x, Points[Index].m_Position.y);
+					Graphics()->LinesDraw(&Line, 1);
+				}
+				Graphics()->LinesEnd();
+			}
+			else
+			{
+				Graphics()->QuadsBegin();
+				for(size_t Index = 1; Index < Vertices.size(); ++Index)
+				{
+					const auto &A = Vertices[Index - 1], &B = Vertices[Index];
+					Graphics()->SetColor4(A.m_Color, A.m_Color, B.m_Color, B.m_Color);
+					IGraphics::CFreeformItem Quad(A.m_Left, A.m_Right, B.m_Left, B.m_Right);
+					Graphics()->QuadsDrawFreeform(&Quad, 1);
+				}
+				Graphics()->QuadsEnd();
+			}
+		}
+	}
+
+	void CMediumVisuals::RenderNowPlaying()
+	{
+		const auto Track = m_NowPlaying.Track(g_Config.m_KrxNowPlayingHud != 0);
+		const std::string Text = Track.Text();
+		if(Text.empty())
+		{
+			m_NowPlayingSince = 0;
+			m_NowPlayingText.clear();
+			Graphics()->UnloadTexture(&m_NowPlayingArt);
+			m_pNowPlayingArt.reset();
+			return;
+		}
+		if((bool)Track.m_pArt != (bool)m_pNowPlayingArt || (Track.m_pArt && *Track.m_pArt != *m_pNowPlayingArt))
+		{
+			Graphics()->UnloadTexture(&m_NowPlayingArt);
+			m_pNowPlayingArt = Track.m_pArt;
+			if(m_pNowPlayingArt)
+			{
+				CImageInfo Image;
+				if(Graphics()->LoadPng(Image, m_pNowPlayingArt->data(), m_pNowPlayingArt->size(), "now-playing-art"))
+					m_NowPlayingArt = Graphics()->LoadTextureRawMove(Image, 0, "now-playing-art");
+			}
+		}
+		if(!m_NowPlayingSince)
+			m_NowPlayingSince = time_get_impl();
+		m_NowPlayingText = Text;
+		const float Width = 300.f * Graphics()->ScreenAspect();
+		Graphics()->MapScreen(CScreenRect(0, 0, Width, 300));
+		const float Size = 6.f;
+		std::string First = Text + ' ', Second;
+		if(TextRender()->TextWidth(Size, First.c_str()) > 120.f)
+		{
+			const size_t Half = First.size() / 2;
+			size_t Split = First.rfind(' ', Half);
+			if(Split == std::string::npos)
+				Split = First.find(' ', Half);
+			if(Split == std::string::npos)
+			{
+				Split = Half;
+				while(Split < First.size() && (First[Split] & 0xc0) == 0x80)
+					++Split;
+			}
+			Second = First.substr(Split + (First[Split] == ' ' ? 1 : 0));
+			First.resize(Split);
+		}
+		const float TextWidth = std::max(TextRender()->TextWidth(Size, First.c_str()), TextRender()->TextWidth(Size, Second.c_str()));
+		const float ArtWidth = m_NowPlayingArt.IsValid() ? 14.f : 0.f;
+		const float PanelWidth = TextWidth + 12.f + ArtWidth;
+		const float Open = std::clamp((float)(time_get_impl() - m_NowPlayingSince) * 5.f / time_freq(), 0.f, 1.f);
+		const float Height = mix(5.f, Second.empty() ? 16.f : 18.f, Open);
+		const float X = (Width - PanelWidth) / 2.f;
+		CUIRect Panel{X, 18.f, PanelWidth, Height};
+		Panel.Draw(ColorRGBA(0, 0, 0, .5f), IGraphics::CORNER_ALL, 2.5f);
+		if(Open < 1.f)
+			return;
+		if(m_NowPlayingArt.IsValid())
+		{
+			Graphics()->TextureSet(m_NowPlayingArt);
+			Graphics()->QuadsBegin();
+			Graphics()->SetColor(1, 1, 1, 1);
+			IGraphics::CQuadItem Artwork(X + 2.f, 18.f + (Height - 12.f) / 2.f, 12.f, 12.f);
+			Graphics()->QuadsDrawTL(&Artwork, 1);
+			Graphics()->QuadsEnd();
+		}
+		const auto Draw = [&](float x, float y, const char *pText) {
+			GradientText(x, y, Size, pText, g_Config.m_KrxNowPlayingGradientStartColor, g_Config.m_KrxNowPlayingGradientEndColor,
+				g_Config.m_KrxNowPlayingGradientRainbow, g_Config.m_KrxNowPlayingSegmented, g_Config.m_KrxNowPlayingGradientSpeed, m_NowPlayingPhase);
+		};
+		Draw(X + 4.f + ArtWidth, 18.f + (Height - Size) / 2.f - (Second.empty() ? 0.f : 4.f), First.c_str());
+		if(!Second.empty())
+			Draw(X + 4.f + ArtWidth, 18.f + (Height - Size) / 2.f + 4.f, Second.c_str());
 	}
 
 	void CMediumVisuals::UpdateIdentity()
@@ -416,7 +635,12 @@ namespace OpenKrx
 			return;
 		const auto &Other = GameClient()->m_aClients[Target];
 		if(g_Config.m_KrxIdStealerName)
-			str_copy(g_Config.m_PlayerName, Other.m_aName);
+		{
+			// New13610 31a6f0 uses "%s." before the sixteen-byte copy.
+			char aName[128];
+			str_format(aName, sizeof(aName), "%s.", Other.m_aName);
+			str_copy(g_Config.m_PlayerName, aName);
+		}
 		if(g_Config.m_KrxIdStealerClan)
 			str_copy(g_Config.m_PlayerClan, Other.m_aClan);
 		if(g_Config.m_KrxIdStealerFlag)
@@ -436,9 +660,18 @@ namespace OpenKrx
 
 	void CMediumVisuals::OnRender()
 	{
-		if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
-			return;
+		if(Client()->State() == IClient::STATE_ONLINE)
+		{
+			GameClient()->m_RescueBots.RenderUnfreeze(GameClient());
+			GameClient()->m_Avoid.Render(GameClient());
+		}
 		const CScreenRect Old = Graphics()->GetScreen();
+		if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
+		{
+			RenderNowPlaying();
+			Graphics()->MapScreen(Old);
+			return;
+		}
 		const auto &Cam = GameClient()->m_Camera;
 		const auto World = Graphics()->MapScreenToWorld(Cam.m_Center.x, Cam.m_Center.y, 100, 100, 100, 0, 0, Graphics()->ScreenAspect(), Cam.m_Zoom);
 		Graphics()->MapScreen(World);
@@ -446,6 +679,7 @@ namespace OpenKrx
 		RenderTargetIndicators();
 		RenderTrail();
 		RenderHud();
+		RenderNowPlaying();
 		Graphics()->MapScreen(Old);
 	}
 }

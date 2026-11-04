@@ -1,5 +1,7 @@
 #include "krx_tas.h"
 
+#include <game/client/krx/replay_fake_aim.h>
+
 #include <base/io.h>
 #include <base/log.h>
 #include <base/str.h>
@@ -14,6 +16,7 @@
 
 #include <game/client/gameclient.h>
 #include <game/client/prediction/entities/character.h>
+#include <game/collision.h>
 #include <game/mapitems.h>
 
 #include <algorithm>
@@ -66,6 +69,7 @@ namespace OpenKrx
 		CancelPathFinding();
 		StopVaultWorker();
 		StopConversionWorker();
+		StopAnalysisWorker();
 	}
 	CGameWorld *CKrxTas::RenderWorld() { return Active() ? m_pWorld.get() : &GameClient()->m_PredictedWorld; }
 	CGameWorld *CKrxTas::PreviousRenderWorld() { return Active() ? m_pPreviousWorld.get() : &GameClient()->m_PrevPredictedWorld; }
@@ -81,6 +85,7 @@ namespace OpenKrx
 
 	void CKrxTas::OnShutdown()
 	{
+		StopAnalysisWorker();
 		CancelPathFinding();
 		StopVaultWorker();
 		StopConversionWorker();
@@ -124,6 +129,7 @@ namespace OpenKrx
 
 	void CKrxTas::OnReset()
 	{
+		StopAnalysisWorker();
 		CancelPathFinding();
 		ClearReplay();
 		m_pWorld.reset();
@@ -141,11 +147,13 @@ namespace OpenKrx
 
 	void CKrxTas::OnMapLoad()
 	{
+		StopAnalysisWorker();
 		CancelPathFinding();
 		m_FlowField.Resize(Collision()->GetWidth(), Collision()->GetHeight());
 		m_vTunnels.assign((size_t)Collision()->GetWidth() * Collision()->GetHeight(), 0);
 		m_Goal = m_LastBrush = vec2(0, 0);
 		m_NoFinish = false;
+		m_EditorBrushValid = false;
 		m_PathDirty = true;
 		RefreshFiles();
 	}
@@ -171,18 +179,20 @@ namespace OpenKrx
 		m_pWorld->m_WorldConfig.m_KrxExplosionStrengthValid = true;
 		m_pWorld->m_WorldConfig.m_KrxExplosionStrength = GameClient()->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		if(!PredictPlayers)
-			for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+			for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 				if(Id != m_aIds[0] && Id != m_aIds[1])
 					if(auto *pCharacter = m_pWorld->GetCharacterById(Id))
 						m_pWorld->RemoveCharacter(pCharacter);
 		m_pPreviousWorld->CopyWorldIsolated(m_pWorld.get());
 		m_pInitialWorld->CopyWorldIsolated(m_pWorld.get());
 		m_LastStep = 0;
-		m_LastAutoSave = time_get();
+		m_LastAutoSave = GameClient()->m_GameWorld.GameTick();
 	}
 
 	void CKrxTas::AppendFrame(const std::array<CNetObj_PlayerInput, 2> &aInputs)
 	{
+		if(m_Replay.m_AimPrepared)
+			ResetReplayFakeAim(m_Replay);
 		auto pWorld = Snapshot(*m_pWorld);
 		for(int Slot = 0; Slot < 2; ++Slot)
 			if(auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
@@ -225,7 +235,20 @@ namespace OpenKrx
 			}
 		}
 		if(Record)
-			AppendFrame(aInputs);
+		{
+			auto aRecordedInputs = aInputs;
+			for(int Slot = 0; Slot < 2; ++Slot)
+			{
+				const int InputSlot = m_aReplayInputSlots[Slot];
+				if(InputSlot >= InputCount || !(InputMask & (1u << InputSlot)))
+					if(const auto *pCharacter = m_pWorld->GetCharacterById(m_aIds[Slot]))
+						// Forward intentionally updates only its first input.
+						// Save the other tee's held input, not an unapplied edit;
+						// otherwise the recorded positions cannot be replayed.
+						aRecordedInputs[InputSlot] = pCharacter->DiagnosticSavedInput();
+			}
+			AppendFrame(aRecordedInputs);
+		}
 		if(Events)
 			HandleWorldEvents();
 		else
@@ -246,6 +269,7 @@ namespace OpenKrx
 		}
 		if(!Recording)
 		{
+			m_LastAutoSave = GameClient()->m_GameWorld.GameTick();
 			if(m_WasRecording)
 			{
 				Controls.m_aInputData[Slot].m_TargetX = m_NetworkBefore.m_TargetX;
@@ -356,12 +380,16 @@ namespace OpenKrx
 			Step(m_aInputs, true, true);
 			m_LastStep = Now;
 		}
-		if(g_Config.m_KrxAutoSaveReplayEnabled && time_get() - m_LastAutoSave >= (int64_t)g_Config.m_KrxAutoSaveReplayInterval * time_freq())
+		// 350c20 uses the live world clock, including while the TAS is paused.
+		const int LiveTick = GameClient()->m_GameWorld.GameTick();
+		if(!g_Config.m_KrxAutoSaveReplayEnabled)
+			m_LastAutoSave = LiveTick;
+		else if(LiveTick - m_LastAutoSave >= (int64_t)g_Config.m_KrxAutoSaveReplayInterval * 50)
 		{
 			char aName[64];
 			str_timestamp(aName, sizeof(aName));
 			SaveReplay(aName, true);
-			m_LastAutoSave = time_get();
+			m_LastAutoSave = GameClient()->m_GameWorld.GameTick();
 		}
 		return true;
 	}
@@ -393,6 +421,8 @@ namespace OpenKrx
 		m_pWorld->CopyWorldIsolated(m_vWorlds[Count - Ticks - 1].get());
 		m_pPreviousWorld->CopyWorldIsolated(m_pWorld.get());
 		m_vWorlds.resize(Count - Ticks);
+		if(Ticks > 0)
+			ResetReplayFakeAim(m_Replay);
 		for(auto &vFrames : m_Replay.m_aFrames)
 			if(vFrames.size() >= (size_t)Ticks)
 				vFrames.resize(vFrames.size() - Ticks);
@@ -629,8 +659,10 @@ namespace OpenKrx
 		m_pWorld.reset();
 		m_pPreviousWorld.reset();
 		m_pInitialWorld.reset();
-		m_aReplayInputSlots = {g_Config.m_ClDummy, !g_Config.m_ClDummy};
-		m_aIds = {GameClient()->m_aLocalIds[m_aReplayInputSlots[0]], GameClient()->m_aLocalIds[m_aReplayInputSlots[1]]};
+		// New361ba0 records the two absolute control slots;35ae60 rebuilds
+		// from localIds[0], independently of which tee is currently selected.
+		m_aReplayInputSlots = {0, 1};
+		m_aIds = {GameClient()->m_aLocalIds[0], GameClient()->m_aLocalIds[1]};
 		str_copy(g_Config.m_KrxReplayFileDescription, m_Replay.m_Description.c_str());
 		Message("TAS: Successfully loaded replay from file.");
 		if(Online && !m_Replay.m_aFrames[0].empty())
@@ -848,6 +880,63 @@ namespace OpenKrx
 		m_ConversionCancel.store(true);
 		if(m_ConversionFuture.valid())
 			m_ConversionFuture.get();
+	}
+
+	void CKrxTas::AnalyzeReplay()
+	{
+		g_Config.m_KrxTasAnalyzerAnalyze = 0;
+		if(m_AnalysisFuture.valid())
+			return;
+		if(m_Replay.m_aFrames[0].empty() || !m_pInitialWorld)
+		{
+			Message("A valid, fully simulated replay must be loaded first.");
+			return;
+		}
+		// 3640c0 requests a validated/simulated replay before dispatching 363b40.
+		auto pInitial = std::make_unique<CGameWorld>();
+		pInitial->CopyWorldIsolated(m_pInitialWorld.get());
+		auto pCollision = pInitial->Collision()->CreateIsolatedCopy();
+		pInitial->RebindCollision(pCollision.get());
+		std::array<CTuningParams, 256> aTuning;
+		std::copy_n(pInitial->TuningList(), aTuning.size(), aTuning.begin());
+		const float Speed = g_Config.m_KrxTasAnalyzerSpeed / 100.0f;
+		char aMessage[160];
+		str_format(aMessage, sizeof(aMessage), "Analyzing stability for reference TAS recorded at speed %.2f...", Speed);
+		Message(aMessage);
+		m_AnalysisCancel.store(false);
+		m_AnalysisFuture = std::async(std::launch::async,
+			[this, Replay = m_Replay, Id = m_aIds[0], Speed, aTuning, pCollision = std::move(pCollision), pInitial = std::move(pInitial)]() mutable {
+				pInitial->RebindTuning(aTuning.data());
+				return AnalyzeReplayStability(Replay, *pInitial, Id, Speed, &m_AnalysisCancel);
+			});
+	}
+
+	void CKrxTas::UpdateAnalysis()
+	{
+		if(!m_AnalysisFuture.valid() || m_AnalysisFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+			return;
+		const auto Result = m_AnalysisFuture.get();
+		if(Result.m_Cancelled)
+			return;
+		if(!Result.m_Error.empty())
+		{
+			Message(Result.m_Error.c_str());
+			return;
+		}
+		for(const auto &Range : Result.m_vRanges)
+		{
+			char aMessage[128];
+			str_format(aMessage, sizeof(aMessage), "> Stable range found: [%.2f] - [%.2f]", Range.m_Min, Range.m_Max);
+			Message(aMessage);
+		}
+		Message("Analysis complete.");
+	}
+
+	void CKrxTas::StopAnalysisWorker()
+	{
+		m_AnalysisCancel.store(true);
+		if(m_AnalysisFuture.valid())
+			m_AnalysisFuture.get();
 	}
 
 	void CKrxTas::PrepareForFent()

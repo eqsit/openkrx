@@ -5,6 +5,7 @@
 #include <base/dbg.h>
 
 #include <engine/shared/config.h>
+#include <engine/graphics.h>
 
 #include <game/client/gameclient.h>
 #include <game/client/prediction/entities/character.h>
@@ -42,6 +43,65 @@ namespace OpenKrx
 	bool CAvoid::Active() const
 	{
 		return g_Config.m_AvoidFreeze != 0 && g_Config.m_AvoidAgentType == 2;
+	}
+
+	void CAvoid::Render(CGameClient *pGameClient)
+	{
+		if(!Active() || pGameClient->Client()->State() != IClient::STATE_ONLINE ||
+			(!g_Config.m_AvoidDrawAimbot && !g_Config.m_AvoidDrawTrackPoint))
+			return;
+		const int Slot = g_Config.m_ClDummy;
+		const int Id = pGameClient->m_aLocalIds[Slot];
+		const auto *pLocal = pGameClient->KrxGameWorld().GetCharacterById(Id);
+		if(!pLocal)
+			return;
+		auto *pGraphics = pGameClient->Graphics();
+		const auto OldScreen = pGraphics->GetScreen();
+		const auto &Camera = pGameClient->m_Camera;
+		pGraphics->MapScreen(pGraphics->MapScreenToWorld(Camera.m_Center.x, Camera.m_Center.y, 100, 100, 100, 0, 0, pGraphics->ScreenAspect(), Camera.m_Zoom));
+		// TAS ApplyRenderState updates this interpolated local position too.
+		const vec2 From = pGameClient->m_LocalCharacterPos;
+		const float HookLength = pGameClient->m_aTuning[0].m_HookLength;
+		const auto Draw = [&](vec2 Point, ColorRGBA Circle, ColorRGBA Line) {
+			pGraphics->TextureClear();
+			pGraphics->QuadsBegin();
+			pGraphics->SetColor(Circle);
+			pGraphics->DrawCircle(Point.x, Point.y, 3.25f, 64);
+			// Native30fff0 uses ((width5-1)*.25+.5)*zoom as half-width.
+			if(distance(From, Point) >= 1.0f)
+			{
+				const vec2 Offset = normalize(vec2(Point.y - From.y, From.x - Point.x)) * (1.5f * Camera.m_Zoom);
+				pGraphics->SetColor(Line);
+				IGraphics::CFreeformItem Quad(Point - Offset, Point + Offset, From - Offset, From + Offset);
+				pGraphics->QuadsDrawFreeform(&Quad, 1);
+			}
+			pGraphics->QuadsEnd();
+		};
+		// New32f7c0 finally consumes the aimbot ESP setting and cached points.
+		if(g_Config.m_AvoidDrawAimbot && g_Config.m_AvoidBlatantAimbot)
+		{
+			m_Planner.ExpireAimPoints(pLocal->m_Pos, HookLength);
+			if(g_Config.m_AvoidAimAssistAimbot && m_Planner.AssistPoint())
+				Draw(*m_Planner.AssistPoint(), ColorRGBA(0, 0, 1, .5f), ColorRGBA(1, 1, 1, .5f));
+			if(g_Config.m_AvoidAutoAimAimbot && m_Planner.AutoAimPoint())
+				Draw(*m_Planner.AutoAimPoint(), ColorRGBA(1, 0, 0, .5f), ColorRGBA(1, 1, 1, .5f));
+		}
+		if(g_Config.m_AvoidDrawTrackPoint && g_Config.m_AvoidTrackPoints && m_Planner.TrackPoint())
+		{
+			const vec2 Mouse = pGameClient->m_Controls.m_aMousePos[Slot];
+			const vec2 Quantized((int)Mouse.x, (int)Mouse.y);
+			bool Hookable = false;
+			if(Quantized != vec2(0, 0))
+			{
+				const vec2 To = pLocal->m_Pos + normalize(Quantized) * (HookLength - 28.0f);
+				vec2 Hit = To;
+				int Tele = 0;
+				Hookable = pGameClient->IntersectCharacter(pLocal->m_Pos, To, Hit, Id) == -1 &&
+					pGameClient->Collision()->IntersectLineTeleHook(pLocal->m_Pos, To, &Hit, nullptr, &Tele) == TILE_SOLID && Hit != vec2(0, 0);
+			}
+			Draw(*m_Planner.TrackPoint(), ColorRGBA(0, 1, 0, .7f), Hookable ? ColorRGBA(1, 1, 1, .7f) : ColorRGBA(1, 1, 0, 1));
+		}
+		pGraphics->MapScreen(OldScreen);
 	}
 
 	void CAvoid::OnReset()

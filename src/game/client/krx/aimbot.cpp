@@ -506,6 +506,12 @@ namespace OpenKrx
 		World.m_WorldConfig.m_PredictFreeze = 1;
 		World.m_WorldConfig.m_PredictWeapons = true;
 		World.m_WorldConfig.m_PredictDDRace = true;
+		World.m_WorldConfig.m_KrxPrediction = true;
+		if(pGameClient)
+		{
+			World.m_WorldConfig.m_KrxExplosionStrengthValid = true;
+			World.m_WorldConfig.m_KrxExplosionStrength = pGameClient->m_aTuning[Slot].m_ExplosionStrength;
+		}
 		auto *pLocal = World.GetCharacterById(ClientId);
 		m_vCachedTargets.clear();
 		m_HookTarget = m_WeaponTarget = -1;
@@ -564,9 +570,14 @@ namespace OpenKrx
 				}
 				else
 				{
-					ApplyAim(*Aim, Settings.m_Hook.m_Silent);
-					Decision.m_Input.m_Hook = 1;
-					m_AutoHookIssued = true;
+					// 31fa10: only newly generated automatic presses wait for an
+					// even predicted tick. Manual presses and release timers proceed.
+					if(!Settings.m_PerfectSilent || !(Source.GameTick() & 1))
+					{
+						ApplyAim(*Aim, Settings.m_Hook.m_Silent);
+						Decision.m_Input.m_Hook = 1;
+						m_AutoHookIssued = true;
+					}
 				}
 			}
 		}
@@ -591,6 +602,9 @@ namespace OpenKrx
 			return Decision;
 		if(!(Decision.m_Input.m_Fire & 1) && pAuth->DiagnosticReloadTimer() <= 0)
 		{
+			// 3202d0 applies this gate before changing aim or pressing Fire.
+			if(Settings.m_PerfectSilent && (Source.GameTick() & 1))
+				return Decision;
 			ApplyAim(QuantizedAim(*Aim, Radius), Settings.m_aWeapons[Weapon].m_Silent);
 			++Decision.m_Input.m_Fire;
 			m_FireCounter = Decision.m_Input.m_Fire;

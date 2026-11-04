@@ -163,3 +163,6 @@ tags
 /test-reference/
 /test-server/
 
+
+# Local client profile of the development build
+user-data/

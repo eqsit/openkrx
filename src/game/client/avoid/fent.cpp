@@ -65,7 +65,6 @@ namespace OpenKrx
 			bool Hook = Random() >> 31;
 			int Direction = (int)Uniform(Random, 3) - 1;
 			bool Jump = Random() >> 31;
-			int JumpValue = Jump;
 			for(int T = 0; T < Ticks;)
 			{
 				auto Input = Base;
@@ -76,17 +75,9 @@ namespace OpenKrx
 					Hook = Uniform(Random, 2) == 1;
 				Input.m_Hook = Hook;
 				if(!Jump)
-				{
-					Jump = Uniform(Random, 2) != 0;
-					JumpValue = Jump;
-					Input.m_Jump = JumpValue;
-				}
-				else
-				{
-					// Observed in both 2d8d10 pseudocode and instructions 2d8ede:
-					// the sticky-jump branch writes Direction, not Jump.
-					Input.m_Direction = JumpValue;
-				}
+					Jump = Random() >> 31;
+				// New334ce0 fixes the old sticky-jump Direction overwrite.
+				Input.m_Jump = Jump;
 				if((int32_t)Random() < 0)
 					Input.m_Fire += 2;
 				Aim(Input, Unit(Random) * 2 * pi, Radius);
@@ -137,6 +128,7 @@ namespace OpenKrx
 			for(uint32_t Packed : Candidate.m_vInputs)
 			{
 				Input = UnpackFentInput(Packed);
+				const bool WasGrounded = pCharacter->IsGrounded();
 				Tick(World, Id, Input);
 				pCharacter = World.GetCharacterById(Id);
 				if(!pCharacter)
@@ -144,6 +136,10 @@ namespace OpenKrx
 				const auto *pCell = Field.At(pCharacter->Core()->m_Pos);
 				if(!pCell || !pCell->Reachable())
 					return FLT_MAX;
+				// New3342c0 penalizes airborne jump inputs according to the
+				// post-tick field direction, before freeze/alignment checks.
+				if(Input.m_Jump == 1 && !WasGrounded)
+					Score += pCell->m_Flow.y > 0.4f ? 3500.0f : pCell->m_Flow.y < -0.4f ? 700.0f : 14000.0f;
 				if(!LightTiles && pCharacter->m_FreezeTime > 0)
 					return FLT_MAX;
 				const bool Frozen = pCharacter->m_FreezeTime > 0;
@@ -159,6 +155,10 @@ namespace OpenKrx
 					return -1e9f;
 				Speeds += length(pCharacter->Core()->m_Vel);
 			}
+			// An invalid/positive score leaves the candidate's prior score
+			// untouched in3342c0, represented by FLT_MAX to CEvaluator.
+			if(Score > 0)
+				return FLT_MAX;
 			Score = Score - distance(pCharacter->Core()->m_Pos, Origin) - Speeds / Candidate.m_vInputs.size();
 			Origin = pCharacter->Core()->m_Pos;
 			Speeds = length(pCharacter->Core()->m_Vel);
@@ -502,7 +502,7 @@ namespace OpenKrx
 		m_pInitial->m_WorldConfig.m_KrxExplosionStrength = GameClient()->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		const auto *pLocal = m_pInitial->GetCharacterById(m_Id);
 		const float Radius = pLocal->Core()->m_Tuning.m_HookLength + 56.0f;
-		for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 		{
 			auto *pCharacter = m_pInitial->GetCharacterById(Id);
 			if(pCharacter && Id != m_Id && !pCharacter->m_IsLocal &&

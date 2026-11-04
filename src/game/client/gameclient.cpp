@@ -153,6 +153,7 @@ void CGameClient::OnConsoleInit()
 					      &m_Hud,
 					      &m_MediumVisuals,
 					      &m_KrxMovementPreTas,
+					      &m_KrxAutoEdgeNew,
 					      &m_KrxMiscPreTas,
 					      &m_PreTasVisuals,
 					      &m_Tas,
@@ -630,6 +631,7 @@ void CGameClient::OnReset()
 
 	m_Avoid.m_Trace.Reset();
 	m_Avoid.OnReset();
+	m_PilotBot.OnReset();
 	m_RocketSave.OnReset();
 	m_KrxMisc.OnReset();
 	m_Aimbot.OnReset();

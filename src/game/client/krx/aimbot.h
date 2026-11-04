@@ -32,6 +32,7 @@ namespace OpenKrx
 		bool m_Enabled = false;
 		bool m_AutoHook = false;
 		bool m_AutoShoot = false;
+		bool m_PerfectSilent = false;
 		CAimbotWeaponSettings m_Hook{true, 30, 0, true, false};
 		std::array<CAimbotWeaponSettings, NUM_WEAPONS> m_aWeapons{};
 		bool m_Advanced = false;

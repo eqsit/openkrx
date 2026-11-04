@@ -435,6 +435,9 @@ void CKrxMiscPreTas::OnReset()
 {
 	m_RepeatAfterTick = m_MentionAfterTick = 0;
 	m_NearFinish = false;
+	m_AutoVoted = false;
+	m_AutoVoteLastSeconds = -1;
+	m_AutoVoteDescription.clear();
 	m_aMods.fill(false);
 	m_aSuspects.fill(false);
 	// AutoVerify's completion/failure latch is process-global in the reference.
@@ -443,6 +446,7 @@ void CKrxMiscPreTas::OnReset()
 
 void CKrxMiscPreTas::OnShutdown()
 {
+	m_PredictionBenchmark.Stop();
 	const std::lock_guard<std::mutex> Lock(m_NotificationsMutex);
 	m_vNotifications.clear();
 }
@@ -464,7 +468,9 @@ void CKrxMiscPreTas::OnMessage(int MsgType, void *pRawMsg)
 		{
 			const std::string Repeated = RepeatedChat(pMsg->m_pMessage);
 			GameClient()->m_Chat.SendChat(0, Repeated.c_str());
-			m_RepeatAfterTick = Tick + 250;
+			// New 13610 keeps the same minimum five seconds; it only allows
+			// increasing the cooldown to ten. analysis 33bc70, global6ae084.
+			m_RepeatAfterTick = Tick + std::clamp(g_Config.m_KrxChatRepeaterCooldown, 5, 10) * 50;
 		}
 	}
 	else if(MsgType == NETMSGTYPE_SV_KILLMSG && g_Config.m_KrxKillsay)
@@ -506,7 +512,8 @@ void CKrxMiscPreTas::ScanModerators()
 	std::vector<std::string> vMods, vSuspects;
 	m_aMods.fill(false);
 	m_aSuspects.fill(false);
-	for(int Id = 0; Id < std::min<int>(MAX_CLIENTS, 64); ++Id)
+	// New13610 2cb620 scans the full 128-player client table.
+	for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 	{
 		const auto &Other = GameClient()->m_aClients[Id];
 		if(Id == LocalId || !Other.m_Active)
@@ -697,11 +704,58 @@ void CKrxMiscPreTas::AfterComponentsUpdate()
 {
 	// Original20e750 calls Verify after all component updates, even offline.
 	Verify();
+	std::string BenchmarkResult;
+	if(m_PredictionBenchmark.Poll(BenchmarkResult))
+		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Benchmark", BenchmarkResult.c_str());
+	if(g_Config.m_KrxPredBenchmark)
+	{
+		g_Config.m_KrxPredBenchmark = 0;
+		if(m_PredictionBenchmark.Start(GameClient()->KrxPredictedWorld(), GameClient()->m_aLocalIds[g_Config.m_ClDummy], g_Config.m_KrxPredBenchmarkRuns, g_Config.m_KrxPredBenchmarkThreads))
+			Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Benchmark", "Benchmarking prediction in an isolated snapshot...");
+		else
+			Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Benchmark", "Prediction benchmark needs a local character and no benchmark already running");
+	}
+}
+
+void CKrxMiscPreTas::OnConsoleInit()
+{
+	// REA2e5340 is an output callback, not a registry variable or upload API.
+	Console()->Register("krx_discord_payload", "r[text]", CFGFLAG_CLIENT, ConDiscordPayload, this, "Print Discord payload diagnostics locally");
+}
+
+void CKrxMiscPreTas::ConDiscordPayload(IConsole::IResult *pResult, void *pUserData)
+{
+	auto *pSelf = static_cast<CKrxMiscPreTas *>(pUserData);
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "krx_discord_payload", pResult->GetString(0), ColorRGBA(1, .5f, .5f, 1));
 }
 
 void CKrxMiscPreTas::VoteBeforeHookSpam()
 {
+	AutoVote();
 	AutoVoteKick();
+}
+
+void CKrxMiscPreTas::AutoVote()
+{
+	const int Seconds = GameClient()->m_Voting.SecondsLeft();
+	if(Seconds < 0)
+	{
+		m_AutoVoted = false;
+		m_AutoVoteDescription.clear();
+	}
+	else if(m_AutoVoteDescription != GameClient()->m_Voting.VoteDescription() || Seconds > m_AutoVoteLastSeconds)
+	{
+		m_AutoVoted = false;
+		m_AutoVoteDescription = GameClient()->m_Voting.VoteDescription();
+	}
+	m_AutoVoteLastSeconds = Seconds;
+	// Recovered327a90 chooses vote yes/no while SecondsLeft>=0. A single
+	// vote per vote lifetime avoids resending identical packets each frame.
+	if(g_Config.m_KrxAutoVote && Seconds >= 0 && !m_AutoVoted && !GameClient()->m_Voting.TakenChoice())
+	{
+		GameClient()->m_Voting.Vote(g_Config.m_KrxAutoVoteF4 ? -1 : 1);
+		m_AutoVoted = true;
+	}
 }
 
 void CKrxMiscPreTas::BeforeInput()

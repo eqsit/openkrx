@@ -9,7 +9,8 @@
 namespace OpenKrx
 {
 	// Leaf input consumers recovered from the supplied image: be580, beae0,
-	// bffd0, c05b0, c0600 and bf310. State belongs to a connection, not a server.
+	// bffd0, c05b0, c0600 and bf310. New KRX3193a0/31a660/31aef0
+	// retain process-wide latches shared by both controlled slots.
 	struct CSimpleInputState
 	{
 		int m_HookSpamCounter = -1;

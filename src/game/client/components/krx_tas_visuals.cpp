@@ -12,6 +12,7 @@
 #include <game/client/animstate.h>
 #include <game/client/gameclient.h>
 #include <game/client/krx/replay_fake_aim.h>
+#include <game/client/krx/tile_editor.h>
 #include <game/client/prediction/entities/character.h>
 #include <game/collision.h>
 #include <game/mapitems.h>
@@ -70,7 +71,7 @@ namespace OpenKrx
 		if(!Active())
 			return;
 		const float Intra = IntraTick();
-		for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 		{
 			auto *pCurrent = m_pWorld->GetCharacterById(Id);
 			if(!pCurrent)
@@ -159,10 +160,10 @@ namespace OpenKrx
 			return;
 		CGameWorld World;
 		World.CopyWorldIsolated(m_pWorld.get());
-		std::array<vec2, LEGACY_MAX_CLIENTS> aPrev{};
-		std::array<CNetObj_PlayerInput, LEGACY_MAX_CLIENTS> aInputs{};
-		std::array<bool, LEGACY_MAX_CLIENTS> aPredict{};
-		for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+		std::array<vec2, MAX_CLIENTS> aPrev{};
+		std::array<CNetObj_PlayerInput, MAX_CLIENTS> aInputs{};
+		std::array<bool, MAX_CLIENTS> aPredict{};
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 			if(auto *pCharacter = World.GetCharacterById(Id))
 			{
 				aPrev[Id] = pCharacter->Core()->m_Pos;
@@ -171,17 +172,17 @@ namespace OpenKrx
 			}
 		for(int Tick = 0; Tick <= 50; ++Tick)
 		{
-			for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+			for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 				if(aPredict[Id])
 					if(auto *pCharacter = World.GetCharacterById(Id))
 						pCharacter->OnDirectInput(&aInputs[Id]);
 			++World.m_GameTick;
-			for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+			for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 				if(aPredict[Id])
 					if(auto *pCharacter = World.GetCharacterById(Id))
 						pCharacter->OnPredictedInput(&aInputs[Id]);
 			World.Tick();
-			for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+			for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 			{
 				auto *pCharacter = World.GetCharacterById(Id);
 				if(!pCharacter || !aPredict[Id])
@@ -290,6 +291,9 @@ namespace OpenKrx
 	{
 		UpdateVault();
 		UpdateLegacyConversion();
+		UpdateAnalysis();
+		if(g_Config.m_KrxTasAnalyzerAnalyze)
+			AnalyzeReplay();
 		if(g_Config.m_KrxTasFakeAim)
 			AddFakeAim();
 		if(g_Config.m_KrxSaveReplayToFile)
@@ -322,7 +326,7 @@ namespace OpenKrx
 					const auto Marker = [&](vec2 Pos, int Emote, vec2 Aim) {
 						if(Pos == vec2(0, 0))
 							return;
-						if(Id >= 0 && Id < LEGACY_MAX_CLIENTS)
+						if(Id >= 0 && Id < MAX_CLIENTS)
 						{
 							auto Info = GameClient()->m_aClients[Id].m_RenderInfo;
 							RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Aim, Pos);
@@ -338,15 +342,41 @@ namespace OpenKrx
 			}
 		RenderPrediction();
 		RenderHud();
+		if(g_Config.m_KrxTileEditorEnable)
+		{
+			Graphics()->MapScreen(CScreenRect(0, 0, 300.0f * Graphics()->ScreenAspect(), 300.0f));
+			const int Slot = g_Config.m_ClDummy;
+			const vec2 Brush = GameClient()->m_Snap.m_SpecInfo.m_Active ? GameClient()->m_Snap.m_SpecInfo.m_Position : GameClient()->m_Controls.m_aTargetPos[Slot];
+			const int X = (int)(Brush.x / 32.0f), Y = (int)(Brush.y / 32.0f);
+			unsigned char Kind = 0;
+			if(X >= 0 && Y >= 0 && X < m_FlowField.Width() && Y < m_FlowField.Height())
+				Kind = m_vTunnels[(size_t)Y * m_FlowField.Width() + X];
+			char aLine[128];
+			str_format(aLine, sizeof(aLine), "Tile Editor Mode: %s", g_Config.m_KrxTileEditorType == 1 ? "Finish" : "Tunnel");
+			TextRender()->Text(4, 270, 6, aLine);
+			str_format(aLine, sizeof(aLine), "Tile Info: %s", Kind & TileEditor::FINISH ? "Finish" : Kind & TileEditor::TUNNEL ? "Tunnel" : "Empty");
+			TextRender()->Text(4, 278, 6, aLine);
+		}
 		Graphics()->MapScreen(OldScreen);
 	}
 
 	bool CKrxTas::AddFakeAim()
 	{
 		g_Config.m_KrxTasFakeAim = 0;
-		const CGameWorld &Initial = GameClient()->m_GameWorld;
-		const bool Result = AddReplayFakeAim(m_Replay, Initial, m_aIds, g_Config.m_KrxTasFakeAimMode, GameClient()->m_Controls.GetMaxMouseDistance());
-		Message(Result ? "TAS: Adding fake aim was sucessful." : "TAS: Adding fake aim was unsucessful!");
+		if(m_Replay.m_aFrames[0].empty())
+		{
+			Message("TAS: Record or load a replay before adding fake aim.");
+			return false;
+		}
+		if(!m_pInitialWorld)
+		{
+			Message("TAS: Replay start state unavailable. Load a valid replay on its map first.");
+			return false;
+		}
+		// The live world and the current TAS cursor can both have moved since
+		// recording started. Only this snapshot precedes the first input frame.
+		const bool Result = AddReplayFakeAim(m_Replay, *m_pInitialWorld, m_aIds, g_Config.m_KrxTasFakeAimMode, GameClient()->m_Controls.GetMaxMouseDistance());
+		Message(Result ? "TAS: Fake aim added successfully." : "TAS: Fake aim would change the replay trajectory. Replay unchanged.");
 		return Result;
 	}
 }
