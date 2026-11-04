@@ -22,6 +22,13 @@
 в v0.1.9 пока `OpenKRX-new`; это косметический остаток, исходники и release
 ради его исправления не менялись. Проверка: research/release-v019/codex-audit/.
 
+В Assets v0.1.9 дополнительно опубликован `OpenKRX-avoid-preset.cfg`:
+игровые настройки из личного профиля обычного OpenKRX (Blatant 27/27,
+FOV360, 64 сегмента, Grenade Save ON), AntiPing ON и prediction margin20.
+Исходник — `presets/`, применение: F1 `exec OpenKRX-avoid-preset.cfg`.
+Пресет отдельный, архивы клиента не перепаковывались. SHA256SUMS дополнен;
+текущая проверка assets — research/release-v019/avoid-preset/github-verification.json.
+
 Перенесены все пять агентов Avoid, новая Auto Edge, Perfect Silent, изменения
 Dummy Fly/Auto Shotgun/Unfreeze, Blatant ESP, Fent, TAS Analyzer/Fake Aim,
 Tile Editor и Pathfinding, Now Playing/Trail, новые настройки и benchmarks.
