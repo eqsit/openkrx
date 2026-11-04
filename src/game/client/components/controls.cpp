@@ -29,6 +29,7 @@ static OpenKrx::CAimbotSettings CurrentKrxAimbotSettings()
 	S.m_Enabled = g_Config.m_KrxAimbot;
 	S.m_AutoHook = g_Config.m_KrxAimbotAutoHookKey;
 	S.m_AutoShoot = g_Config.m_KrxAimbotAutoShootKey;
+	S.m_PerfectSilent = g_Config.m_KrxAimbotPerfectSilent;
 	S.m_Advanced = g_Config.m_KrxAimbotAdvancedSettings;
 	S.m_Accuracy = g_Config.m_KrxAimbotAccuracy;
 	S.m_ShotPercentage = g_Config.m_KrxAimbotShotPercentage;
@@ -58,8 +59,8 @@ void CControls::OnReset()
 {
 	ResetInput(0);
 	ResetInput(1);
-	for(auto &State : m_aKrxInput)
-		State = {};
+	// The new KRX leaf consumers retain process-wide hook/pixel latches.
+	// Reset the actual player inputs above without resetting those statics.
 
 	std::fill(std::begin(m_aAmmoCount), std::end(m_aAmmoCount), 0);
 
@@ -89,7 +90,6 @@ void CControls::OnPlayerDeath()
 	// process-wide release state. OnReset would drop the timer but leave the
 	// live input odd. A reconnect still resets both controls and Rocket.
 	GameClient()->m_RocketSave.CancelWeaponRestore();
-	m_aKrxInput[g_Config.m_ClDummy] = {};
 	std::fill(std::begin(m_aAmmoCount), std::end(m_aAmmoCount), 0);
 }
 
@@ -304,13 +304,14 @@ int CControls::SnapInput(int *pData)
 	CNetObj_PlayerInput TraceAvoid = {};
 	bool TraceEvaluated = false;
 	int64_t TracePipelineStart = 0;
-	// update player state
-	if(GameClient()->m_Chat.IsActive())
-	{
-		// Original hidden-chat branch leaves the preceding flags untouched.
-		if(!g_Config.m_KrxHideBubble)
-			m_aInputData[g_Config.m_ClDummy].m_PlayerFlags = PLAYERFLAG_CHATTING;
-	}
+	// 23e670 hides the chat state by retaining the previous player flags.
+	// Explicit PLAYING also handles menu -> chat without retaining IN_MENU.
+	// Extend this opt-in input gate to menus so the normal helper pipeline,
+	// including Avoid and Rocket Save, keeps running while the UI owns keys.
+	if(g_Config.m_KrxHideBubble)
+		m_aInputData[g_Config.m_ClDummy].m_PlayerFlags = PLAYERFLAG_PLAYING;
+	else if(GameClient()->m_Chat.IsActive())
+		m_aInputData[g_Config.m_ClDummy].m_PlayerFlags = PLAYERFLAG_CHATTING;
 	else if(GameClient()->m_Menus.IsActive())
 		m_aInputData[g_Config.m_ClDummy].m_PlayerFlags = PLAYERFLAG_IN_MENU;
 	else
@@ -453,23 +454,23 @@ int CControls::SnapInput(int *pData)
 		CCharacter *pKrxCharacter = GameClient()->m_GameWorld.GetCharacterById(KrxClientId);
 		const CCharacterCore *pKrxCore = pKrxCharacter ? pKrxCharacter->Core() : nullptr;
 		GameClient()->m_PreTasVisuals.PredictTrajectory();
-		m_aKrxInput[KrxSlot].ApplyMoonwalk(m_aInputData[KrxSlot], m_aLastData[KrxSlot],
+		m_aKrxInput[0].ApplyMoonwalk(m_aInputData[KrxSlot], m_aLastData[KrxSlot],
 			m_aInputDirectionLeft[KrxSlot] != 0, m_aInputDirectionRight[KrxSlot] != 0, g_Config.m_KrxMoonwalk);
 		GameClient()->m_KrxMovementPreTas.GhostMove(m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.HookRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.HookNearest(GameClient(), m_aInputData[KrxSlot]);
 		GameClient()->m_KrxMisc.BeforeAvoid(GameClient());
-		m_aKrxInput[KrxSlot].ApplyAutoFire(m_aInputData[KrxSlot], g_Config.m_KrxAutoFire);
-		m_aKrxInput[KrxSlot].ApplyAutoRehook(m_aInputData[KrxSlot],
+		m_aKrxInput[0].ApplyAutoFire(m_aInputData[KrxSlot], g_Config.m_KrxAutoFire);
+		m_aKrxInput[0].ApplyAutoRehook(m_aInputData[KrxSlot],
 			pKrxCore ? pKrxCore->HookedPlayer() : -1, pKrxCore ? pKrxCore->m_HookTick : 0,
 			g_Config.m_KrxAutoRehook, pKrxCharacter != nullptr);
 		GameClient()->m_RescueBots.AdjustDummyFly(GameClient());
 		GameClient()->m_KrxMiscPreTas.VoteBeforeHookSpam();
-		m_aKrxInput[KrxSlot].ApplyHookSpam(m_aInputData[KrxSlot], g_Config.m_KrxHookSpam);
+		m_aKrxInput[0].ApplyHookSpam(m_aInputData[KrxSlot], g_Config.m_KrxHookSpam);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoShotgun(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.JetRide(GameClient(), m_aInputData[KrxSlot]);
 		m_aInputData[KrxSlot] = GameClient()->m_RescueBots.AdjustAutoAled(GameClient(), m_aInputData[KrxSlot], KrxClientId);
-		GameClient()->m_KrxMovementPreTas.AutoEdge(m_aInputData[KrxSlot]);
+		GameClient()->m_KrxAutoEdgeNew.AutoEdge(m_aInputData[KrxSlot]);
 		GameClient()->m_MediumVisuals.UpdateIdentity();
 		GameClient()->m_KrxMiscPreTas.BeforeInput();
 		// Settings are current, while AutoDrag's target world is from the preceding refresh.
@@ -482,6 +483,8 @@ int CControls::SnapInput(int *pData)
 			GameClient(), m_aInputData[g_Config.m_ClDummy],
 			GameClient()->m_aLocalIds[g_Config.m_ClDummy], m_aMousePos[g_Config.m_ClDummy], m_aPhysicalHook[g_Config.m_ClDummy] != 0);
 		TraceAvoid = m_aInputData[g_Config.m_ClDummy];
+		m_aInputData[KrxSlot] = GameClient()->m_PilotBot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId);
+		m_aInputData[KrxSlot] = GameClient()->m_ClassicAvoid.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		// 26d2d0 runs Avoid before the main aimbot. AutoDrag above consumes
 		// the retained private world from the preceding aimbot refresh.
 		// Preserve that order before fake aim and the later Rocket Save pass.
@@ -502,9 +505,10 @@ int CControls::SnapInput(int *pData)
 				      Collision()->CheckPoint(round_to_int(Pos.x - 14.0f), round_to_int(Pos.y + 19.0f)) ||
 				      (Collision()->GetMoveRestrictions(Pos + vec2(0, 18.0f), 0.0f) & CANTMOVE_DOWN);
 		}
-		const bool KrxCanBrake = pKrxCharacter && !GameClient()->m_Snap.m_SpecInfo.m_Active &&
+		const bool KrxCanBrake = pKrxCharacter && Client()->State() == IClient::STATE_ONLINE &&
+					 (m_aInputData[KrxSlot].m_PlayerFlags & PLAYERFLAG_PLAYING) && !GameClient()->m_Snap.m_SpecInfo.m_Active &&
 					 !OpenKrx::IsKrxCharacterFrozen(GameClient(), KrxClientId);
-		m_aKrxInput[KrxSlot].ApplyLate(m_aInputData[KrxSlot], GameClient()->m_PredictedChar.m_Vel.x,
+		m_aKrxInput[0].ApplyLate(m_aInputData[KrxSlot], GameClient()->m_PredictedChar.m_Vel.x,
 			KrxCanBrake, KrxGrounded, g_Config.m_KrxPixelWalk, g_Config.m_KrxQuickStop, g_Config.m_KrxQuickStopGrounded);
 
 		m_aInputData[KrxSlot] = GameClient()->m_MediumBots.AutoJumpSave(GameClient(), m_aInputData[KrxSlot]);

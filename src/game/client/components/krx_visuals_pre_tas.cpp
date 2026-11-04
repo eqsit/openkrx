@@ -41,7 +41,7 @@ namespace OpenKrx
 		const int Slot = g_Config.m_ClDummy;
 		const int Id = GameClient()->m_aLocalIds[Slot];
 		bool Grounded = false;
-		if(Id >= 0 && Id < LEGACY_MAX_CLIENTS)
+		if(Id >= 0 && Id < MAX_CLIENTS)
 		{
 			const vec2 Pos = GameClient()->m_aClients[Id].m_RenderPos;
 			Grounded = Collision()->CheckPoint(Pos + vec2(14, 19)) ||
@@ -68,7 +68,7 @@ namespace OpenKrx
 		bool Spectating(CGameClient *pClient)
 		{
 			const int Id = pClient->m_aLocalIds[g_Config.m_ClDummy];
-			return Id < 0 || Id >= LEGACY_MAX_CLIENTS || pClient->m_aClients[Id].m_Team == TEAM_SPECTATORS ||
+			return Id < 0 || Id >= MAX_CLIENTS || pClient->m_aClients[Id].m_Team == TEAM_SPECTATORS ||
 			       pClient->m_Snap.m_SpecInfo.m_Active || pClient->m_Snap.m_SpecInfo.m_SpectatorId == SPEC_FREEVIEW;
 		}
 		ColorRGBA PathColor(unsigned Packed)
@@ -87,14 +87,15 @@ namespace OpenKrx
 		if(!g_Config.m_KrxTrajectoryEsp || !Playing(GameClient()) || Spectating(GameClient()))
 			return;
 		CGameWorld World;
-		World.CopyWorldIsolated(&GameClient()->m_PredictedWorld);
+		// New2c77a0 selects the active TAS world for373620 while recording.
+		World.CopyWorldIsolated(&GameClient()->KrxPredictedWorld());
 		World.m_WorldConfig.m_KrxPrediction = true;
 		World.m_WorldConfig.m_KrxAvoidDeath = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantDeath;
 		World.m_WorldConfig.m_KrxAvoidTeles = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 2 && g_Config.m_AvoidBlatantTeles;
 		World.m_WorldConfig.m_KrxExplosionStrengthValid = true;
 		World.m_WorldConfig.m_KrxExplosionStrength = GameClient()->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		const int Own = GameClient()->m_aLocalIds[g_Config.m_ClDummy];
-		for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 		{
 			auto *pCharacter = World.GetCharacterById(Id);
 			if(!pCharacter || (g_Config.m_KrxTrajectoryEspSelfOnly && Id != Own) || pCharacter->Core()->m_Vel == vec2(0, 0))
@@ -363,13 +364,13 @@ namespace OpenKrx
 		int ViewId = GameClient()->m_Snap.m_LocalClientId;
 		if(GameClient()->m_Snap.m_SpecInfo.m_Active && GameClient()->m_Snap.m_SpecInfo.m_SpectatorId != SPEC_FREEVIEW)
 			ViewId = GameClient()->m_Snap.m_SpecInfo.m_SpectatorId;
-		if(ViewId < 0 || ViewId >= LEGACY_MAX_CLIENTS)
+		if(ViewId < 0 || ViewId >= MAX_CLIENTS)
 			return;
 		const int Team = GameClient()->m_Teams.Team(ViewId);
 		std::vector<int> vIds;
 		int FrozenCount = 0;
 		const auto Frozen = [&](int Id) { return GameClient()->m_aClients[Id].m_FreezeEnd > 0 || GameClient()->m_aClients[Id].m_DeepFrozen; };
-		for(int Id = 0; Id < LEGACY_MAX_CLIENTS; ++Id)
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 			if(GameClient()->m_Snap.m_apPlayerInfos[Id] && GameClient()->m_Teams.Team(Id) == Team)
 			{
 				vIds.push_back(Id);

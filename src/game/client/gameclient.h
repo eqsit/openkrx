@@ -20,6 +20,8 @@
 
 #include <game/client/avoid/avoid.h>
 #include <game/client/avoid/fent.h>
+#include <game/client/avoid/classic_agents.h>
+#include <game/client/avoid/pilot_bot.h>
 #include <game/client/avoid/rocket_save.h>
 #include <game/client/krx/aimbot.h>
 #include <game/client/krx/bots.h>
@@ -57,6 +59,7 @@
 #include "components/infomessages.h"
 #include "components/items.h"
 #include "components/key_binder.h"
+#include "components/krx_autoedge_new.h"
 #include "components/krx_misc_pre_tas.h"
 #include "components/krx_movement_pre_tas.h"
 #include "components/krx_tas.h"
@@ -197,6 +200,8 @@ public:
 	CItems m_Items;
 	CMapImages m_MapImages;
 	OpenKrx::CAvoid m_Avoid;
+	OpenKrx::CPilotBot m_PilotBot;
+	OpenKrx::CClassicAvoid m_ClassicAvoid;
 	OpenKrx::CRocketSave m_RocketSave;
 	OpenKrx::CMiscFeatures m_KrxMisc;
 	OpenKrx::CAimbot m_Aimbot;
@@ -204,6 +209,7 @@ public:
 	OpenKrx::CRescueBots m_RescueBots;
 	OpenKrx::CMediumVisuals m_MediumVisuals;
 	CKrxMovementPreTas m_KrxMovementPreTas;
+	CKrxAutoEdgeNew m_KrxAutoEdgeNew;
 	CKrxMiscPreTas m_KrxMiscPreTas;
 	OpenKrx::CPreTasVisuals m_PreTasVisuals;
 	OpenKrx::CKrxTas m_Tas;

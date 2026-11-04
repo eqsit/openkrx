@@ -17,11 +17,13 @@ namespace OpenKrx
 	{
 		CNetObj_PlayerInput m_Input{};
 		vec2 m_Position = vec2(0, 0);
+		bool m_AimEditable = false; // Runtime marker; absent from the replay file format.
 	};
 	struct CReplay
 	{
 		std::array<std::vector<CReplayFrame>, 2> m_aFrames;
 		std::string m_Author, m_Description, m_Map, m_Date;
+		bool m_AimPrepared = false;
 	};
 	// 2f5b70 / 2f2cf0: little endian JSON size followed by zlib level 9.
 	// Loading is transactional; a broken file cannot destroy the current run.

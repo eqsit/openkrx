@@ -1,5 +1,9 @@
 #include "krx_tas.h"
 
+#include <game/client/krx/tile_editor.h>
+
+#include <base/str.h>
+
 #include <engine/client.h>
 #include <engine/graphics.h>
 #include <engine/shared/config.h>
@@ -13,6 +17,8 @@
 #include <chrono>
 #include <cmath>
 #include <queue>
+#include <numeric>
+#include <random>
 
 namespace OpenKrx
 {
@@ -36,6 +42,8 @@ namespace OpenKrx
 	void CKrxTas::SetGoal(vec2 Goal)
 	{
 		m_Goal = TileCenter(Goal);
+		TileEditor::ClearKind(m_vTunnels, TileEditor::FINISH);
+		TileEditor::Paint(m_vTunnels, m_FlowField.Width(), m_FlowField.Height(), (int)(Goal.x / 32.0f), (int)(Goal.y / 32.0f), TileEditor::FINISH);
 		m_PathDirty = true;
 	}
 
@@ -45,17 +53,25 @@ namespace OpenKrx
 			return true;
 		const int Index = Collision()->GetPureMapIndex(vec2(X * 32.0f, Y * 32.0f));
 		const int Tile = Collision()->GetTileIndex(Index), Front = Collision()->GetFrontTileIndex(Index);
-		const bool Freeze = (Tile == TILE_FREEZE || Front == TILE_FREEZE) &&
-				    (!g_Config.m_KrxFentLightTile || !vLight[(size_t)Y * m_FlowField.Width() + X]);
+		(void)vLight;
+		const bool Tele = Collision()->IsTeleport(Index) || Collision()->IsEvilTeleport(Index) ||
+			Collision()->IsCheckTeleport(Index) || Collision()->IsCheckEvilTeleport(Index);
+		// 3410e0: a tele-in explicitly selected as a finish is traversable.
+		if(Tele && (m_vTunnels[(size_t)Y * m_FlowField.Width() + X] & TileEditor::FINISH))
+			return false;
+		// New KRX's light-tile branch calls both getters but does not consume
+		// their results before returning blocked. Preserve the observed result.
+		const bool Freeze = Tile == TILE_FREEZE || Front == TILE_FREEZE;
 		const auto Blocked = [](int T) { return T == TILE_SOLID || T == TILE_NOHOOK || T == TILE_DEATH || T == TILE_DFREEZE; };
-		return Freeze || Blocked(Tile) || Blocked(Front) || Collision()->IsTeleport(Index) || Collision()->IsEvilTeleport(Index) ||
-		       Collision()->IsCheckTeleport(Index) || Collision()->IsCheckEvilTeleport(Index) || m_vTunnels[(size_t)Y * m_FlowField.Width() + X];
+		return Freeze || Blocked(Tile) || Blocked(Front) || Tele || (m_vTunnels[(size_t)Y * m_FlowField.Width() + X] & TileEditor::TUNNEL);
 	}
 
 	void CKrxTas::UpdatePathFinding()
 	{
-		if(g_Config.m_AvoidAgentType != 3 && !g_Config.m_KrxPathFindingRenderFlowField && !g_Config.m_KrxPathFindingRenderTunnels &&
-			!g_Config.m_KrxPathFindingTunnelMode && !g_Config.m_KrxPathFinding && !g_Config.m_KrxPathFindingClear &&
+		if(g_Config.m_AvoidAgentType != 3 && g_Config.m_AvoidAgentType != 4 && !g_Config.m_KrxPathFindingRenderFlowField &&
+			!g_Config.m_KrxTileEditorEnable && !g_Config.m_KrxPathFinding && !g_Config.m_KrxPathFindingClear &&
+			!g_Config.m_KrxTileEditorClear && !g_Config.m_KrxTileEditorAutoTunnel && !g_Config.m_KrxTileEditorAutoFinish &&
+			!g_Config.m_KrxFlowFieldBenchmark && !g_Config.m_KrxPathFindingTunnelMode && !g_Config.m_KrxPathFindingRenderTunnels &&
 			!g_Config.m_KrxPathFindingTunnelClear && !g_Config.m_KrxPathFindingAutoTunnel)
 			return;
 		if(Client()->State() != IClient::STATE_ONLINE || !Collision()->GetWidth() || !Collision()->GetHeight())
@@ -73,76 +89,53 @@ namespace OpenKrx
 			const int Index = Collision()->GetPureMapIndex(vec2(X * 32.0f, Y * 32.0f));
 			return Collision()->GetTileIndex(Index) == Kind || Collision()->GetFrontTileIndex(Index) == Kind;
 		};
-		if(g_Config.m_KrxPathFindingClear)
-		{
-			m_Goal = vec2(0, 0);
-			m_NoFinish = false;
-			m_PathDirty = true;
-			g_Config.m_KrxPathFindingClear = 0;
-		}
-		if(g_Config.m_KrxPathFindingTunnelClear)
+		// 345bc0 handles one-shot editor requests independently of editor enable.
+		if(g_Config.m_KrxTileEditorClear || g_Config.m_KrxPathFindingTunnelClear)
 		{
 			std::fill(m_vTunnels.begin(), m_vTunnels.end(), 0);
-			m_PathDirty = true;
-			g_Config.m_KrxPathFindingTunnelClear = 0;
+			g_Config.m_KrxTileEditorClear = g_Config.m_KrxPathFindingTunnelClear = 0;
 		}
-		if(g_Config.m_KrxPathFinding)
+		if(g_Config.m_KrxTileEditorAutoFinish)
 		{
-			const int Slot = g_Config.m_ClDummy;
-			const bool Spectating = GameClient()->m_Snap.m_SpecInfo.m_Active;
-			const vec2 Pos = Spectating ? GameClient()->m_Snap.m_SpecInfo.m_Position : GameClient()->m_Controls.m_aTargetPos[Slot];
-			SetGoal(Pos);
-			g_Config.m_KrxPathFinding = 0;
+			AutoFinish();
+			g_Config.m_KrxTileEditorAutoFinish = 0;
 		}
-		if(g_Config.m_KrxPathFindingTunnelMode)
+		if(g_Config.m_KrxTileEditorAutoTunnel || g_Config.m_KrxPathFindingAutoTunnel)
+		{
+			AutoTunnel();
+			g_Config.m_KrxTileEditorAutoTunnel = g_Config.m_KrxPathFindingAutoTunnel = 0;
+			m_PathDirty = true;
+		}
+		if(g_Config.m_KrxPathFinding || g_Config.m_KrxPathFindingClear)
+		{
+			// New KRX recalculates from editor finishes; this is no longer a mouse goal.
+			m_PathDirty = true;
+			m_NoFinish = false;
+			g_Config.m_KrxPathFinding = g_Config.m_KrxPathFindingClear = 0;
+		}
+		if(g_Config.m_KrxTileEditorEnable || g_Config.m_KrxPathFindingTunnelMode)
 		{
 			const int Slot = g_Config.m_ClDummy;
 			const vec2 Brush = TileCenter(GameClient()->m_Snap.m_SpecInfo.m_Active ? GameClient()->m_Snap.m_SpecInfo.m_Position : GameClient()->m_Controls.m_aTargetPos[Slot]);
+			if(!m_EditorBrushValid)
+			{
+				m_LastBrush = Brush;
+				m_EditorBrushValid = true;
+			}
 			const vec2 From((float)(int)(m_LastBrush.x / 32.0f), (float)(int)(m_LastBrush.y / 32.0f));
 			const vec2 To((float)(int)(Brush.x / 32.0f), (float)(int)(Brush.y / 32.0f));
-			const int Steps = std::max(1, (int)distance(From, To));
-			for(int I = 0; I <= Steps; ++I)
+			if(Input()->KeyIsPressed(KEY_MOUSE_1) || Input()->KeyIsPressed(KEY_MOUSE_2))
 			{
-				const vec2 P = mix(From, To, (float)I / Steps);
-				const int X = (int)P.x, Y = (int)P.y;
-				if(X < 0 || Y < 0 || X >= Width || Y >= Height)
-					continue;
-				auto &Value = m_vTunnels[(size_t)Y * Width + X];
-				if(Input()->KeyIsPressed(KEY_MOUSE_1) && !Collision()->IsSolid(X * 32, Y * 32) && !Tile(X, Y, TILE_FREEZE) && !Tile(X, Y, TILE_FINISH) && !Value)
+				const int Steps = std::max(1, (int)distance(From, To));
+				for(int I = 0; I <= Steps; ++I)
 				{
-					Value = 1;
-					m_PathDirty = true;
-				}
-				if(Input()->KeyIsPressed(KEY_MOUSE_2) && Value)
-				{
-					Value = 0;
-					m_PathDirty = true;
+					const vec2 P = mix(From, To, (float)I / Steps);
+					const unsigned char Kind = Input()->KeyIsPressed(KEY_MOUSE_1) ?
+						(g_Config.m_KrxTileEditorType == 1 ? TileEditor::FINISH : TileEditor::TUNNEL) : 0;
+					TileEditor::Paint(m_vTunnels, Width, Height, (int)P.x, (int)P.y, Kind);
 				}
 			}
 			m_LastBrush = Brush;
-		}
-		if(g_Config.m_KrxPathFindingAutoTunnel && !m_Replay.m_aFrames[0].empty())
-		{
-			AutoTunnel();
-			g_Config.m_KrxPathFindingAutoTunnel = 0;
-			m_PathDirty = true;
-		}
-		if(m_Goal == vec2(0, 0))
-		{
-			if(m_NoFinish)
-				return;
-			// 2b3f30: row-major scan, at most 255 finishes, middle element.
-			std::vector<vec2> vFinishes;
-			for(int Y = 0; Y < Height && vFinishes.size() < 255; ++Y)
-				for(int X = 0; X < Width && vFinishes.size() < 255; ++X)
-					if(Tile(X, Y, TILE_FINISH))
-						vFinishes.emplace_back(X * 32.0f, Y * 32.0f);
-			if(vFinishes.empty())
-			{
-				m_NoFinish = true;
-				return;
-			}
-			m_Goal = vFinishes[vFinishes.size() / 2];
 		}
 		if(m_PathFuture.valid())
 		{
@@ -154,34 +147,86 @@ namespace OpenKrx
 			}
 			auto Completed = m_PathFuture.get();
 			if(!m_PathDirty)
-				m_FlowField = std::move(Completed);
+				m_FlowField = std::move(Completed.m_Field);
+			if(!Completed.m_vBenchmarkUs.empty())
+			{
+				const auto &vTimes = Completed.m_vBenchmarkUs;
+				const double Mean = std::accumulate(vTimes.begin(), vTimes.end(), 0.0) / vTimes.size();
+				double Variance = 0;
+				for(double Value : vTimes)
+					Variance += (Value - Mean) * (Value - Mean);
+				const double Deviation = vTimes.size() > 1 ? std::sqrt(Variance / (vTimes.size() - 1)) : 0;
+				char aMessage[256];
+				str_format(aMessage, sizeof(aMessage), "FlowField: %d full map builds; average %.3f ms, standard deviation %.3f ms, min %.3f ms, max %.3f ms.", (int)vTimes.size(), Mean / 1000, Deviation / 1000, *std::min_element(vTimes.begin(), vTimes.end()) / 1000, *std::max_element(vTimes.begin(), vTimes.end()) / 1000);
+				Message(aMessage);
+			}
 		}
-		if(!m_PathDirty)
+		if(!m_PathDirty && !g_Config.m_KrxFlowFieldBenchmark)
 			return;
-		std::vector<unsigned char> vLight((size_t)Width * Height, 0);
-		if(g_Config.m_KrxFentLightTile)
-			for(int Y = 0; Y < Height; ++Y)
-				for(int X = 0; X < Width; ++X)
-					if(Tile(X, Y, TILE_UNFREEZE))
-						for(int Dy = -g_Config.m_KrxFentLightTileRadius; Dy <= g_Config.m_KrxFentLightTileRadius; ++Dy)
-							for(int Dx = -g_Config.m_KrxFentLightTileRadius; Dx <= g_Config.m_KrxFentLightTileRadius; ++Dx)
-								if(X + Dx >= 0 && Y + Dy >= 0 && X + Dx < Width && Y + Dy < Height)
-									vLight[(size_t)(Y + Dy) * Width + X + Dx] = 1;
+		auto vGoals = TileEditor::Goals(m_vTunnels, Width, Height);
+		if(vGoals.empty() && !m_NoFinish)
+		{
+			AutoFinish();
+			vGoals = TileEditor::Goals(m_vTunnels, Width, Height);
+			m_NoFinish = vGoals.empty();
+		}
+		if(vGoals.empty())
+			return;
+		m_Goal = vGoals.front();
+		const std::vector<unsigned char> vLight; // New predicate does not consume a light mask.
 		std::vector<unsigned char> vBlocked((size_t)Width * Height), vFinishes(vBlocked.size());
 		for(int Y = 0; Y < Height; ++Y)
 			for(int X = 0; X < Width; ++X)
 			{
 				vBlocked[(size_t)Y * Width + X] = PathTileBlocked(X, Y, vLight);
-				vFinishes[(size_t)Y * Width + X] = Collision()->GetTile(X * 32, Y * 32) == TILE_FINISH;
+				// 341500 skips raw game-layer finish tiles in the Gaussian pass.
+				vFinishes[(size_t)Y * Width + X] = Collision()->GetTileIndex(Collision()->GetPureMapIndex(vec2(X * 32.0f, Y * 32.0f))) == TILE_FINISH;
 			}
 		CFlowField Field;
 		Field.Resize(Width, Height);
+		std::vector<vec2> vMapFinishes;
+		for(int Y = 0; Y < Height; ++Y)
+			for(int X = 0; X < Width; ++X)
+				if(Tile(X, Y, TILE_FINISH))
+					vMapFinishes.emplace_back((float)X, (float)Y);
 		m_pPathCancel = std::make_shared<std::atomic<bool>>(false);
-		m_PathFuture = std::async(std::launch::async, [Field = std::move(Field), Goal = m_Goal, vBlocked = std::move(vBlocked), vFinishes = std::move(vFinishes), Cancel = m_pPathCancel]() mutable {
-			Field.Build(Goal, vBlocked, vFinishes, Cancel.get());
-			return std::move(Field);
+		const int BenchmarkRuns = g_Config.m_KrxFlowFieldBenchmark ? std::clamp(g_Config.m_KrxFlowFieldBenchmarkRuns, 1, 100) : 0;
+		g_Config.m_KrxFlowFieldBenchmark = 0;
+		m_PathFuture = std::async(std::launch::async, [BenchmarkRuns, Field = std::move(Field), vGoals = std::move(vGoals), vMapFinishes = std::move(vMapFinishes), vBlocked = std::move(vBlocked), vFinishes = std::move(vFinishes), Cancel = m_pPathCancel]() mutable {
+			CPathResult Result;
+			std::mt19937 Random(std::random_device{}());
+			// 3427e0 measures complete field builds rather than network traffic.
+			for(int Run = 0; Run < BenchmarkRuns && !Cancel->load() && !vMapFinishes.empty(); ++Run)
+			{
+				CFlowField Probe;
+				Probe.Resize(Field.Width(), Field.Height());
+				const vec2 Goal = vMapFinishes[CFent::Uniform(Random, (uint32_t)vMapFinishes.size())];
+				// 342350 passes the randomly selected map tile coordinate unchanged.
+				const auto Start = std::chrono::steady_clock::now();
+				Probe.BuildGoals({Goal}, vBlocked, vFinishes, Cancel.get());
+				const auto End = std::chrono::steady_clock::now();
+				Result.m_vBenchmarkUs.push_back((double)std::chrono::duration_cast<std::chrono::microseconds>(End - Start).count());
+			}
+			Field.BuildGoals(vGoals, vBlocked, vFinishes, Cancel.get());
+			Result.m_Field = std::move(Field);
+			return Result;
 		});
 		m_PathDirty = false;
+	}
+
+	void CKrxTas::AutoFinish()
+	{
+		TileEditor::ClearKind(m_vTunnels, TileEditor::FINISH);
+		const int Width = m_FlowField.Width(), Height = m_FlowField.Height();
+		for(int Y = 0; Y < Height; ++Y)
+			for(int X = 0; X < Width; ++X)
+			{
+				const int Index = Collision()->GetPureMapIndex(vec2(X * 32.0f, Y * 32.0f));
+				if(Collision()->GetTileIndex(Index) == TILE_FINISH || Collision()->GetFrontTileIndex(Index) == TILE_FINISH)
+					TileEditor::Paint(m_vTunnels, Width, Height, X, Y, TileEditor::FINISH);
+			}
+		m_NoFinish = false;
+		m_PathDirty = true;
 	}
 
 	void CKrxTas::AutoTunnel()
@@ -189,6 +234,12 @@ namespace OpenKrx
 		const int Width = m_FlowField.Width(), Height = m_FlowField.Height();
 		if(!Width || !Height)
 			return;
+		if(m_Replay.m_aFrames[0].empty())
+		{
+			Message("Empty replay for automatic Tunnel.");
+			return;
+		}
+		TileEditor::ClearKind(m_vTunnels, TileEditor::TUNNEL);
 		const auto OpenTile = [&](int X, int Y) {
 			const int Index = Collision()->GetPureMapIndex(vec2(X * 32.0f, Y * 32.0f));
 			return !Collision()->IsSolid(X * 32, Y * 32) && Collision()->GetTileIndex(Index) != TILE_FREEZE && Collision()->GetFrontTileIndex(Index) != TILE_FREEZE &&
@@ -197,11 +248,12 @@ namespace OpenKrx
 		// 2e1860 first masks the connected open area, then carves both runs.
 		std::queue<int> Queue;
 		std::vector<bool> vVisited((size_t)Width * Height);
-		const vec2 Position = GameClient()->m_LocalCharacterPos;
+		CGameWorld &Source = Active() ? *m_pWorld : GameClient()->m_GameWorld;
+		const auto *pCharacter = Source.GetCharacterById(GameClient()->m_aLocalIds[g_Config.m_ClDummy]);
+		const vec2 Position = pCharacter ? pCharacter->Core()->m_Pos : vec2(-32, -32);
 		const int X = (int)(Position.x / 32.0f), Y = (int)(Position.y / 32.0f);
-		if(X < 0 || Y < 0 || X >= Width || Y >= Height)
-			return;
-		Queue.push(Y * Width + X);
+		if(X >= 0 && Y >= 0 && X < Width && Y < Height)
+			Queue.push(Y * Width + X);
 		while(!Queue.empty())
 		{
 			const int Index = Queue.front();
@@ -212,10 +264,10 @@ namespace OpenKrx
 			const int Cx = Index % Width, Cy = Index / Width;
 			if(!OpenTile(Cx, Cy))
 			{
-				m_vTunnels[Index] = 0;
+				m_vTunnels[Index] &= ~TileEditor::TUNNEL;
 				continue;
 			}
-			m_vTunnels[Index] = 1;
+			m_vTunnels[Index] = TileEditor::TUNNEL;
 			for(int Dx = -1; Dx <= 1; ++Dx)
 				for(int Dy = -1; Dy <= 1; ++Dy)
 					if((Dx || Dy) && Cx + Dx >= 0 && Cy + Dy >= 0 && Cx + Dx < Width && Cy + Dy < Height && !vVisited[(size_t)(Cy + Dy) * Width + Cx + Dx])
@@ -230,40 +282,41 @@ namespace OpenKrx
 					continue;
 				const vec2 Direction = (To - From) / Length;
 				const vec2 Normal(-Direction.y, Direction.x);
-				const int HalfWidth = g_Config.m_KrxPathFindingAutoTunnelWidth * 16;
-				for(float Along = 0; Along <= Length; Along += 1.0f)
-					for(int Across = -HalfWidth; Across <= HalfWidth; ++Across)
+				const int HalfWidth = g_Config.m_KrxTileEditorAutoTunnelWidth * 16;
+				for(float Along = 0; Along <= Length; Along += 8.0f)
+					for(int Across = -HalfWidth; Across <= HalfWidth; Across += 8)
 					{
 						const vec2 P = From + Direction * Along + Normal * (float)Across;
 						const int Tx = (int)(P.x / 32.0f), Ty = (int)(P.y / 32.0f);
-						if(Tx >= 0 && Ty >= 0 && Tx < Width && Ty < Height && !Collision()->IsSolid((int)P.x, (int)P.y) && Collision()->GetTile((int)P.x, (int)P.y) != TILE_FREEZE)
-							m_vTunnels[(size_t)Ty * Width + Tx] = 0;
+						if(Tx >= 0 && Ty >= 0 && Tx < Width && Ty < Height)
+							m_vTunnels[(size_t)Ty * Width + Tx] &= ~TileEditor::TUNNEL;
 					}
 			}
 	}
 
 	void CKrxTas::RenderFlowField()
 	{
-		if(!m_FlowField.Ready())
-			return;
 		const CScreenRect Screen = Graphics()->GetScreen();
 		const float X0 = Screen.m_TopLeft.x, Y0 = Screen.m_TopLeft.y, X1 = Screen.m_BottomRight.x, Y1 = Screen.m_BottomRight.y;
 		const int MinX = std::max(0, (int)(X0 / 32.0f)), MinY = std::max(0, (int)(Y0 / 32.0f));
 		const int MaxX = std::min(m_FlowField.Width() - 1, (int)(X1 / 32.0f)), MaxY = std::min(m_FlowField.Height() - 1, (int)(Y1 / 32.0f));
-		if(g_Config.m_KrxPathFindingRenderTunnels || g_Config.m_KrxPathFindingTunnelMode)
+		if(g_Config.m_KrxTileEditorEnable || g_Config.m_KrxPathFindingRenderTunnels || g_Config.m_KrxPathFindingTunnelMode)
 		{
 			Graphics()->TextureClear();
 			Graphics()->QuadsBegin();
-			Graphics()->SetColor(1, .41f, .7f, 1);
-			for(int Y = MinY; Y <= MaxY; ++Y)
+						for(int Y = MinY; Y <= MaxY; ++Y)
 				for(int X = MinX; X <= MaxX; ++X)
 					if(m_vTunnels[(size_t)Y * m_FlowField.Width() + X])
 					{
+						const bool Finish = (m_vTunnels[(size_t)Y * m_FlowField.Width() + X] & TileEditor::FINISH) != 0;
+						Graphics()->SetColor(1, Finish ? 1.0f : .41f, Finish ? 0.0f : .7f, 1);
 						IGraphics::CQuadItem Quad(X * 32.0f, Y * 32.0f, 32, 32);
 						Graphics()->QuadsDrawTL(&Quad, 1);
 					}
 			Graphics()->QuadsEnd();
 		}
+		if(!m_FlowField.Ready())
+			return;
 		if(g_Config.m_KrxPathFindingRenderFlowField)
 			for(int Y = MinY; Y <= MaxY; ++Y)
 				for(int X = MinX; X <= MaxX; ++X)

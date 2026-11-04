@@ -20,7 +20,6 @@ namespace OpenKrx
 	{
 		struct CSlot
 		{
-			int m_ClientId = -1;
 			int m_BalanceTarget = -1;
 			vec2 m_HookRidePosition = vec2(0, 0);
 			vec2 m_JetRidePosition = vec2(0, 0);
@@ -31,7 +30,9 @@ namespace OpenKrx
 			vec2 m_RobotAim = vec2(0, 0);
 			float m_SpinAngle = 0.0f;
 		};
-		std::array<CSlot, NUM_DUMMIES> m_aSlots{};
+		// Native globals/object fields are shared by the currently controlled
+		// tee. Switching the active dummy does not create another set of locks.
+		CSlot m_State{};
 		CSlot &State(CGameClient *pGameClient);
 
 	public:

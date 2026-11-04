@@ -9,7 +9,7 @@ MACRO_CONFIG_INT(KrxChatRepeaterLength, krx_chatrepeater_length, 5, 1, 20, CFGFL
 MACRO_CONFIG_INT(KrxAutoVoteKick, krx_autovotekick, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto vote kick")
 MACRO_CONFIG_INT(KrxAutoVoteKickMode, krx_autovotekick_mode, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto vote kick mode. (0 - random target, 1 - specific target)")
 MACRO_CONFIG_INT(KrxAutoVoteKickTarget, krx_autovotekick_target, 0, 0, 128, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Auto vote kick target id")
-MACRO_CONFIG_INT(KrxModDetector, krx_moddetector, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Mod Detector")
+MACRO_CONFIG_INT(KrxModDetector, krx_moddetector, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Mod Detector")
 MACRO_CONFIG_INT(KrxModDetectorNames, krx_moddetectornames, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Mod Detector based on names")
 MACRO_CONFIG_INT(KrxModDetectorLeave, krx_moddetector_leave, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Mod Detector leave when mod detected")
 MACRO_CONFIG_INT(KrxModDetectorWarn, krx_moddetector_warn, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Mod Detector detects suspicious names and warns you")

@@ -2377,6 +2377,10 @@ set_src(ENGINE_SHARED GLOB_RECURSE src/engine/shared
   krx_pre_tas_movement_config.h
   krx_pre_tas_visuals_config.h
   krx_tas_config.h
+  krx_new_misc_visuals_config.h
+  krx_new_movement_config.h
+  krx_new_tas_config.h
+  krx_new_classic_config.h
   linereader.cpp
   linereader.h
   localization.h
@@ -2649,8 +2653,12 @@ if(CLIENT)
     avoid/avoid.h
     avoid/blatant.cpp
     avoid/blatant.h
+    avoid/classic_agents.cpp
+    avoid/classic_agents.h
     avoid/fent.cpp
     avoid/fent.h
+    avoid/pilot_bot.cpp
+    avoid/pilot_bot.h
     avoid/rocket_save.cpp
     avoid/rocket_save.h
     avoid/simulation.cpp
@@ -2705,6 +2713,8 @@ if(CLIENT)
     components/items.h
     components/key_binder.cpp
     components/key_binder.h
+    components/krx_autoedge_new.cpp
+    components/krx_autoedge_new.h
     components/krx_misc_pre_tas.cpp
     components/krx_misc_pre_tas.h
     components/krx_movement_pre_tas.cpp
@@ -2788,9 +2798,15 @@ if(CLIENT)
     krx/flow_field.h
     krx/misc.cpp
     krx/misc.h
+    krx/now_playing.cpp
+    krx/now_playing.h
+    krx/prediction_benchmark.cpp
+    krx/prediction_benchmark.h
     krx/msvc_sort.h
     krx/replay.cpp
     krx/replay.h
+    krx/replay_analyzer.cpp
+    krx/replay_analyzer.h
     krx/replay_fake_aim.cpp
     krx/replay_fake_aim.h
     krx/replay_vault.cpp
@@ -3072,6 +3088,13 @@ if(CLIENT)
       PROPERTY OUTPUT_NAME ${CLIENT_EXECUTABLE}
   )
   target_link_libraries(game-client ${LIBS_CLIENT})
+  if(TARGET_OS STREQUAL "linux" AND PKG_CONFIG_FOUND)
+    pkg_check_modules(KRX_DBUS QUIET IMPORTED_TARGET dbus-1)
+    if(KRX_DBUS_FOUND)
+      target_link_libraries(game-client PkgConfig::KRX_DBUS)
+      target_compile_definitions(game-client PRIVATE CONF_KRX_MPRIS)
+    endif()
+  endif()
 
   if(TARGET_OS STREQUAL "ios")
     set(IOS_INFO_PLIST "${PROJECT_BINARY_DIR}/ios-Info.plist")

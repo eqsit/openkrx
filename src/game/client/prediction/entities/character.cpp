@@ -707,11 +707,14 @@ int CCharacter::Team()
 
 void CCharacter::HandleSkippableTiles(int Index)
 {
-	// 237e60: death is a terminal frozen state for global death prediction,
-	// AutoEdge, or the active speculative Avoid world's Death option.
-	if((g_Config.m_KrxPredictionDeathTile || g_Config.m_KrxAutoEdge ||
+	// New KRX2736f0 writes character+321 = DeepFrozen and timer99999.
+	// Tile12/13 and FireWeapon259be0 independently identify that byte;
+	// IsInFreeze is the preceding byte320 and is not written by this branch.
+	const bool AvoidDeath = g_Config.m_AvoidFreeze &&
+		(g_Config.m_AvoidAgentType == 2 ? g_Config.m_AvoidBlatantDeath : g_Config.m_AvoidLegitDeath);
+	if((g_Config.m_KrxPredictionDeathTile || (g_Config.m_KrxAutoEdge && g_Config.m_KrxAutoEdgeDetectDeath) ||
 		   (GameWorld()->m_WorldConfig.m_KrxPrediction && g_Config.m_KrxRecordReplay) ||
-		   (GameWorld()->m_WorldConfig.m_KrxPrediction && GameWorld()->m_WorldConfig.m_KrxAvoidDeath)) &&
+		   (GameWorld()->m_WorldConfig.m_KrxPrediction && (GameWorld()->m_WorldConfig.m_KrxAvoidDeath || AvoidDeath))) &&
 		!m_Core.m_Super)
 	{
 		for(const vec2 Offset : {vec2(GetProximityRadius() / 3.0f, -GetProximityRadius() / 3.0f),
@@ -722,8 +725,8 @@ void CCharacter::HandleSkippableTiles(int Index)
 			const int TileIndex = Collision()->GetPureMapIndex(vec2(round_to_int(m_Pos.x + Offset.x), round_to_int(m_Pos.y + Offset.y)));
 			if(Collision()->GetTileIndex(TileIndex) == TILE_DEATH || Collision()->GetFrontTileIndex(TileIndex) == TILE_DEATH)
 			{
-				m_Core.m_IsInFreeze = m_Core.m_DeepFrozen = true;
-				m_FreezeTime = 1000;
+				m_Core.m_DeepFrozen = true;
+				m_FreezeTime = 99999;
 				return;
 			}
 		}
@@ -1028,7 +1031,10 @@ void CCharacter::HandleTiles(int Index)
 		const int EvilTele = Collision()->IsEvilTeleport(MapIndex);
 		const bool CheckEvil = Collision()->IsCheckEvilTeleport(MapIndex);
 		const bool Check = Collision()->IsCheckTeleport(MapIndex);
-		if(!g_Config.m_KrxPredictionTeleports || GameWorld()->m_WorldConfig.m_KrxAvoidTeles)
+		const bool AvoidTeles = GameWorld()->m_WorldConfig.m_KrxPrediction && g_Config.m_AvoidFreeze &&
+			(g_Config.m_AvoidAgentType == 2 ? g_Config.m_AvoidBlatantTeles : g_Config.m_AvoidLegitTeles);
+		if(!g_Config.m_KrxPredictionTeleports || GameWorld()->m_WorldConfig.m_KrxAvoidTeles || AvoidTeles ||
+			(g_Config.m_KrxAutoEdge && g_Config.m_KrxAutoEdgeDetectTele))
 		{
 			if(Tele || EvilTele || CheckEvil || Check)
 			{

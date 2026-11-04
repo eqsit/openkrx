@@ -96,6 +96,8 @@ namespace OpenKrx
 		CBlatantSettings m_Settings;
 		std::vector<CNetObj_PlayerInput> m_vLastPlan;
 		std::optional<vec2> m_TrackPoint;
+		mutable std::optional<vec2> m_AssistPoint;
+		mutable std::optional<vec2> m_AutoAimPoint;
 		bool m_Dragged = false;
 		int m_LastDecisionLife = -1;
 		bool m_Tracing = false;
@@ -123,6 +125,9 @@ namespace OpenKrx
 		const CBlatantDiagnostic &Diagnostic() const { return m_Diagnostic; }
 		std::optional<CNetObj_PlayerInput> Decide(IBlatantSimulation &World, CNetObj_PlayerInput Input, vec2 MouseAim);
 		std::optional<vec2> TrackPoint() const { return m_TrackPoint; }
+		std::optional<vec2> AssistPoint() const { return m_AssistPoint; }
+		std::optional<vec2> AutoAimPoint() const { return m_AutoAimPoint; }
+		void ExpireAimPoints(vec2 Position, float HookLength);
 		const std::vector<CNetObj_PlayerInput> &LastPlan() const { return m_vLastPlan; }
 		int LastDecisionLife() const { return m_LastDecisionLife; }
 

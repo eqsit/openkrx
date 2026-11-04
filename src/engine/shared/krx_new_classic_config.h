@@ -1,0 +1,13 @@
+// KRX13610 Basic/Legit registry, REA new-krx-20261103. Repeated macro inclusion.
+MACRO_CONFIG_INT(AvoidLegitCheckTicks, krx_avoid_tile_legit_check_ticks, 6, 1, 50, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit rollout check ticks")
+MACRO_CONFIG_INT(AvoidLegitDirection, krx_avoid_tile_legit_direction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit direction assistance")
+MACRO_CONFIG_INT(AvoidLegitHook, krx_avoid_tile_legit_hook, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit hook assistance")
+MACRO_CONFIG_INT(AvoidLegitTeles, krx_avoid_tile_legit_teles, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit teleporter avoidance")
+MACRO_CONFIG_INT(AvoidLegitDeath, krx_avoid_tile_legit_death, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit death tile avoidance")
+MACRO_CONFIG_INT(AvoidLegitUnfreeze, krx_avoid_tile_legit_unfreeze_tile, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit unfreeze tile support")
+MACRO_CONFIG_INT(AvoidLegitUnfreezeTicks, krx_avoid_tile_legit_unfreeze_tile_ticks, 5, 1, 30, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit unfreeze lookahead ticks")
+MACRO_CONFIG_INT(AvoidDirectionWeight, krx_avoid_tile_direction_weight, 170, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit direction weight")
+MACRO_CONFIG_INT(AvoidLifespanWeight, krx_avoid_tile_lifespan_weight, 160, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit lifespan weight")
+MACRO_CONFIG_INT(AvoidHookWeight, krx_avoid_tile_hook_weight, 260, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit hook weight")
+MACRO_CONFIG_INT(AvoidExplorationConstant, krx_avoid_tile_exploration_constant, 4, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit MCTS exploration constant")
+MACRO_CONFIG_INT(ClAvoidNumIterations, cl_avoid_num_iterations, 100, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit MCTS iterations")

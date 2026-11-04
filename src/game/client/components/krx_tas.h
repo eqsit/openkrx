@@ -6,6 +6,7 @@
 #include <game/client/component.h>
 #include <game/client/krx/flow_field.h>
 #include <game/client/krx/replay.h>
+#include <game/client/krx/replay_analyzer.h>
 #include <game/client/krx/replay_vault.h>
 #include <game/client/prediction/gameworld.h>
 
@@ -63,6 +64,8 @@ namespace OpenKrx
 		void UpdatePathFinding();
 		const CFlowField &FlowField() const { return m_FlowField; }
 		void SetGoal(vec2 Goal);
+		void AnalyzeReplay();
+		const std::vector<unsigned char> &EditorTiles() const { return m_vTunnels; }
 
 	private:
 		CReplay m_Replay;
@@ -76,6 +79,8 @@ namespace OpenKrx
 		std::vector<std::string> m_vReplayFiles;
 		std::future<int> m_ConversionFuture;
 		std::atomic<bool> m_ConversionCancel{false};
+		std::future<CReplayStabilityResult> m_AnalysisFuture;
+		std::atomic<bool> m_AnalysisCancel{false};
 		std::string m_Status, m_OverwriteName;
 		bool m_WasRecording = false, m_RewindHeld = false, m_ForwardHeld = false;
 		bool m_PlaybackWasActive = false;
@@ -89,7 +94,13 @@ namespace OpenKrx
 		vec2 m_Goal = vec2(0, 0), m_LastBrush = vec2(0, 0);
 		bool m_PathDirty = true;
 		bool m_NoFinish = false;
-		std::future<CFlowField> m_PathFuture;
+		bool m_EditorBrushValid = false;
+		struct CPathResult
+		{
+			CFlowField m_Field;
+			std::vector<double> m_vBenchmarkUs;
+		};
+		std::future<CPathResult> m_PathFuture;
 		std::shared_ptr<std::atomic<bool>> m_pPathCancel;
 		int m_LastLightTiles = -1, m_LastLightRadius = -1;
 		std::shared_ptr<IHttpRequest> m_pVaultRequest;
@@ -107,6 +118,8 @@ namespace OpenKrx
 		void CancelPathFinding();
 		void StopVaultWorker();
 		void StopConversionWorker();
+		void StopAnalysisWorker();
+		void UpdateAnalysis();
 		void UpdateLegacyConversion();
 		void InstallVaultFiles();
 		void UpdateVault();
@@ -126,6 +139,7 @@ namespace OpenKrx
 		bool MakePath(const char *pName, std::string &Path, bool Auto) const;
 		bool PathTileBlocked(int X, int Y, const std::vector<unsigned char> &vLight) const;
 		void AutoTunnel();
+		void AutoFinish();
 	};
 }
 #endif

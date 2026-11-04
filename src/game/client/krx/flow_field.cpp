@@ -12,12 +12,21 @@ namespace OpenKrx
 		m_vCells.assign((size_t)m_Width * m_Height, {});
 		m_vBlocked.assign(m_vCells.size(), 0);
 		m_Goal = vec2(0, 0);
+		m_vGoals.clear();
 		m_Ready = false;
 	}
 
 	const CFlowField::CCell *CFlowField::At(int X, int Y) const
 	{
 		return Inside(X, Y) ? &m_vCells[(size_t)Y * m_Width + X] : nullptr;
+	}
+
+	float CFlowField::DistanceToGoal(vec2 Position) const
+	{
+		float Result = FLT_MAX;
+		for(const vec2 Goal : m_vGoals)
+			Result = std::min(Result, distance(Position, Goal));
+		return Result;
 	}
 
 	float CFlowField::Distance(int A, int B) const
@@ -59,13 +68,18 @@ namespace OpenKrx
 
 	bool CFlowField::Build(vec2 Goal, const std::vector<unsigned char> &vBlocked, const std::vector<unsigned char> &vFinishes, const std::atomic<bool> *pCancel)
 	{
+		if(Goal == vec2(0, 0))
+			return m_Ready = false;
+		return BuildGoals({Goal}, vBlocked, vFinishes, pCancel);
+	}
+
+	bool CFlowField::BuildGoals(const std::vector<vec2> &vGoals, const std::vector<unsigned char> &vBlocked, const std::vector<unsigned char> &vFinishes, const std::atomic<bool> *pCancel)
+	{
 		m_Ready = false;
-		if(Goal == vec2(0, 0) || vBlocked.size() != m_vCells.size() || m_vCells.empty())
+		if(vGoals.empty() || vBlocked.size() != m_vCells.size() || m_vCells.empty())
 			return false;
-		const int Gx = (int)(Goal.x / 32.0f), Gy = (int)(Goal.y / 32.0f);
-		if(!Inside(Gx, Gy))
-			return false;
-		m_Goal = Goal;
+		m_Goal = vGoals.front();
+		m_vGoals = vGoals;
 		m_vBlocked = vBlocked;
 		std::fill(m_vCells.begin(), m_vCells.end(), CCell{});
 		struct COpen
@@ -75,10 +89,19 @@ namespace OpenKrx
 		};
 		const auto Compare = [](const COpen &A, const COpen &B) { return A.m_Cost > B.m_Cost; };
 		std::vector<COpen> vOpen;
-		const int End = Gy * m_Width + Gx;
-		m_vCells[End].m_Cost = 0;
-		m_vCells[End].m_Parent = End;
-		vOpen.push_back({End, 0});
+		for(const vec2 Goal : vGoals)
+		{
+			const int Gx = (int)(Goal.x / 32.0f), Gy = (int)(Goal.y / 32.0f);
+			if(!Inside(Gx, Gy))
+				continue;
+			const int End = Gy * m_Width + Gx;
+			m_vCells[End].m_Cost = 0;
+			m_vCells[End].m_Parent = End;
+			vOpen.push_back({End, 0});
+			std::push_heap(vOpen.begin(), vOpen.end(), Compare);
+		}
+		if(vOpen.empty())
+			return false;
 		while(!vOpen.empty())
 		{
 			if(pCancel && pCancel->load(std::memory_order_relaxed))

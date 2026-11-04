@@ -124,10 +124,9 @@ namespace OpenKrx
 		static constexpr CAction ACTIONS[] = {{0, 0}, {0, 1}, {1, 0}, {-1, 0}, {1, 1}, {-1, 1}};
 		for(int Tick = 0, Remaining = CheckTicks; Tick <= CheckTicks; ++Tick, --Remaining)
 		{
-			// The original uses (0,0) as no tracking point for ordinary plans.
-			// Auto Drag (TrackFromFirstTick=false) instead re-aims unconditionally
-			// after the first tick, including when its relative mouse anchor is zero.
-			if((TrackFromFirstTick && Anchor && *Anchor != vec2(0, 0)) || (!TrackFromFirstTick && Tick > 0))
+			// New KRX 0x14032fdd0 uses (0,0) as no anchor for both ordinary
+			// tracking and Auto Drag. The older 2d3d20 re-aimed zero Auto Drag.
+			if(Anchor && *Anchor != vec2(0, 0) && (TrackFromFirstTick || Tick > 0))
 				AimAt(Input, Anchor.value_or(vec2(0, 0)), pCopy->Position());
 			if(Tick > 0)
 			{
@@ -170,14 +169,18 @@ namespace OpenKrx
 		const CNetObj_PlayerInput &Input, vec2 MouseAim) const
 	{
 		std::vector<CNetObj_PlayerInput> vResult;
-		if(!m_Settings.m_Aimbot || !World.Valid() || Input.m_Hook == 1)
+		if(!m_Settings.m_Aimbot)
+		{
+			m_AssistPoint.reset();
+			m_AutoAimPoint.reset();
+			return vResult;
+		}
+		if(!World.Valid() || Input.m_Hook == 1)
 			return vResult;
 		// 0x1402d115c and 0x1402d11a4: both stored outputs and every survival
 		// probe use Hook=1, including aim assist. Scoring an unhooked input here
 		// makes the scan miss precisely the anchors that could rescue the tee.
 		const bool MayElide = World.CanElideIndependentProbes();
-		if(MayElide && !m_Settings.m_AimAssist && !m_Settings.m_AutoAim)
-			return vResult;
 		CNetObj_PlayerInput BestAssist = Input;
 		CNetObj_PlayerInput BestAuto = Input;
 		BestAssist.m_Hook = 1;
@@ -185,8 +188,7 @@ namespace OpenKrx
 		int AssistLife = 0;
 		int AutoLife = 0;
 		const auto OutputsFixed = [&] {
-			return (!m_Settings.m_AimAssist || AssistLife == CBlatantPlan::SAFE) &&
-			       (!m_Settings.m_AutoAim || AutoLife == CBlatantPlan::SAFE);
+			return AssistLife == CBlatantPlan::SAFE && AutoLife == CBlatantPlan::SAFE;
 		};
 		float AssistDot = -20.0f;
 		const vec2 Mouse = normalize(InputAim(Input));
@@ -230,11 +232,11 @@ namespace OpenKrx
 				Candidate.m_TargetY = static_cast<int>(Hit.y);
 				Candidate.m_Hook = 1;
 				const float Dot = dot(normalize(Hit), Mouse);
-				// With Auto Aim disabled this probe can only update Assist, which
-				// requires both a strictly larger dot and a strictly larger lifespan.
-				// A rejected dot cannot affect the output, regardless of survival.
+				// Once Auto is SAFE, a rejected Assist dot cannot improve either
+				// candidate or either cached ESP point. Both points are observable
+				// in new KRX even when their input-output toggles are disabled.
 				// Keep every original probe for adapters with possible side effects.
-				if(MayElide && !m_Settings.m_AutoAim && !(Dot > AssistDot))
+				if(MayElide && AutoLife == CBlatantPlan::SAFE && !(Dot > AssistDot))
 					continue;
 				// 0x1402d1060 uses a literal 26 here, independently of Check Ticks.
 				const int Life = ConstantLife(World, Candidate, 26);
@@ -243,11 +245,13 @@ namespace OpenKrx
 					AssistDot = Dot;
 					AssistLife = Life;
 					BestAssist = Candidate;
+					m_AssistPoint = Aim;
 				}
 				if(Life > AutoLife)
 				{
 					AutoLife = Life;
 					BestAuto = Candidate;
+					m_AutoAimPoint = Aim;
 				}
 			}
 		}
@@ -516,8 +520,17 @@ namespace OpenKrx
 	{
 		m_vLastPlan.clear();
 		m_TrackPoint.reset();
+		m_AssistPoint.reset();
+		m_AutoAimPoint.reset();
 		m_Dragged = false;
 		m_Diagnostic = {};
 		m_LastDecisionLife = -1;
+	}
+
+	void CBlatantPlanner::ExpireAimPoints(vec2 Position, float HookLength)
+	{
+		for(auto *pPoint : {&m_AssistPoint, &m_AutoAimPoint})
+			if(*pPoint && distance(Position, **pPoint) >= HookLength)
+				pPoint->reset();
 	}
 }

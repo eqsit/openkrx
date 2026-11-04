@@ -1,7 +1,10 @@
 #ifndef GAME_CLIENT_COMPONENTS_KRX_MISC_PRE_TAS_H
 #define GAME_CLIENT_COMPONENTS_KRX_MISC_PRE_TAS_H
 
+#include <engine/console.h>
+
 #include <game/client/component.h>
+#include <game/client/krx/prediction_benchmark.h>
 
 #include <array>
 #include <cstdint>
@@ -24,6 +27,10 @@ class CKrxMiscPreTas : public CComponent
 	};
 	int m_RepeatAfterTick = 0;
 	int m_MentionAfterTick = 0;
+	bool m_AutoVoted = false;
+	std::string m_AutoVoteDescription;
+	int m_AutoVoteLastSeconds = -1;
+	OpenKrx::CPredictionBenchmark m_PredictionBenchmark;
 	bool m_NearFinish = false;
 	bool m_Verified = false;
 	int m_VerifyFailures = 0;
@@ -38,13 +45,16 @@ class CKrxMiscPreTas : public CComponent
 	void ScanModerators();
 	void MassMention();
 	void AutoVoteKick();
+	void AutoVote();
 	void ChangeNameNearFinish();
 	std::string RandomName();
 	void Verify();
+	static void ConDiscordPayload(IConsole::IResult *pResult, void *pUserData);
 
 public:
 	int Sizeof() const override { return sizeof(*this); }
 	void OnInit() override;
+	void OnConsoleInit() override;
 	void OnReset() override;
 	void OnShutdown() override;
 	void AfterComponentsUpdate();

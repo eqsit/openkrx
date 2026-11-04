@@ -6,7 +6,8 @@
 class CGameWorld;
 namespace OpenKrx
 {
-	// 2ebfd0: collect aim-critical inputs, then fill gaps before each one.
+	// New KRX 3556e0/34fc40/350560: validate Robot edits, then style editable aims.
+	void ResetReplayFakeAim(CReplay &Replay);
 	bool AddReplayFakeAim(CReplay &Replay, const CGameWorld &Initial, const std::array<int, 2> &aIds, int Mode, float MouseRadius);
 }
 #endif

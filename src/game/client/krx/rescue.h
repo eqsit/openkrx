@@ -9,6 +9,7 @@
 #include <generated/protocol.h>
 
 #include <vector>
+#include <optional>
 
 class CGameClient;
 class CGameWorld;
@@ -30,10 +31,12 @@ namespace OpenKrx
 			bool Release(CNetObj_PlayerInput &Input, int GameTick);
 			void Press(CNetObj_PlayerInput &Input);
 		};
-		CPulse m_aAledPulse[2];
-		CPulse m_aUnfreezePulse[2];
+		CPulse m_AledPulse;
+		CPulse m_UnfreezePulse;
 		std::vector<vec2> m_vUnfreezePath;
+		std::vector<vec2> m_vUnfreezeTeePath;
 		vec2 m_LastUnfreezeAim = vec2(0, 0);
+		bool m_UnfreezeAimReleased = true;
 
 	public:
 		struct CBeamResult
@@ -43,10 +46,13 @@ namespace OpenKrx
 			int m_Bounces = -1;
 			float m_Speed = 0;
 			std::vector<vec2> m_vPath;
+			std::vector<vec2> m_vTeePath;
 		};
 		struct CAledResult
 		{
 			bool m_Found = false;
+			bool m_InitialHit = false;
+			bool m_SearchedHit = false;
 			vec2 m_Aim = vec2(0, 0);
 		};
 		void OnReset();
@@ -55,8 +61,10 @@ namespace OpenKrx
 		CNetObj_PlayerInput AdjustAutoShotgun(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId);
 		CNetObj_PlayerInput AdjustAutoUnfreeze(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId);
 		const std::vector<vec2> &UnfreezePath() const { return m_vUnfreezePath; }
+		const std::vector<vec2> &UnfreezeTeePath() const { return m_vUnfreezeTeePath; }
+		void RenderUnfreeze(CGameClient *pGameClient);
 		static CBeamResult ProbeBeam(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input, int Ticks,
-			bool RequireUnfreeze, CGameClient *pGameClient = nullptr);
+			bool RequireUnfreeze, CGameClient *pGameClient = nullptr, bool FullTrajectory = false);
 		static CBeamResult SearchShotgunWorld(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input,
 			vec2 Mouse, int Ticks, int Points, float Fov, bool MostBounces, bool HighestVelocity, float MouseRadius);
 		static CBeamResult SearchUnfreezeWorld(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input,
@@ -68,6 +76,11 @@ namespace OpenKrx
 		// deterministic geometry/input test independent of network state.
 		static CDummyFlyDecision DummyFlyDecision(vec2 LocalPosition, vec2 DummyPosition,
 			int DummyHookedPlayer, float MouseRadius, CNetObj_PlayerInput DummyInput);
+		// New 1.36.1 helper33c4f0: evaluate hammer now and at delays1..5.
+		static std::optional<CNetObj_PlayerInput> SearchDummyHammerWorld(const CGameWorld &Source, int DummyId, int LocalId, float MouseRadius, int MaxDelay = 5);
+		static CNetObj_PlayerInput DummyFlyWorld(const CGameWorld &Source, int LocalId, int DummyId,
+			CNetObj_PlayerInput DummyInput, CNetObj_PlayerInput OtherLiveInput, int ActiveDirection,
+			bool AllowHook, bool Kinta, float MouseRadius, CGameClient *pGameClient = nullptr);
 	};
 }
 
