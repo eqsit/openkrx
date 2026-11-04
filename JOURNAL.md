@@ -2621,3 +2621,40 @@ REA/Ghidra Evidence по новому unpacked PE b3010f41… экспортир
 
 ---
 
+## 2026-11-04 — OpenKRX-new стал основной версией, опубликован v0.1.9
+
+По явному запросу пользователя отдельное дерево `/home/a/openkrx-new` перенесено
+в `/home/a/openkrx` и стало единственным клиентом; отдельный `dist/OpenKRX-new`,
+launcher `openkrx-new.sh` и ярлык `openkrx-new` убраны. Содержимое `src/`
+перенесено побайтно (проверка `diff -rq` по `src/`: 0 различий), руками изменены
+только `.gitignore` (добавлен `user-data/`), шапка HANDOFF и ярлык `openkrx`.
+`AGENTS.md` остался версией из перенесённого дерева (в нём ещё указан
+`/home/a/openkrx-new`): запись в agent-instruction файл требует подтверждения
+пользователя и не выполнялась.
+
+Коммит `d964b9653a051875510b92c37596da8dce279ea2`, annotated tag `v0.1.9`,
+отправлены origin/main и origin/tag. Предыдущее состояние v0.1.8 сохранено
+локальной веткой `backup/pre-openkrx-new-20261104` (8bdde13). Исходное дерево и
+его build-каталог перенесены в `/home/a/backups/openkrx-new-merged-20261104/`
+(tree и build), ничего не удалено. Личный профиль `~/.local/share/ddnet` не
+тронут; профиль сборки остался снимком в `user-data/` (gitignored).
+
+Linux client/server и Windows MinGW cross-build собраны локально из
+`/home/a/openkrx-build/build` и `build-win`; в бинарниках revision
+`d964b9653a051875`. Linux-пакет проверен запуском под Xvfb: меню, master-серверы,
+`config: saved`, чистый выход 0. Windows: PE32+ x86-64, все несистемные импорты
+есть в ZIP, нового Windows runtime-прогона не было. Пакеты собраны скриптом
+`research/release-v019/package_release.py` поверх проверенных архивов v0.1.8;
+cfg/data/DLL/replays совпадают с базой побайтно (1049 файлов linux, 1067 windows).
+
+Артефакты v0.1.9 (SHA256 сверены с GitHub API, публичный URL вернул 200):
+- OpenKRX-linux-x86_64.tar.gz 62572703, 8686231f885033b896d32bd91aa32e64cd656bcf90c64535e70b52959c159e80.
+- OpenKRX-windows-x86_64.zip 71442732, b3c521156851595b5b21faab96a2114d6c7a6d7209c34f61cd73cfe580eeeae7.
+- OpenKRX-sources-v0.1.9.tar.gz 49184199, 551c13b8f8dfb73d5d7b43548427d60ccdf4bc22fc94fcddb6d40ca120d4d288.
+- OpenKRX-tas-replays-v0.1.9.zip 11471063, bea7421638dc587273d0d5b98090427f4a8a09c0fe40076c428df594fb93f946.
+- SHA256SUMS-v0.1.9.txt 380, aeff05b96dc3a55b7f4ee0be8c5ae02a32a191b0237722dcf7a43077bfcc016b.
+
+Замечание по публикации: `gh release create` с пятью ассетами зависал на больших
+файлах (соединение к GitHub по 443 стояло с заполненным send-q). Поштучный
+`gh release upload --clobber` по одному файлу прошёл без ошибок; релиз собран
+черновиком, сверен по digest и только затем опубликован как latest.
