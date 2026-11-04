@@ -1,13 +1,17 @@
-# Текущее изолированное дерево OpenKRX-new
+# Текущее основное дерево OpenKRX — после переноса 2026-11-04
 
-Это отдельная новая версия; читать актуальный верх HANDOFF.md.
-Менять/собирать только `/home/a/openkrx-new` и `/home/a/openkrx-new-build/build`.
-Старые `/home/a/openkrx` и beta, их ярлыки/профили сохранять. Нижележащие
-исторические инструкции про основной путь не перенаправляют текущую работу.
-Прямые локальные правки; Web orchestration отключён. Новая задача включает
+По явному запросу пользователя OpenKRX-new стал обычным OpenKRX; v0.1.9
+опубликован на GitHub. Работать в `/home/a/openkrx`, читать верх HANDOFF.md.
+Текущая Linux-сборка `/home/a/openkrx-build/build` настроена прямо на это
+дерево; Windows cross-build — `/home/a/openkrx-build/build-win`.
+Отдельные new-дерево и сборка сохранены в
+`/home/a/backups/openkrx-new-merged-20261104/{tree,build}` как архив.
+Обычный ярлык запускает `scripts/openkrx.sh` и личный профиль DDNet;
+бету `/home/a/openkrx-beta`, её ярлыки и профиль не менять.
+Прямые локальные правки; Web orchestration отключён. Задача включает
 все агенты Basic/Legit/Blatant/Fent/Pilot. REA Evidence и свои native тесты
-отличать от отсутствующего original runtime A/B. Source changes не коммитить
-и GitHub релизы не публиковать без соответствующего запроса.
+отличать от отсутствующего original runtime A/B. Публикация main/v0.1.9
+авторизована пользователем; новые публикации требуют соответствующего запроса.
 
 # Работа над OpenKRX
 
