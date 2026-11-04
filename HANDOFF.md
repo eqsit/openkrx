@@ -10,6 +10,18 @@
 `/home/a/openkrx-build/build-win` (Windows cross-build). Прямые локальные правки,
 без Web orchestration. Новая задача включает Basic и Legit.
 
+Публикация: GitHub v0.1.9, исходный коммит `d964b9653a051875510b92c37596da8dce279ea2`.
+Проверка переноса Codex: installed `dist/OpenKRX` SHA256
+`edf9e9451c5fcc945f95f6b8a01f984a3c4eada8fa545702efeb64891a92797b`
+совпадает со сборкой и, после strip, с клиентом Linux-релиза. Все 860 файлов
+`src/` совпали с архивом итогового new-дерева. Обычный launcher проверен
+в изолированном профиле/Xvfb: окно, настройки агентов/Pilot, выход 0;
+личный конфиг не изменился. Beta binary/server и 28 зафиксированных исходных
+файлов совпали с её deployment-записью, ярлыки по-прежнему ведут в beta.
+Исправлены устаревшие AGENTS.md и локальный dist/BUILD.txt. Заголовок окна
+в v0.1.9 пока `OpenKRX-new`; это косметический остаток, исходники и release
+ради его исправления не менялись. Проверка: research/release-v019/codex-audit/.
+
 Перенесены все пять агентов Avoid, новая Auto Edge, Perfect Silent, изменения
 Dummy Fly/Auto Shotgun/Unfreeze, Blatant ESP, Fent, TAS Analyzer/Fake Aim,
 Tile Editor и Pathfinding, Now Playing/Trail, новые настройки и benchmarks.
