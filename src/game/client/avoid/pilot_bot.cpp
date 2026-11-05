@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cmath>
 #include <future>
 #include <thread>
@@ -104,14 +103,13 @@ class CPopulationJob final : public IJob
 	const CNetObj_PlayerInput &m_Base;
 	std::vector<CMovementSequenceSearch::CCandidate> &m_vPopulation;
 	int m_Begin, m_End, m_Depth;
-	std::chrono::steady_clock::time_point m_Deadline;
 	std::promise<void> m_Completed;
 	std::atomic<bool> m_Claimed{false};
 	void Run() override { RunInline(); }
 
 public:
-	CPopulationJob(const CMovementSequenceSearch::CContext &Context, const CNetObj_PlayerInput &Base, std::vector<CMovementSequenceSearch::CCandidate> &vPopulation, int Begin, int End, int Depth, std::chrono::steady_clock::time_point Deadline) :
-		m_Context(Context), m_Base(Base), m_vPopulation(vPopulation), m_Begin(Begin), m_End(End), m_Depth(Depth), m_Deadline(Deadline)
+	CPopulationJob(const CMovementSequenceSearch::CContext &Context, const CNetObj_PlayerInput &Base, std::vector<CMovementSequenceSearch::CCandidate> &vPopulation, int Begin, int End, int Depth) :
+		m_Context(Context), m_Base(Base), m_vPopulation(vPopulation), m_Begin(Begin), m_End(End), m_Depth(Depth)
 	{
 		Abortable(false);
 	}
@@ -136,8 +134,6 @@ public:
 		std::random_device Seed;
 		for(int Index = m_Begin; Index < m_End; ++Index)
 		{
-			if(m_Deadline != std::chrono::steady_clock::time_point::max() && std::chrono::steady_clock::now() >= m_Deadline)
-				break;
 			std::mt19937 Random(Seed());
 			auto &Candidate = m_vPopulation[Index];
 			Candidate.m_vInputs = m_Context.m_Edge ?
@@ -287,19 +283,18 @@ float CMovementSequenceSearch::Evaluate(const CContext &Context, const std::vect
 	return ScoreSequence(Context, vInputs, true);
 }
 
-std::vector<CMovementSequenceSearch::CCandidate> CMovementSequenceSearch::Search(const CContext &Context, const CNetObj_PlayerInput &Base, int Population, int Depth, IEngine *pEngine, int BudgetMilliseconds)
+std::vector<CMovementSequenceSearch::CCandidate> CMovementSequenceSearch::Search(const CContext &Context, const CNetObj_PlayerInput &Base, int Population, int Depth, IEngine *pEngine)
 {
 	std::vector<CCandidate> vPopulation(std::max(0, Population));
 	if(!Context.m_pWorld || !const_cast<CGameWorld *>(Context.m_pWorld)->GetCharacterById(Context.m_Id))
 		return {};
 	const bool Parallel = pEngine != nullptr;
 	const int Workers = Parallel ? std::min(8, std::max(1, (int)std::thread::hardware_concurrency())) : 1;
-	const auto Deadline = BudgetMilliseconds > 0 ? std::chrono::steady_clock::now() + std::chrono::milliseconds(BudgetMilliseconds) : std::chrono::steady_clock::time_point::max();
 	std::vector<std::shared_ptr<CPopulationJob>> vJobs;
 	std::vector<std::future<void>> vResults;
 	for(int I = 0; I < Workers; ++I)
 	{
-		auto pJob = std::make_shared<CPopulationJob>(Context, Base, vPopulation, Population * I / Workers, Population * (I + 1) / Workers, Depth, Deadline);
+		auto pJob = std::make_shared<CPopulationJob>(Context, Base, vPopulation, Population * I / Workers, Population * (I + 1) / Workers, Depth);
 		vResults.push_back(pJob->Result());
 		vJobs.push_back(pJob);
 		if(Parallel)
@@ -334,9 +329,9 @@ void CMovementSequenceSearch::PrepareWorld(CGameClient *pGameClient, CGameWorld 
 
 void CPilotBot::OnReset()
 {
-	// The original agent and its function-static cached input live for the
-	// client process. Dispatcher327ef0 skips gates without invoking/resetting
-	// the agent. Constructor defaults already initialize a newly created one.
+	// Explicit host lifecycle/profile resets invalidate a plan for the old tee.
+	// Ordinary temporary eligibility gates still preserve original agent state.
+	*this = {};
 }
 
 CNetObj_PlayerInput CPilotBot::AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input, int ClientId)
@@ -416,7 +411,7 @@ CNetObj_PlayerInput CPilotBot::AdjustInput(CGameClient *pGameClient, CNetObj_Pla
 		if(!Context.m_pField->Ready())
 			return Input;
 	}
-	auto vPopulation = CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_AvoidPilotBotPopulationSize, g_Config.m_AvoidPilotBotExplorationDepth, pGameClient->Engine(), g_Config.m_PilotBudgetMs);
+	auto vPopulation = CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_AvoidPilotBotPopulationSize, g_Config.m_AvoidPilotBotExplorationDepth, pGameClient->Engine());
 	if(vPopulation.empty())
 		return Input;
 	const int TopK = std::min((int)vPopulation.size(), g_Config.m_AvoidPilotBotTopKCandidates);

@@ -14,7 +14,7 @@
 #include <game/localization.h>
 
 // Recovered KRX renderer 0x14025ac10. Exact rectangles and conditional heights
-// are recorded in research/codex/UI-GEOMETRY-AUDIT.md, with assembly evidence.
+// preserve the original rectangles and conditional heights.
 void CMenus::RenderSettingsAvoid(CUIRect MainView)
 {
 	static CScrollRegion s_ScrollRegion;
@@ -136,9 +136,9 @@ void CMenus::RenderSettingsAvoid(CUIRect MainView)
 		if(g_Config.m_AvoidBlatantUnfreezeTile)
 			Slider(Body, g_Config.m_AvoidBlatantUnfreezeTicks, "Ticks", 1, 50, "How many ticks to simulate forward to check for unfreeze", true);
 	}
-	if(Card(Right, g_Config.m_AvoidBlatantAimbot ? 145.0f : 65.0f, "Aimb", Body))
+	if(Card(Right, g_Config.m_AvoidBlatantAimbot ? 145.0f : 65.0f, "Aimbot", Body))
 	{
-		Check(Body, g_Config.m_AvoidBlatantAimbot, "Enab");
+		Check(Body, g_Config.m_AvoidBlatantAimbot, "Enable");
 		if(g_Config.m_AvoidBlatantAimbot)
 		{
 			Slider(Body, g_Config.m_AvoidAimbotSegments, "Segments", 1, 64, "Amount of aim dirs that will be considered to find the best aim dir for each type of aimbot");
@@ -150,7 +150,7 @@ void CMenus::RenderSettingsAvoid(CUIRect MainView)
 	if(Card(Right, 105.0f, "Visuals", Body))
 	{
 		Check(Body, g_Config.m_AvoidDrawTrackPoint, "Track point", "Shows visuals for trackpoint");
-		Check(Body, g_Config.m_AvoidDrawAimbot, "Aimb", "Shows visuals for aimbot");
+		Check(Body, g_Config.m_AvoidDrawAimbot, "Aimbot", "Shows visuals for aimbot");
 		Check(Body, g_Config.m_AvoidDrawPath, "Path", "Shows visuals for path");
 	}
 	s_ScrollRegion.End();

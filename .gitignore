@@ -166,3 +166,12 @@ tags
 
 # Local client profile of the development build
 user-data/
+
+# Local development notes and investigation utilities
+/AGENTS.md
+/HANDOFF.md
+/JOURNAL.md
+/FEATURE_ESTIMATES.md
+/PRE_TAS_PORT.md
+/TAS_PATH_FENT.md
+/scripts/vm-control.py

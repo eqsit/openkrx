@@ -46,7 +46,7 @@ public:
 	// Same validity and score as the two independent reference passes; one
 	// isolated trajectory avoids repeating every accepted candidate's physics.
 	static float Evaluate(const CContext &Context, const std::vector<CNetObj_PlayerInput> &vInputs);
-	static std::vector<CCandidate> Search(const CContext &Context, const CNetObj_PlayerInput &Base, int Population, int Depth, IEngine *pEngine, int BudgetMilliseconds = 0);
+	static std::vector<CCandidate> Search(const CContext &Context, const CNetObj_PlayerInput &Base, int Population, int Depth, IEngine *pEngine);
 	static void PrepareWorld(CGameClient *pGameClient, CGameWorld &World, int Id);
 };
 

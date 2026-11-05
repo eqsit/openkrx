@@ -13,8 +13,6 @@
 namespace OpenKrx
 {
 	// Coordinates and control flow were recovered from the supplied KRX image.
-	// See research/analysis/028-blatant-greedy-search.json, research/analysis/avoid-range and
-	// research/deepseek/REVERSE-NOTES.md.
 	struct CBlatantSettings
 	{
 		int m_CheckTicks = 26;
