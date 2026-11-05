@@ -46,7 +46,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		static CUi::SDropDownState s_AgentDropDown;
 		static CScrollRegion s_AgentDropDownScroll;
 		s_AgentDropDown.m_SelectionPopupContext.m_pScrollRegion = &s_AgentDropDownScroll;
-		const char *apAgents[] = {"Basic", "Legit", "Blatant", "Fent", "Pilot Bot"};
+		const char *apAgents[] = {"Basic", "Legit", "Blatant", "Fent Bot", "Pilot Bot"};
 		const int Agent = Ui()->DoDropDown(&Button, std::clamp(g_Config.m_AvoidAgentType, 0, 4), apAgents, 5, s_AgentDropDown);
 		if(Agent != g_Config.m_AvoidAgentType)
 		{
@@ -170,12 +170,13 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		s_aDropDowns[Index].m_SelectionPopupContext.m_pScrollRegion = &s_aDropDownScrolls[Index];
 		Value = Ui()->DoDropDown(&Row, Value, ppNames, Count, s_aDropDowns[Index]);
 	};
-	const auto Key = [&](int Index, const char *pLabel, const char *pCommand) {
+	const auto Key = [&](int Index, const char *pLabel, const char *pCommand, const char *pLegacyCommand = nullptr) {
 		static CButtonContainer s_aKeys[24], s_aClear[24];
 		CBindSlot Current = EMPTY_BIND_SLOT;
 		for(int Modifier = 0; Modifier < KeyModifier::COMBINATION_COUNT; ++Modifier)
 			for(int KeyIndex = 0; KeyIndex < KEY_LAST; ++KeyIndex)
-				if(str_comp(GameClient()->m_Binds.Get(KeyIndex, Modifier), pCommand) == 0)
+				if(str_comp(GameClient()->m_Binds.Get(KeyIndex, Modifier), pCommand) == 0 ||
+					(pLegacyCommand && str_comp(GameClient()->m_Binds.Get(KeyIndex, Modifier), pLegacyCommand) == 0))
 					Current = CBindSlot(KeyIndex, Modifier);
 		Body.HSplitTop(20.0f, &Row, &Body);
 		CUIRect Label;
@@ -214,10 +215,11 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Slider(g_Config.m_KrxAimbotMaxShootLength, "Max Shoot Delay", 1, 10, true);
 			}
 		}
-		if(Card(Left, 90.0f, "Hotkeys"))
+		if(Card(Left, 115.0f, "Hotkeys"))
 		{
-			Key(11, "Auto Hook:", "+toggle krx_aimbot_autohook_key 1 0");
-			Key(12, "Auto Shoot:", "+toggle krx_aimbot_autoshoot_key 1 0");
+			Key(13, "Aimbot:", "toggle krx_aimbot 1 0");
+			Key(11, "Aimbot Auto Hook:", "+toggle krx_aimbot_autohook_key 1 0");
+			Key(12, "Aimbot Auto Shoot:", "+toggle krx_aimbot_autoshoot_key 1 0");
 		}
 		struct CWeaponSettings
 		{
@@ -227,7 +229,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		const CWeaponSettings aWeapons[] = {
 			{"Hook", &g_Config.m_KrxAimbotWeaponHook, &g_Config.m_KrxAimbotFovHook, &g_Config.m_KrxAimbotTargetPriorityHook, &g_Config.m_KrxAimbotSilentHook, &g_Config.m_KrxAimbotIgnoreFriendsHook},
 			{"Hammer", &g_Config.m_KrxAimbotWeaponHammer, &g_Config.m_KrxAimbotFovHammer, &g_Config.m_KrxAimbotTargetPriorityHammer, &g_Config.m_KrxAimbotSilentHammer, &g_Config.m_KrxAimbotIgnoreFriendsHammer},
-			{"Gun", &g_Config.m_KrxAimbotWeaponGun, &g_Config.m_KrxAimbotFovGun, &g_Config.m_KrxAimbotTargetPriorityGun, &g_Config.m_KrxAimbotSilentGun, &g_Config.m_KrxAimbotIgnoreFriendsGun},
+			{"Pistol", &g_Config.m_KrxAimbotWeaponGun, &g_Config.m_KrxAimbotFovGun, &g_Config.m_KrxAimbotTargetPriorityGun, &g_Config.m_KrxAimbotSilentGun, &g_Config.m_KrxAimbotIgnoreFriendsGun},
 			{"Shotgun", &g_Config.m_KrxAimbotWeaponShotgun, &g_Config.m_KrxAimbotFovShotgun, &g_Config.m_KrxAimbotTargetPriorityShotgun, &g_Config.m_KrxAimbotSilentShotgun, &g_Config.m_KrxAimbotIgnoreFriendsShotgun},
 			{"Grenade", &g_Config.m_KrxAimbotWeaponGrenade, &g_Config.m_KrxAimbotFovGrenade, &g_Config.m_KrxAimbotTargetPriorityGrenade, &g_Config.m_KrxAimbotSilentGrenade, &g_Config.m_KrxAimbotIgnoreFriendsGrenade},
 			{"Laser", &g_Config.m_KrxAimbotWeaponLaser, &g_Config.m_KrxAimbotFovLaser, &g_Config.m_KrxAimbotTargetPriorityLaser, &g_Config.m_KrxAimbotSilentLaser, &g_Config.m_KrxAimbotIgnoreFriendsLaser},
@@ -279,18 +281,18 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_KrxAutoEdgeAdvancedSettings, "Advanced settings");
 			if(g_Config.m_KrxAutoEdgeAdvancedSettings)
 			{
-				Slider(g_Config.m_KrxAutoEdgePopulationSize, "Population", 128, 8192);
-				Slider(g_Config.m_KrxAutoEdgeExplorationDepth, "Exploration depth", 1, 50);
-				Slider(g_Config.m_KrxAutoEdgeTopKCandidates, "Top candidates", 1, 100);
-				Slider(g_Config.m_KrxAutoEdgeSequenceLength, "Sequence length", 1, 20);
-				Slider(g_Config.m_KrxAutoEdgeDetectionRange, "Detection range", 100, 800);
+				Slider(g_Config.m_KrxAutoEdgePopulationSize, "Population Size", 128, 8192);
+				Slider(g_Config.m_KrxAutoEdgeExplorationDepth, "Exploration Depth", 1, 50);
+				Slider(g_Config.m_KrxAutoEdgeTopKCandidates, "Top-K Candidates", 1, 100);
+				Slider(g_Config.m_KrxAutoEdgeSequenceLength, "Sequence Length", 1, 20);
+				Slider(g_Config.m_KrxAutoEdgeDetectionRange, "Detection Range", 100, 800);
 			}
-			Check(g_Config.m_KrxAutoEdgeDetectFreeze, "Detect freeze");
-			Check(g_Config.m_KrxAutoEdgeDetectDeath, "Detect death");
-			Check(g_Config.m_KrxAutoEdgeDetectTele, "Detect teleporters");
+			Check(g_Config.m_KrxAutoEdgeDetectFreeze, "Detect Freeze");
+			Check(g_Config.m_KrxAutoEdgeDetectDeath, "Detect Death");
+			Check(g_Config.m_KrxAutoEdgeDetectTele, "Detect Teleporters");
 			Check(g_Config.m_KrxAutoEdgeShowVisitedTiles, "Visited tiles", false, "The original registers this option but has no rendering consumer");
-			Check(g_Config.m_KrxAutoEdgeShowFoundEdges, "Found edges");
-			Check(g_Config.m_KrxAutoEdgeShowLockedEdge, "Locked edge");
+			Check(g_Config.m_KrxAutoEdgeShowFoundEdges, "Show Found Edges");
+			Check(g_Config.m_KrxAutoEdgeShowLockedEdge, "Show Locked Edge");
 		}
 		if(Card(Left, g_Config.m_KrxSpoofVersion ? 105.0f : 85.0f, "Protections"))
 		{
@@ -407,7 +409,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		{
 			Check(g_Config.m_KrxAutoVote, "Enable");
 			if(g_Config.m_KrxAutoVote)
-				Check(g_Config.m_KrxAutoVoteF4, g_Config.m_KrxAutoVoteF4 ? "Vote: No (F4)" : "Vote: Yes (F3)");
+				Check(g_Config.m_KrxAutoVoteF4, g_Config.m_KrxAutoVoteF4 ? "Mode: F4" : "Mode: F3");
 		}
 		if(Card(Right, g_Config.m_KrxIdStealer ? 205.0f : 65.0f, "ID Stealer"))
 		{
@@ -459,7 +461,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	}
 	else if(g_Config.m_KrxMenuTab == 2)
 	{
-		if(Card(Left, g_Config.m_KrxNowPlayingHud ? 180 : 65, "Now Playing"))
+		if(Card(Left, g_Config.m_KrxNowPlayingHud ? 180 : 65, "Now Playing HUD"))
 		{
 			Check(g_Config.m_KrxNowPlayingHud, "Enable");
 			if(g_Config.m_KrxNowPlayingHud)
@@ -638,11 +640,11 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Choice(g_Config.m_KrxTrailType, "", apModes, 5, 2);
 				if(g_Config.m_KrxTrailType == 4)
 				{
-					Slider(g_Config.m_ClTeeTrailWidth, "Width", 0, 20);
-					Slider(g_Config.m_ClTeeTrailLength, "Length", 5, 200);
-					Slider(g_Config.m_ClTeeTrailAlpha, "Alpha", 1, 100);
-					Check(g_Config.m_ClTeeTrailTaper, "Low taper");
-					Check(g_Config.m_ClTeeTrailFade, "Fade");
+					Slider(g_Config.m_ClTeeTrailWidth, "Trail width", 0, 20);
+					Slider(g_Config.m_ClTeeTrailLength, "Trail length", 5, 200);
+					Slider(g_Config.m_ClTeeTrailAlpha, "Trail alpha", 1, 100);
+					Check(g_Config.m_ClTeeTrailTaper, "Trail low taper");
+					Check(g_Config.m_ClTeeTrailFade, "Trail fade");
 					const char *apColors[] = {"Solid", "Tee", "Rainbow", "Speed", "Random"};
 					Choice(g_Config.m_ClTeeTrailColorMode, "Color", apColors, 5, 12);
 					Color(g_Config.m_ClTeeTrailColor, "Solid color", 25, 0xff);
@@ -676,22 +678,22 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			{
 				Check(g_Config.m_AvoidFreeze, "Enable");
 				Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction");
-				Check(g_Config.m_AvoidAfkProtection, "AFK protection");
+				Check(g_Config.m_AvoidAfkProtection, "Afk protection");
 				if(g_Config.m_AvoidAfkProtection)
 					Slider(g_Config.m_AvoidAfkTime, "Seconds", 1, 300);
 			}
 			if(g_Config.m_AvoidAgentType == 1)
 			{
-				if(Card(Left, 205, "Legit search"))
+				if(Card(Left, 205, "Settings"))
 				{
 					Slider(g_Config.m_AvoidLegitCheckTicks, "Check ticks", 1, 50);
-					Slider(g_Config.m_ClAvoidNumIterations, "Iterations", 1, 1000);
+					Slider(g_Config.m_ClAvoidNumIterations, "Quality", 1, 1000);
 					Check(g_Config.m_AvoidLegitDirection, "Direction");
 					Check(g_Config.m_AvoidLegitHook, "Hook");
-					Slider(g_Config.m_AvoidDirectionWeight, "Direction weight", 1, 1000);
-					Slider(g_Config.m_AvoidHookWeight, "Hook weight", 1, 1000);
-					Slider(g_Config.m_AvoidLifespanWeight, "Lifespan weight", 1, 1000);
-					Slider(g_Config.m_AvoidExplorationConstant, "Exploration", 1, 1000);
+					Slider(g_Config.m_AvoidDirectionWeight, "Direction priority", 1, 1000);
+					Slider(g_Config.m_AvoidHookWeight, "Hook priority", 1, 1000);
+					Slider(g_Config.m_AvoidLifespanWeight, "Life priority", 1, 1000);
+					Slider(g_Config.m_AvoidExplorationConstant, "Randomness", 1, 1000);
 				}
 				if(Card(Right, g_Config.m_AvoidLegitUnfreeze ? 125 : 105, "Tiles"))
 				{
@@ -711,11 +713,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction");
 			const char *apModes[] = {"Autonomous", "Follow Cursor", "Follow Player"};
 			Choice(g_Config.m_AvoidPilotBotMode, "Mode", apModes, 3, 13);
-			Slider(g_Config.m_AvoidPilotBotPopulationSize, "Population", 128, 8192);
-			Slider(g_Config.m_AvoidPilotBotExplorationDepth, "Exploration depth", 5, 50);
-			Slider(g_Config.m_AvoidPilotBotTopKCandidates, "Top candidates", 1, 100);
-			Slider(g_Config.m_AvoidPilotBotSequenceLength, "Sequence length", 1, 20);
-			Slider(g_Config.m_PilotBudgetMs, "Search budget (ms)", 0, 50, false, "OpenKRX frame-time limit; 0 evaluates the full original population");
+			Slider(g_Config.m_AvoidPilotBotPopulationSize, "Population Size", 128, 8192);
+			Slider(g_Config.m_AvoidPilotBotExplorationDepth, "Exploration Depth", 5, 50);
+			Slider(g_Config.m_AvoidPilotBotTopKCandidates, "Top-K Candidates", 1, 100);
+			Slider(g_Config.m_AvoidPilotBotSequenceLength, "Sequence Length", 1, 20);
 		}
 		if(g_Config.m_AvoidAgentType == 3 && Card(Left, Height, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/fentbot"))
 		{
@@ -737,13 +738,13 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Choice(g_Config.m_KrxFentQualitySetting, "Quality", apQuality, 3, 8);
 			}
 			Body.HSplitTop(5, nullptr, &Body);
-			if(Action(g_Config.m_AvoidFreeze ? "Stop" : "Enable", 0))
+			if(Action(g_Config.m_AvoidFreeze ? "Overdose" : "Inject fent", 0))
 				g_Config.m_AvoidFreeze ^= 1;
 		}
 		if(Card(Left, 145, "Visuals"))
 		{
 			Check(g_Config.m_AvoidDrawPath, "Render path", false, "Shows visuals for path");
-			Check(g_Config.m_KrxTileEditorEnable, "Show tile editor");
+			Check(g_Config.m_KrxTileEditorEnable, "Enable Editor");
 			Check(g_Config.m_KrxPathFindingRenderFlowField, "Render pathfinding", false, "Shows visuals for pathfinding");
 			Check(g_Config.m_KrxFentSpectateScan, "Spectate scan", false, "Spectates the latest position of the scan");
 		}
@@ -759,10 +760,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_KrxTileEditorEnable, "Enable Editor");
 			const char *apTypes[] = {"Tunnel", "Finish"};
 			Choice(g_Config.m_KrxTileEditorType, "Type", apTypes, 2, 14);
-			if(Action("Auto tunnels", 3))
+			if(Action("Auto Tunnels", 3))
 				g_Config.m_KrxTileEditorAutoTunnel = 1;
-			Slider(g_Config.m_KrxTileEditorAutoTunnelWidth, "Tunnel width", 0, 10);
-			if(Action("Clear all tiles", 4))
+			Slider(g_Config.m_KrxTileEditorAutoTunnelWidth, "Auto Tunnel Width", 0, 10);
+			if(Action("Clear All Tiles", 4))
 				g_Config.m_KrxTileEditorClear = 1;
 		}
 	}
@@ -840,7 +841,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			if(g_Config.m_KrxTasAutoReplay)
 			{
 				Check(g_Config.m_KrxTasAutoReplayFreeze, "On freeze", true, "Restarts auto replay when frozen");
-				Check(g_Config.m_KrxTasAutoReplayKill, "Kill on end", true, "Kills on end of replay");
+				Check(g_Config.m_KrxTasAutoReplayKill, "Kill", true, "Kills on end of replay");
 			}
 			Check(g_Config.m_KrxAutoSaveReplayEnabled, "Auto Save Replay", false, "Automatically saves a TAS replay to the replays-folder/auto/ directory");
 			if(g_Config.m_KrxAutoSaveReplayEnabled)
@@ -1040,7 +1041,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		}
 		if(Card(Right, 90, "Fake Aim"))
 		{
-			const char *apModes[] = {"Robot aim", "Spin", "Rand", "Smooth"};
+			const char *apModes[] = {"Robot aim", "Spinbot", "Random", "Smooth"};
 			Choice(g_Config.m_KrxTasFakeAimMode, "", apModes, 4, 9);
 			Body.HSplitTop(5, nullptr, &Body);
 			if(Action("Add fake aim", 11))
@@ -1096,7 +1097,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Key(6, "Quick Stop:", "toggle krx_quickstop 1 0");
 			Key(7, "Hook Ride (risky):", "toggle krx_hookride 1 0");
 			Key(8, "Avoid Freeze:", "toggle krx_avoidfreeze 1 0");
-			Key(9, "Auto Edge:", "toggle krx_autoedge 1 0");
+			Key(9, "Auto Edge:", "+toggle krx_autoedge 1 0", "toggle krx_autoedge 1 0");
 			Body.HSplitTop(2.0f, nullptr, &Body);
 			Key(10, "Laser Unfreeze Bot:", "toggle krx_unfreezebot 1 0");
 		}

@@ -1,4 +1,4 @@
-// New KRX 13610 registry, REA b3010f41..., 2026-11-04. Repeated macro inclusion.
+// New KRX 13610 registry, original b3010f41..., 2026-11-04. Repeated macro inclusion.
 MACRO_CONFIG_INT(KrxNowPlayingHud, krx_nowplaying_hud, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show a Now Playing HUD element")
 MACRO_CONFIG_INT(KrxNowPlayingSegmented, krx_nowplayingsegmented, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Now Playing segmented text")
 MACRO_CONFIG_INT(KrxNowPlayingGradientSpeed, krx_nowplayinggradientspeed, 1, 1, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Now Playing gradient speed")

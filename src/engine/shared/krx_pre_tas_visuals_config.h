@@ -1,5 +1,5 @@
 // Intentionally unguarded: included by the config macro passes.
-// Original registry: REA visuals/028-registry.json.
+// Original registry: original visual settings table.
 MACRO_CONFIG_INT(ClFrozenTeesText, cl_frozen_tees_text, 0, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show how many tees in your team are currently frozen. (0 - off, 1 - show alive, 2 - show frozen)")
 MACRO_CONFIG_INT(ClFrozenTeesHud, cl_frozen_tees_hud, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show frozen tee HUD")
 MACRO_CONFIG_INT(ClFrozenTeesHudSkins, cl_frozen_tees_hud_skins, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Use ninja skin, or darkened skin for frozen tees on hud")

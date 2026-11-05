@@ -24,7 +24,7 @@ namespace OpenKrx
 {
 	bool CPreTasVisuals::ShouldSuspendAvoid()
 	{
-		// REA: 0x1402cc7a0; grounded helper 0x1402b4540. Preserve strict
+		// Original: 0x1402cc7a0; grounded helper 0x1402b4540. Preserve strict
 		// comparison, timer rearming, and the original two-direction-key gate.
 		if(!g_Config.m_AvoidAfkProtection)
 			return false;
@@ -82,7 +82,7 @@ namespace OpenKrx
 
 	void CPreTasVisuals::PredictTrajectory()
 	{
-		// REA 0x140309a90, called first in 0x14026d2d0, before all input bots.
+		// Original 0x140309a90, called first in 0x14026d2d0, before all input bots.
 		m_vTrajectories.clear();
 		if(!g_Config.m_KrxTrajectoryEsp || !Playing(GameClient()) || Spectating(GameClient()))
 			return;

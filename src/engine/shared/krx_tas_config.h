@@ -1,4 +1,4 @@
-// REA registry 0x1400637a0. Intentionally included repeatedly.
+// Original registry 0x1400637a0. Intentionally included repeatedly.
 MACRO_CONFIG_INT(KrxTasTps, krx_tastps, 50, 1, 50, CFGFLAG_CLIENT | CFGFLAG_SAVE, "TAS tps 1 - 50")
 MACRO_CONFIG_INT(KrxTasRespawn, krx_tasrespawn, 0, 0, 1, CFGFLAG_CLIENT, "TAS respawn")
 MACRO_CONFIG_INT(KrxTasPause, krx_taspause, 0, 0, 1, CFGFLAG_CLIENT, "TAS pause on/off")

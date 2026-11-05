@@ -21,14 +21,14 @@ void CKrxMovementPreTas::OnReset()
 	m_FastInput = {};
 	// The movement/tune state is stored in process globals by the original.
 	// Handler-owned off/reset branches clear it; reconnect must not invent
-	// another reset (REA lifecycle references045..047).
+	// another reset (original lifecycle references045..047).
 }
 
 bool CKrxMovementPreTas::UpdateFastInput()
 {
 	if(GameClient()->m_Tas.Active())
 		return false;
-	// REA 23e070 copies all ten input words, derives direction from physical
+	// Original 23e070 copies all ten input words, derives direction from physical
 	// keys, and compares the seven non-aim action fields with the old cache.
 	const int Slot = g_Config.m_ClDummy;
 	const auto &Controls = GameClient()->m_Controls;
@@ -49,7 +49,7 @@ bool CKrxMovementPreTas::UpdateFastInput()
 
 void CKrxMovementPreTas::GhostMove(CNetObj_PlayerInput &Input)
 {
-	// REA 2c0650: the cached world-tick parity gates the alternating phase.
+	// Original 2c0650: the cached world-tick parity gates the alternating phase.
 	// Deliberately do not turn this into a simple current-tick modulo toggle.
 	if(!g_Config.m_KrxGhostMove)
 	{

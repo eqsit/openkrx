@@ -763,7 +763,6 @@ MACRO_CONFIG_INT(KrxGrenadeSaver, krx_grenadesaver, 0, 0, 1, CFGFLAG_CLIENT | CF
 #include "krx_pre_tas_visuals_config.h"
 #include "krx_tas_config.h"
 #include "krx_new_movement_config.h"
-MACRO_CONFIG_INT(PilotBudgetMs, openkrx_pilot_budget_ms, 8, 0, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot search time budget in milliseconds (0 = full original population; an in-progress candidate finishes before returning)")
 #include "krx_new_tas_config.h"
 #include "krx_new_misc_visuals_config.h"
 #include "krx_new_classic_config.h"

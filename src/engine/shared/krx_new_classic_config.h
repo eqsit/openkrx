@@ -1,4 +1,4 @@
-// KRX13610 Basic/Legit registry, REA new-krx-20261103. Repeated macro inclusion.
+// KRX13610 Basic/Legit registry, original registry. Repeated macro inclusion.
 MACRO_CONFIG_INT(AvoidLegitCheckTicks, krx_avoid_tile_legit_check_ticks, 6, 1, 50, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit rollout check ticks")
 MACRO_CONFIG_INT(AvoidLegitDirection, krx_avoid_tile_legit_direction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit direction assistance")
 MACRO_CONFIG_INT(AvoidLegitHook, krx_avoid_tile_legit_hook, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Legit hook assistance")

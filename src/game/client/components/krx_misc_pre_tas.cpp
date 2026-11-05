@@ -28,7 +28,7 @@
 namespace
 {
 #include "krx_name_data.h"
-	// MSVC's rand state and algorithm (REA 3f35fc); using libc rand on Linux changes
+	// MSVC's rand state and algorithm (Original 3f35fc); using libc rand on Linux changes
 	// the generator and its 15-bit range. The original stream starts with seed1.
 	thread_local uint32_t s_ReferenceRand = 1;
 	const char *const s_apDdnetMods[] = {
@@ -469,7 +469,7 @@ void CKrxMiscPreTas::OnMessage(int MsgType, void *pRawMsg)
 			const std::string Repeated = RepeatedChat(pMsg->m_pMessage);
 			GameClient()->m_Chat.SendChat(0, Repeated.c_str());
 			// New 13610 keeps the same minimum five seconds; it only allows
-			// increasing the cooldown to ten. REA 33bc70, global6ae084.
+			// increasing the cooldown to ten. Original 33bc70, global6ae084.
 			m_RepeatAfterTick = Tick + std::clamp(g_Config.m_KrxChatRepeaterCooldown, 5, 10) * 50;
 		}
 	}

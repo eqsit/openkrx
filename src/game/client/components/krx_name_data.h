@@ -1,4 +1,4 @@
-// Recovered from REA name constructors 036d20, 036f80, 0376c0, 038c80, 038e70, 039060, 039260, 0393c0.
+// Recovered from Original name constructors 036d20, 036f80, 0376c0, 038c80, 038e70, 039060, 039260, 0393c0.
 static const char *const s_apNameNames[] = {
 	"Sophia",
 	"Emma",
