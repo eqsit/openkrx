@@ -67,10 +67,10 @@ namespace OpenKrx
 			pGraphics->QuadsBegin();
 			pGraphics->SetColor(Circle);
 			pGraphics->DrawCircle(Point.x, Point.y, 3.25f, 64);
-			// Native30fff0 uses ((width5-1)*.25+.5)*zoom as half-width.
+			// 32f7c0/32fbc0 pass width2: ((2-1)*.25+.5)*zoom half-width.
 			if(distance(From, Point) >= 1.0f)
 			{
-				const vec2 Offset = normalize(vec2(Point.y - From.y, From.x - Point.x)) * (1.5f * Camera.m_Zoom);
+				const vec2 Offset = normalize(vec2(Point.y - From.y, From.x - Point.x)) * (0.75f * Camera.m_Zoom);
 				pGraphics->SetColor(Line);
 				IGraphics::CFreeformItem Quad(Point - Offset, Point + Offset, From - Offset, From + Offset);
 				pGraphics->QuadsDrawFreeform(&Quad, 1);
@@ -147,10 +147,12 @@ namespace OpenKrx
 		}
 		m_LastClientId = ClientId;
 		m_LastSlot = g_Config.m_ClDummy;
-		// cc620: the snapshot's SUPER bit plus raw game tile9 is an early gate.
-		const vec2 LocalPos = pGameClient->m_LocalCharacterPos;
+		// New327ef0 checks tile9 at the predicted/TAS position, not the
+		// interpolated render position (which can be on the other side of a tile).
+		const auto *pPredicted = pGameClient->KrxPredictedWorld().GetCharacterById(ClientId);
+		const vec2 LocalPos = pPredicted ? pPredicted->m_Pos : pGameClient->m_LocalCharacterPos;
 		const vec2 TilePos(static_cast<int>(LocalPos.x), static_cast<int>(LocalPos.y));
-		if(pGameClient->m_aClients[ClientId].m_Super &&
+		if(pPredicted && pGameClient->m_aClients[ClientId].m_Super &&
 			pGameClient->Collision()->GetTileIndex(pGameClient->Collision()->GetPureMapIndex(TilePos)) == TILE_FREEZE)
 		{
 			m_Diagnostic.m_pGate = "super_freeze_tile";

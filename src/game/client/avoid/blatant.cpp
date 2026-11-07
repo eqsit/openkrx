@@ -199,7 +199,9 @@ namespace OpenKrx
 		const float Step50 = Step / 50.0f;
 		// The scan is centred on the physical mouse, while the assist similarity
 		// score uses the input aim (which may already track an older anchor).
-		const float Center = angle(MouseAim);
+		// 32cc18 calls atan2f(y, x), not the legacy atan(y/x)+pi helper.
+		// A 2*pi shift changes float stepping and quantized rays in quadrant III.
+		const float Center = std::atan2(MouseAim.y, MouseAim.x);
 		const float End = Center + Fov * 0.5f;
 		const float Radius = World.HookLength() - 28.0f;
 		// SAFE is the maximum ConstantLife result. Both selectors require a
@@ -351,7 +353,7 @@ namespace OpenKrx
 		}
 	}
 
-	CNetObj_PlayerInput CBlatantPlanner::AutoDrag(const IBlatantSimulation &World,
+	CNetObj_PlayerInput CBlatantPlanner::AutoDrag(IBlatantSimulation &World,
 		CNetObj_PlayerInput Input, vec2 MouseAim)
 	{
 		const auto Aim = World.DragAim();

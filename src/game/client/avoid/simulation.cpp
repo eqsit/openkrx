@@ -255,7 +255,7 @@ namespace OpenKrx
 	}
 }
 
-std::optional<vec2> OpenKrx::CGameWorldSimulation::DragAim() const
+std::optional<vec2> OpenKrx::CGameWorldSimulation::DragAim()
 {
 	if(!m_pGameClient || !m_pLocal)
 		return std::nullopt;

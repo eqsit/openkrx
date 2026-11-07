@@ -54,7 +54,8 @@ namespace OpenKrx
 		// Candidate angle scans separately interpret the same value as degrees.
 		bool InSelectionFov(vec2 Direction, vec2 Mouse, int Fov)
 		{
-			const float Delta = std::atan2(Direction.y, Direction.x) - std::atan2(Mouse.y, Mouse.x);
+			// 312670 uses 19ef00's legacy angle helper for both vectors.
+			const float Delta = angle(Direction) - angle(Mouse);
 			return std::abs(std::atan2(std::sin(Delta), std::cos(Delta))) * 100.0f < Fov;
 		}
 		bool Frozen(const CCharacter *pCharacter)
@@ -361,12 +362,19 @@ namespace OpenKrx
 			if(HookHits(Source, ClientId, TargetId, Input))
 				return vec2(Input.m_TargetX, Input.m_TargetY);
 			std::vector<CScored> vCandidates;
-			const float Begin = std::atan2(pTarget->m_Pos.y - pLocal->m_Pos.y, pTarget->m_Pos.x - pLocal->m_Pos.x) + PI / 2.0f;
-			const float End = Begin + PI;
-			const int Accuracy = Settings.m_Advanced ? std::clamp(Settings.m_Accuracy, 1, 200) : 200;
-			for(float Angle = Begin; Angle < End; Angle += PI / Accuracy)
+			// New KRX 320fa0: distance-dependent arc, inclusive end, float edge
+			// coordinates. 19ef00 is the legacy angle helper; 467030 is asinf.
+			const vec2 Difference = pTarget->m_Pos - pLocal->m_Pos;
+			const float Center = angle(Difference);
+			const float HalfArc = std::asin(std::clamp(28.0f / length(Difference), -1.0f, 1.0f));
+			const float Begin = Center - HalfArc - 0.1f;
+			const float End = Center + HalfArc + 0.1f;
+			const int Accuracy = Settings.m_Advanced ? Settings.m_Accuracy : 200;
+			if(Accuracy < 1)
+				return std::nullopt;
+			for(float Angle = Begin; Angle <= End; Angle += PI / Accuracy)
 			{
-				const vec2 Edge((int)(std::cos(Angle) * 28.0f + pTarget->m_Pos.x), (int)(std::sin(Angle) * 28.0f + pTarget->m_Pos.y));
+				const vec2 Edge(std::cos(Angle) * 28.0f + pTarget->m_Pos.x, std::sin(Angle) * 28.0f + pTarget->m_Pos.y);
 				CScored Candidate;
 				Candidate.m_Input = WithAim(Input, QuantizedAim(Edge - pLocal->m_Pos, Radius));
 				Candidate.m_Input.m_Hook = 1;
@@ -642,13 +650,17 @@ namespace OpenKrx
 				continue;
 			if(pGameClient && (pGameClient->m_aClients[Id].m_Spec || pGameClient->m_aClients[ClientId].m_Spec))
 				continue;
-			if(!(Fng && !TeamPlay) && (!pTarget->CanCollide(ClientId) || pLocal->Core()->m_HookHitDisabled || pTarget->Core()->m_Solo || pLocal->Core()->m_Solo))
+			if(Fng)
+			{
+				if(TeamPlay && SameGameTeam(pGameClient, World, ClientId, Id))
+					continue;
+			}
+			else if(!pTarget->CanCollide(ClientId) || pLocal->Core()->m_HookHitDisabled || pTarget->Core()->m_Solo != pLocal->Core()->m_Solo)
 				continue;
 			const bool Friend = pFriends ? (*pFriends)[Id] : pGameClient && pGameClient->m_aClients[Id].m_Friend;
 			const bool TargetFrozen = pGameClient ? IsKrxCharacterFrozen(pGameClient, Id) : Frozen(pTarget);
-			// The carrier really stores the local position, not target position.
-			// Consequently equal scores retain the first eligible entity order.
-			m_vCachedTargets.push_back({Id, TargetFrozen, pLocal->m_Pos, pTarget->m_Pos - pLocal->m_Pos, Friend});
+			// New 321bd0 stores the target's position, separately from its offset.
+			m_vCachedTargets.push_back({Id, TargetFrozen, pTarget->m_Pos, pTarget->m_Pos - pLocal->m_Pos, Friend});
 		}
 	}
 
@@ -671,14 +683,13 @@ namespace OpenKrx
 			{
 				if((Setting.m_IgnoreFriends && Target.m_Friend) || !InSelectionFov(Target.m_Difference, Mouse, Setting.m_Fov))
 					continue;
-				const vec2 Reference = Setting.m_Priority == 0 ? Mouse + pLocal->m_Pos : Setting.m_Priority == 1 ? pLocal->m_Pos :
-																   vec2(0, 0);
-				const float Distance = distance(Reference, Target.m_LocalPosition);
+				const float PhysicalDistance = distance(pLocal->m_Pos, Target.m_Position);
+				const float Distance = Setting.m_Priority == 1 ? PhysicalDistance : distance(pLocal->m_Pos + Mouse, Target.m_Position);
 				const float Max = Hook ? pTuning->m_HookLength + 30.0f : Weapon == WEAPON_HAMMER ? (float)pTuning->m_HookLength :
 														   pTuning->m_LaserReach + 30.0f;
-				if(Distance > Max || Distance >= Score)
+				if(PhysicalDistance > Max || Distance >= Score)
 					continue;
-				if(!Hook && Fng && ((TeamPlay && SameGameTeam(pGameClient, World, ClientId, Target.m_ClientId)) || Target.m_Frozen))
+				if(!Hook && Fng && Weapon != WEAPON_HAMMER && Target.m_Frozen)
 					continue;
 				Best = Target.m_ClientId;
 				Score = Distance;
@@ -699,33 +710,38 @@ namespace OpenKrx
 			{
 				CEntity *pNext = pEntity->TypeNext();
 				const int Id = static_cast<CCharacter *>(pEntity)->GetCid();
-				if(Id != ClientId && Id != m_HookTarget && Id != m_WeaponTarget && !static_cast<CCharacter *>(pEntity)->m_IsLocal)
+				if(Id != ClientId && Id != m_HookTarget && Id != m_WeaponTarget)
 					delete pEntity;
 				pEntity = pNext;
 			}
 	}
 
-	std::optional<vec2> CAimbot::FindDragAim(const CGameWorld &Source, int ClientId, CGameClient *pGameClient, vec2 Mouse)
+	std::optional<vec2> CAimbot::FindDragAim(CGameWorld &Source, int ClientId, CGameClient *pGameClient, vec2 Mouse)
 	{
-		if(m_ClientId != ClientId || !m_pTargetWorld)
+		if(!Source.GetCharacterById(ClientId))
 			return std::nullopt;
+		if(m_ClientId != ClientId)
+		{
+			OnReset();
+			m_ClientId = ClientId;
+		}
 		const bool TeamPlay = pGameClient && pGameClient->m_Snap.m_pGameInfoObj &&
 				      (pGameClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS);
-		// 2d1940 repeats collect/select/prune on the retained private world,
-		// temporarily changing only hook FOV and priority before HookAim.
+		// 32d380 uses the supplied Avoid snapshot for collect/select/prune AND
+		// the later hook/safety probes. No preceding main-aimbot refresh is needed.
 		auto Settings = m_CachedSettings;
 		Settings.m_Hook.m_Fov = 315;
 		Settings.m_Hook.m_Priority = 1;
-		CollectTargets(*m_pTargetWorld, pGameClient, TeamPlay, nullptr);
-		SelectTargets(*m_pTargetWorld, pGameClient, Mouse, Settings, TeamPlay);
-		PruneTargets(*m_pTargetWorld);
+		CollectTargets(Source, pGameClient, TeamPlay, nullptr);
+		SelectTargets(Source, pGameClient, Mouse, Settings, TeamPlay);
+		PruneTargets(Source);
 		const int TargetId = m_HookTarget;
 		if(TargetId < 0)
 			return std::nullopt;
 		CNetObj_PlayerInput Input{};
 		if(pGameClient)
 			Input = pGameClient->m_Controls.m_aInputData[g_Config.m_ClDummy];
-		else if(auto *pLocal = const_cast<CGameWorld &>(Source).GetCharacterById(ClientId))
+		else if(auto *pLocal = Source.GetCharacterById(ClientId))
 			Input = pLocal->DiagnosticLatestInput();
 		const float Radius = pGameClient ? pGameClient->m_Controls.GetMaxMouseDistance() : 400.0f;
 		return HookAim(Source, ClientId, TargetId, Input, Mouse, m_CachedSettings, Radius);

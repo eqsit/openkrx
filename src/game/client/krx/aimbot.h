@@ -68,7 +68,8 @@ namespace OpenKrx
 			int ClientId, vec2 PhysicalMouse, const CAimbotSettings &Settings,
 			float MouseRadius = 400.0f, bool TeamPlay = false,
 			const std::array<bool, MAX_CLIENTS> *pFriends = nullptr);
-		std::optional<vec2> FindDragAim(const CGameWorld &Source, int ClientId,
+		// Source must be an owned speculative world: selection prunes it in place.
+		std::optional<vec2> FindDragAim(CGameWorld &Source, int ClientId,
 			CGameClient *pGameClient, vec2 PhysicalMouse);
 
 		int HookTarget() const { return m_HookTarget; }
@@ -79,7 +80,7 @@ namespace OpenKrx
 		{
 			int m_ClientId;
 			bool m_Frozen;
-			vec2 m_LocalPosition;
+			vec2 m_Position;
 			vec2 m_Difference;
 			bool m_Friend;
 		};

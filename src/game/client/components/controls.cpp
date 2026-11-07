@@ -473,7 +473,7 @@ int CControls::SnapInput(int *pData)
 		GameClient()->m_KrxAutoEdgeNew.AutoEdge(m_aInputData[KrxSlot]);
 		GameClient()->m_MediumVisuals.UpdateIdentity();
 		GameClient()->m_KrxMiscPreTas.BeforeInput();
-		// Settings are current, while AutoDrag's target world is from the preceding refresh.
+		// AutoDrag uses current settings and the current Avoid snapshot.
 		auto AimbotSettings = CurrentKrxAimbotSettings();
 		GameClient()->m_Aimbot.SetSettings(AimbotSettings);
 		TracePipelineStart = g_Config.m_AvoidDebug ? time_get_nanoseconds().count() : 0;
@@ -485,8 +485,8 @@ int CControls::SnapInput(int *pData)
 		TraceAvoid = m_aInputData[g_Config.m_ClDummy];
 		m_aInputData[KrxSlot] = GameClient()->m_PilotBot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId);
 		m_aInputData[KrxSlot] = GameClient()->m_ClassicAvoid.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId);
-		// 26d2d0 runs Avoid before the main aimbot. AutoDrag above consumes
-		// the retained private world from the preceding aimbot refresh.
+		// The coordinator runs Avoid before the main aimbot. AutoDrag above
+		// has already selected and checked its own Avoid snapshot.
 		// Preserve that order before fake aim and the later Rocket Save pass.
 		const auto AimDecision = GameClient()->m_Aimbot.AdjustInput(GameClient(), m_aInputData[KrxSlot], KrxClientId, m_aMousePos[KrxSlot], AimbotSettings);
 		m_aInputData[KrxSlot] = AimDecision.m_Input;

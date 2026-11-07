@@ -61,7 +61,8 @@ namespace OpenKrx
 		// Aim is a mouse offset relative to the character. The result is the world
 		// space hook attach point, or nullopt when the hook would not attach.
 		virtual std::optional<vec2> HookPoint(vec2 Aim) const = 0;
-		virtual std::optional<vec2> DragAim() const { return std::nullopt; }
+		// AutoDrag selects and prunes this speculative world before its safety probe.
+		virtual std::optional<vec2> DragAim() { return std::nullopt; }
 	};
 
 	struct CBlatantPlan
@@ -109,7 +110,7 @@ namespace OpenKrx
 		std::vector<CNetObj_PlayerInput> AimCandidates(const IBlatantSimulation &World, const CNetObj_PlayerInput &Input, vec2 MouseAim) const;
 		std::vector<std::vector<CNetObj_PlayerInput>> CandidateGroups(const CNetObj_PlayerInput &Input) const;
 		std::vector<CNetObj_PlayerInput> Candidates(const IBlatantSimulation &World, const CNetObj_PlayerInput &Input, vec2 MouseAim) const;
-		CNetObj_PlayerInput AutoDrag(const IBlatantSimulation &World, CNetObj_PlayerInput Input, vec2 MouseAim);
+		CNetObj_PlayerInput AutoDrag(IBlatantSimulation &World, CNetObj_PlayerInput Input, vec2 MouseAim);
 
 	public:
 		explicit CBlatantPlanner(CBlatantSettings Settings = {}) : m_Settings(Settings) {}
