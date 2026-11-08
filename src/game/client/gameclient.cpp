@@ -2710,7 +2710,8 @@ void CGameClient::OnPredict()
 	// predict
 	for(int Tick = Client()->GameTick(g_Config.m_ClDummy) + 1; Tick <= EndTick; Tick++)
 	{
-		if(g_Config.m_ClFastInput && Tick == EndTick)
+		const bool FastInputVisualTick = g_Config.m_ClFastInput && Tick == EndTick;
+		if(FastInputVisualTick)
 		{
 			// Keep speculative input out of the world consumed by Avoid/Rocket.
 			m_FastInputWorld.CopyWorldIsolated(&m_PredictedWorld);
@@ -2791,7 +2792,10 @@ void CGameClient::OnPredict()
 			}
 
 		// check if we want to trigger effects
-		if(Tick > m_aLastNewPredictedTick[Dummy])
+		// The extra visual tick is replayed with fresh input within the same game
+		// tick. It must not consume sound/effect deduplication or emit events that
+		// disappear when the speculative world is restored below.
+		if(!FastInputVisualTick && Tick > m_aLastNewPredictedTick[Dummy])
 		{
 			m_aLastNewPredictedTick[Dummy] = Tick;
 			m_NewPredictedTick = true;
@@ -2816,7 +2820,7 @@ void CGameClient::OnPredict()
 		}
 
 		// check if we want to trigger predicted airjump for dummy
-		if(AntiPingPlayers() && pDummyChar && Tick > m_aLastNewPredictedTick[!Dummy])
+		if(!FastInputVisualTick && AntiPingPlayers() && pDummyChar && Tick > m_aLastNewPredictedTick[!Dummy])
 		{
 			m_aLastNewPredictedTick[!Dummy] = Tick;
 			vec2 Pos = pDummyChar->Core()->m_Pos;
@@ -2826,7 +2830,8 @@ void CGameClient::OnPredict()
 					m_Effects.AirJump(Pos, 1.0f, 1.0f);
 		}
 
-		HandlePredictedEvents(Tick);
+		if(!FastInputVisualTick)
+			HandlePredictedEvents(Tick);
 	}
 
 	if(SavedFastInputWorld)

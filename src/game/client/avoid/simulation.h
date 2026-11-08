@@ -5,8 +5,10 @@
 
 #include <game/client/prediction/gameworld.h>
 
+#include <array>
 #include <memory>
 
+class CCollision;
 class CGameClient;
 class IEngine;
 
@@ -33,6 +35,7 @@ public:
 	std::optional<vec2> DragAim() override;
 
 	void CopyFrom(const CGameWorld &SourceWorld, int LocalClientId);
+	std::unique_ptr<CGameWorldSimulation> CloneForJob() const;
 	// User-authorized coupling fix: a pending Rocket press is not a promise
 	// to hold Fire/aim through reload. Existing projectiles remain simulated.
 	void LimitPendingAutomaticFire(bool AllowImmediateShot)
@@ -49,6 +52,9 @@ public:
 	int LocalClientId() const { return m_LocalClientId; }
 
 private:
+	// Declared before world so its entities are destroyed before these owners.
+	std::shared_ptr<CCollision> m_pJobCollision;
+	std::shared_ptr<std::array<CTuningParams, 256>> m_pJobTuning;
 	CGameWorld m_World;
 	CCharacter *m_pLocal = nullptr;
 	int m_LocalClientId = -1;

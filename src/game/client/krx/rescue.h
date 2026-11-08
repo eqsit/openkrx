@@ -11,6 +11,7 @@
 #include <vector>
 #include <optional>
 
+class IEngine;
 class CGameClient;
 class CGameWorld;
 
@@ -66,7 +67,7 @@ namespace OpenKrx
 		static CBeamResult ProbeBeam(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input, int Ticks,
 			bool RequireUnfreeze, CGameClient *pGameClient = nullptr, bool FullTrajectory = false);
 		static CBeamResult SearchShotgunWorld(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input,
-			vec2 Mouse, int Ticks, int Points, float Fov, bool MostBounces, bool HighestVelocity, float MouseRadius);
+			vec2 Mouse, int Ticks, int Points, float Fov, bool MostBounces, bool HighestVelocity, float MouseRadius, IEngine *pEngine = nullptr);
 		static CBeamResult SearchUnfreezeWorld(const CGameWorld &Source, int ClientId, CNetObj_PlayerInput Input,
 			vec2 Mouse, int Ticks, int Points, float Fov, bool MostBounces, float MouseRadius, CGameClient *pGameClient = nullptr);
 		static CAledResult SearchAledWorld(const CGameWorld &Source, int ClientId, int TargetId,

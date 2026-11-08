@@ -905,9 +905,9 @@ namespace OpenKrx
 		Message(aMessage);
 		m_AnalysisCancel.store(false);
 		m_AnalysisFuture = std::async(std::launch::async,
-			[this, Replay = m_Replay, Id = m_aIds[0], Speed, aTuning, pCollision = std::move(pCollision), pInitial = std::move(pInitial)]() mutable {
+			[this, Replay = m_Replay, Id = m_aIds[0], Speed, aTuning, pCollision = std::move(pCollision), pInitial = std::move(pInitial), pEngine = GameClient()->Engine()]() mutable {
 				pInitial->RebindTuning(aTuning.data());
-				return AnalyzeReplayStability(Replay, *pInitial, Id, Speed, &m_AnalysisCancel);
+				return AnalyzeReplayStability(Replay, *pInitial, Id, Speed, &m_AnalysisCancel, pEngine);
 			});
 	}
 

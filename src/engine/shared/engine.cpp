@@ -29,6 +29,7 @@ class CEngine : public IEngine
 	char m_aAppName[256];
 
 	CJobPool m_JobPool;
+	int m_JobThreadCount = 0;
 
 	static void Con_DbgLognetwork(IConsole::IResult *pResult, void *pUserData)
 	{
@@ -82,6 +83,7 @@ public:
 #else
 		const size_t ThreadCount = std::max(4, (int)std::thread::hardware_concurrency()) - 2;
 #endif
+		m_JobThreadCount = (int)ThreadCount;
 		m_JobPool.Init(ThreadCount);
 
 		m_Logging = false;
@@ -102,6 +104,8 @@ public:
 
 		m_pConsole->Register("dbg_lognetwork", "", CFGFLAG_SERVER | CFGFLAG_CLIENT, Con_DbgLognetwork, this, "Log the network");
 	}
+
+	int JobThreadCount() const override { return m_JobThreadCount; }
 
 	void AddJob(std::shared_ptr<IJob> pJob) override
 	{

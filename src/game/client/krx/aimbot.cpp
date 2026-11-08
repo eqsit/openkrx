@@ -1,5 +1,7 @@
 #include "aimbot.h"
 
+#include "parallel_prediction.h"
+
 #include <base/str.h>
 
 #include <engine/shared/config.h>
@@ -352,7 +354,7 @@ namespace OpenKrx
 				*Hole = Value;
 			}
 		}
-		std::optional<vec2> HookAim(const CGameWorld &Source, int ClientId, int TargetId, CNetObj_PlayerInput Input, vec2 Mouse, const CAimbotSettings &Settings, float Radius)
+		std::optional<vec2> HookAim(const CGameWorld &Source, int ClientId, int TargetId, CNetObj_PlayerInput Input, vec2 Mouse, const CAimbotSettings &Settings, float Radius, IEngine *pEngine)
 		{
 			auto &MutableSource = const_cast<CGameWorld &>(Source);
 			const auto *pLocal = MutableSource.GetCharacterById(ClientId);
@@ -378,9 +380,13 @@ namespace OpenKrx
 				CScored Candidate;
 				Candidate.m_Input = WithAim(Input, QuantizedAim(Edge - pLocal->m_Pos, Radius));
 				Candidate.m_Input.m_Hook = 1;
-				if(HookHits(Source, ClientId, TargetId, Candidate.m_Input))
-					vCandidates.push_back(Candidate);
+				vCandidates.push_back(Candidate);
 			}
+			ParallelPrediction(Source, pEngine, (int)vCandidates.size(), [&](const CGameWorld &Private, int Index) {
+				auto &C = vCandidates[Index];
+				C.m_Result = HookHits(Private, ClientId, TargetId, C.m_Input) ? 1 : 0;
+			});
+			vCandidates.erase(std::remove_if(vCandidates.begin(), vCandidates.end(), [](const CScored &C) { return C.m_Result != 1; }), vCandidates.end());
 			if(vCandidates.empty())
 				return std::nullopt;
 			ReferenceSort(vCandidates.begin(), vCandidates.end(), [&](const CScored &A, const CScored &B) {
@@ -388,7 +394,7 @@ namespace OpenKrx
 			});
 			return vec2(vCandidates.front().m_Input.m_TargetX, vCandidates.front().m_Input.m_TargetY);
 		}
-		std::optional<vec2> WeaponAim(const CGameWorld &Source, int ClientId, int TargetId, CNetObj_PlayerInput Input, vec2 Mouse, const CAimbotSettings &Settings, float Radius, bool TeamPlay, CGameClient *pGameClient)
+		std::optional<vec2> WeaponAim(const CGameWorld &Source, int ClientId, int TargetId, CNetObj_PlayerInput Input, vec2 Mouse, const CAimbotSettings &Settings, float Radius, bool TeamPlay, CGameClient *pGameClient, IEngine *pEngine)
 		{
 			auto &MutableSource = const_cast<CGameWorld &>(Source);
 			const auto *pLocal = MutableSource.GetCharacterById(ClientId);
@@ -418,18 +424,13 @@ namespace OpenKrx
 			if(Laser && LaserHits(Source, ClientId, -1, Input, 1, TeamPlay, pGameClient).m_Result == 0)
 				return vec2(Input.m_TargetX, Input.m_TargetY);
 			std::vector<CScored> vCandidates;
+			std::vector<std::array<std::vector<CNetObj_PlayerInput>, 4>> vTrials;
 			const float Center = std::atan2(Mouse.y, Mouse.x);
 			for(float Angle = Center - Span * 0.5f; Angle < Center + Span * 0.5f; Angle += SHOT_STEP)
 			{
 				CScored Candidate;
 				Candidate.m_Input = WithAim(Input, QuantizedAim(vec2(std::cos(Angle), std::sin(Angle)), Radius));
-				CProbeResult Probe;
-				if(Laser)
-					Probe = LaserHits(Source, ClientId, TargetId, Candidate.m_Input, 14, TeamPlay, pGameClient);
-				else
-					Probe = ProjectileHits(Source, ClientId, TargetId, Candidate.m_Input, {pTarget->DiagnosticLatestInput()}, TeamPlay, pGameClient);
-				Candidate.m_Result = Probe.m_Result;
-				Candidate.m_HitTick = Probe.m_HitTick;
+				vTrials.emplace_back();
 				if(!Laser && Settings.m_Advanced && Settings.m_GrenadeMovePrediction)
 				{
 					for(int Trial = 0; Trial < 4; ++Trial)
@@ -454,13 +455,22 @@ namespace OpenKrx
 							}
 							vInputs.push_back(TargetInput);
 						}
-						if(ProjectileHits(Source, ClientId, TargetId, Candidate.m_Input, vInputs, TeamPlay, pGameClient).m_Result > 0)
-							++Candidate.m_RobustHits;
+						vTrials.back()[Trial] = std::move(vInputs);
 					}
 				}
-				if(Candidate.m_Result >= (Laser ? 0 : 1) && Candidate.m_HitTick >= 0)
-					vCandidates.push_back(Candidate);
+				vCandidates.push_back(Candidate);
 			}
+			ParallelPrediction(Source, pEngine, (int)vCandidates.size(), [&](const CGameWorld &Private, int Index) {
+				auto &Candidate = vCandidates[Index];
+				auto Probe = Laser ? LaserHits(Private, ClientId, TargetId, Candidate.m_Input, 14, TeamPlay, pGameClient) : ProjectileHits(Private, ClientId, TargetId, Candidate.m_Input, {pTarget->DiagnosticLatestInput()}, TeamPlay, pGameClient);
+				Candidate.m_Result = Probe.m_Result;
+				Candidate.m_HitTick = Probe.m_HitTick;
+				if(!Laser && Settings.m_Advanced && Settings.m_GrenadeMovePrediction)
+					for(const auto &Trial : vTrials[Index])
+						if(ProjectileHits(Private, ClientId, TargetId, Candidate.m_Input, Trial, TeamPlay, pGameClient).m_Result > 0)
+							++Candidate.m_RobustHits;
+			});
+			vCandidates.erase(std::remove_if(vCandidates.begin(), vCandidates.end(), [Laser](const CScored &C) { return C.m_Result < (Laser ? 0 : 1) || C.m_HitTick < 0; }), vCandidates.end());
 			if(vCandidates.empty())
 			{
 				return std::nullopt;
@@ -567,7 +577,7 @@ namespace OpenKrx
 		}
 		if(Settings.m_Hook.m_Enabled && (Decision.m_Input.m_Hook || Settings.m_AutoHook) && m_HookTarget >= 0)
 		{
-			const auto Aim = HookAim(World, ClientId, m_HookTarget, Decision.m_Input, Mouse, Settings, Radius);
+			const auto Aim = HookAim(World, ClientId, m_HookTarget, Decision.m_Input, Mouse, Settings, Radius, pGameClient ? pGameClient->Engine() : m_pJobEngine);
 			if(Aim && *Aim != vec2(0, 0))
 			{
 				m_HookAim = *Aim;
@@ -605,7 +615,7 @@ namespace OpenKrx
 			return Decision;
 		if(pAuth->DiagnosticReloadTimer() > 3 || m_WeaponTarget < 0 || RandomInt(1, 100) < 100 - Settings.m_ShotPercentage)
 			return Decision;
-		const auto Aim = WeaponAim(World, ClientId, m_WeaponTarget, Decision.m_Input, Mouse, Settings, Radius, TeamPlay, pGameClient);
+		const auto Aim = WeaponAim(World, ClientId, m_WeaponTarget, Decision.m_Input, Mouse, Settings, Radius, TeamPlay, pGameClient, pGameClient ? pGameClient->Engine() : m_pJobEngine);
 		if(!Aim || *Aim == vec2(0, 0))
 			return Decision;
 		if(!(Decision.m_Input.m_Fire & 1) && pAuth->DiagnosticReloadTimer() <= 0)
@@ -744,6 +754,6 @@ namespace OpenKrx
 		else if(auto *pLocal = Source.GetCharacterById(ClientId))
 			Input = pLocal->DiagnosticLatestInput();
 		const float Radius = pGameClient ? pGameClient->m_Controls.GetMaxMouseDistance() : 400.0f;
-		return HookAim(Source, ClientId, TargetId, Input, Mouse, m_CachedSettings, Radius);
+		return HookAim(Source, ClientId, TargetId, Input, Mouse, m_CachedSettings, Radius, pGameClient ? pGameClient->Engine() : m_pJobEngine);
 	}
 } // namespace OpenKrx

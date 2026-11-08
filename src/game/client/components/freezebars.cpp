@@ -16,25 +16,8 @@ void CFreezeBars::RenderFreezeBar(const int ClientId)
 		return;
 	}
 
-	// only show the freeze bar once the server confirmed the freeze, so mispredicted freezes are not shown
-	if(!GameClient()->m_Tas.Active() && GameClient()->m_Snap.m_aCharacters[ClientId].m_ExtendedData.m_FreezeEnd <= 0)
-	{
-		return;
-	}
-
-	// the freeze ticks of predicted characters are in predicted time, so compare them against the tick they were predicted to
-	int Tick = Client()->GameTick(g_Config.m_ClDummy);
-	if(GameClient()->m_aClients[ClientId].m_IsPredictedLocal)
-	{
-		Tick = Client()->PredGameTick(g_Config.m_ClDummy);
-	}
-	else if(GameClient()->m_aClients[ClientId].m_IsPredicted)
-	{
-		Tick = Client()->GetPredictionTick();
-	}
-
-	if(GameClient()->m_Tas.Active())
-		Tick = GameClient()->m_Tas.World()->GameTick();
+	// TAS renders its simulated world; normal play uses stable DDNet timing.
+	const int Tick = GameClient()->m_Tas.Active() ? GameClient()->m_Tas.World()->GameTick() : Client()->GameTick(g_Config.m_ClDummy);
 
 	const int64_t Max = (int64_t)pCharacter->m_FreezeEnd - pCharacter->m_FreezeStart;
 	float FreezeProgress = std::clamp<int64_t>(Max - ((int64_t)Tick - pCharacter->m_FreezeStart), 0, Max) / (float)Max;

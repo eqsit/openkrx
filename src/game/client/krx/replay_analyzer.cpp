@@ -1,14 +1,41 @@
 #include "replay_analyzer.h"
 
+#include <engine/engine.h>
+#include <engine/shared/jobs.h>
+
 #include <game/client/prediction/entities/character.h>
 #include <game/client/prediction/gameworld.h>
 #include <game/collision.h>
 
-#include <array>
 #include <algorithm>
+#include <array>
+#include <functional>
+#include <future>
+#include <memory>
 
 namespace OpenKrx
 {
+	namespace
+	{
+		class CStabilityJob final : public IJob
+		{
+			std::function<bool()> m_Trial;
+			std::promise<bool> m_Result;
+			std::atomic<bool> m_Claimed{false};
+			void Run() override { RunInline(); }
+
+		public:
+			explicit CStabilityJob(std::function<bool()> Trial) : m_Trial(std::move(Trial)) { Abortable(false); }
+			std::future<bool> Result() { return m_Result.get_future(); }
+			void RunInline()
+			{
+				if(m_Claimed.exchange(true, std::memory_order_acq_rel))
+					return;
+				m_Result.set_value(m_Trial());
+			}
+		};
+	}
+
 	bool SimulateReplayAtHookSpeed(const CReplay &Replay, const CGameWorld &Initial, int Id, float Speed, vec2 &EndPosition, const std::atomic<bool> *pCancel)
 	{
 		if(Replay.m_aFrames[0].empty() || !Initial.Collision() || !Initial.TuningList())
@@ -47,7 +74,7 @@ namespace OpenKrx
 		return true;
 	}
 
-	CReplayStabilityResult AnalyzeReplayStability(const CReplay &Replay, const CGameWorld &Initial, int Id, float ReferenceSpeed, const std::atomic<bool> *pCancel)
+	CReplayStabilityResult AnalyzeReplayStability(const CReplay &Replay, const CGameWorld &Initial, int Id, float ReferenceSpeed, const std::atomic<bool> *pCancel, IEngine *pEngine)
 	{
 		CReplayStabilityResult Result;
 		vec2 Reference;
@@ -57,9 +84,32 @@ namespace OpenKrx
 			Result.m_Error = "Could not simulate original replay to get a reference end state.";
 			return Result;
 		}
+		std::vector<float> vSpeeds;
+		for(float Speed = 79.0f; Speed <= 81.0f; Speed += .01f)
+			vSpeeds.push_back(Speed);
+		std::vector<std::shared_ptr<CStabilityJob>> vJobs;
+		std::vector<std::future<bool>> vResults;
+		if(pEngine && pEngine->JobThreadCount() > 0)
+		{
+			for(float Speed : vSpeeds)
+			{
+				auto pJob = std::make_shared<CStabilityJob>([&, Speed] {
+					vec2 End;
+					return !(pCancel && pCancel->load()) && SimulateReplayAtHookSpeed(Replay, Initial, Id, Speed, End, pCancel) && distance(End, Reference) < .01f;
+				});
+				vResults.push_back(pJob->Result());
+				vJobs.push_back(pJob);
+				pEngine->AddJob(pJob);
+			}
+			// Drain ALL jobs before cancellation or referenced snapshots can die.
+			for(auto &pJob : vJobs)
+				pJob->RunInline();
+			for(auto &Future : vResults)
+				Future.wait();
+		}
 		bool InRange = false;
 		float RangeStart = -1.0f;
-		for(float Speed = 79.0f; Speed <= 81.0f; Speed += .01f)
+		for(float Speed : vSpeeds)
 		{
 			if(pCancel && pCancel->load(std::memory_order_relaxed))
 			{
@@ -67,7 +117,7 @@ namespace OpenKrx
 				return Result;
 			}
 			vec2 End;
-			const bool Stable = SimulateReplayAtHookSpeed(Replay, Initial, Id, Speed, End, pCancel) && distance(End, Reference) < .01f;
+			const bool Stable = vResults.empty() ? SimulateReplayAtHookSpeed(Replay, Initial, Id, Speed, End, pCancel) && distance(End, Reference) < .01f : vResults[Result.m_Samples].get();
 			++Result.m_Samples;
 			if(Stable && !InRange)
 			{

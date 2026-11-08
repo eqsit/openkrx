@@ -1,19 +1,20 @@
 #include "rescue.h"
 
-#include "bots.h"
 #include "aimbot.h"
+#include "bots.h"
 #include "misc.h"
+#include "parallel_prediction.h"
 
-#include <engine/shared/config.h>
 #include <engine/graphics.h>
+#include <engine/shared/config.h>
 
+#include <game/client/animstate.h>
 #include <game/client/avoid/rocket_save.h>
 #include <game/client/gameclient.h>
-#include <game/client/animstate.h>
-#include <game/client/render.h>
 #include <game/client/prediction/entities/character.h>
 #include <game/client/prediction/entities/laser.h>
 #include <game/client/prediction/gameworld.h>
+#include <game/client/render.h>
 #include <game/collision.h>
 #include <game/mapitems.h>
 
@@ -588,7 +589,7 @@ namespace OpenKrx
 
 	CRescueBots::CBeamResult CRescueBots::SearchShotgunWorld(const CGameWorld &Source, int ClientId,
 		CNetObj_PlayerInput Input, vec2 Mouse, int Ticks, int Points, float Fov, bool MostBounces,
-		bool HighestVelocity, float MouseRadius)
+		bool HighestVelocity, float MouseRadius, IEngine *pEngine)
 	{
 		const CCharacter *pLocal = const_cast<CGameWorld &>(Source).GetCharacterById(ClientId);
 		if(!pLocal || Points <= 0)
@@ -612,10 +613,22 @@ namespace OpenKrx
 			Candidate.m_TargetX = (int)Direction.x;
 			Candidate.m_TargetY = (int)Direction.y;
 			Candidate.m_Fire = 0;
-			const auto Probe = ProbeBeam(Source, ClientId, Candidate, Ticks, false);
-			if(Probe.m_Found && Probe.m_Speed > 0)
-				vCandidates.push_back({Direction, Probe.m_Speed, Probe.m_Bounces});
+			vCandidates.push_back({Direction, 0, 0});
 		}
+		ParallelPrediction(Source, pEngine, (int)vCandidates.size(), [&](const CGameWorld &Private, int Index) {
+			auto Candidate = Input;
+			Candidate.m_TargetX = (int)vCandidates[Index].m_Aim.x;
+			Candidate.m_TargetY = (int)vCandidates[Index].m_Aim.y;
+			Candidate.m_Fire = 0;
+			auto Probe = ProbeBeam(Private, ClientId, Candidate, Ticks, false);
+			if(Probe.m_Found)
+			{
+				vCandidates[Index].m_Speed = Probe.m_Speed;
+				vCandidates[Index].m_Bounces = Probe.m_Bounces;
+			}
+		});
+		vCandidates.erase(std::remove_if(vCandidates.begin(), vCandidates.end(), [](const CScoredAim &C) { return !(C.m_Speed > 0); }), vCandidates.end());
+
 		if(vCandidates.empty())
 			return {};
 		const auto Score = [&](const CScoredAim &Candidate) {
@@ -692,7 +705,7 @@ namespace OpenKrx
 		const vec2 Mouse = pGameClient->m_Controls.m_aMousePos[g_Config.m_ClDummy];
 		const auto Result = SearchShotgunWorld(pGameClient->KrxPredictedWorld(), ClientId, Input, Mouse,
 			g_Config.m_KrxAutoShotgunTicks, g_Config.m_KrxAutoShotgunPoints, (float)g_Config.m_KrxAutoShotgunFov,
-			g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunHighestVel, pGameClient->m_Controls.GetMaxMouseDistance());
+			g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunHighestVel, pGameClient->m_Controls.GetMaxMouseDistance(), pGameClient->Engine());
 		if(Result.m_Found)
 			Aim(pGameClient, Input, CMiscFeatures::QuantizedAim(Result.m_Aim, pGameClient->m_Controls.GetMaxMouseDistance()), g_Config.m_KrxAutoShotgunSilent != 0);
 		return Input;

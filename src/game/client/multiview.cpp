@@ -115,8 +115,8 @@ bool CGameClient::InitMultiView(int Team)
 		int SpectatorId = m_Snap.m_SpecInfo.m_SpectatorId;
 		int NewSpectatorId = -1;
 
-		vec2 CurPosition = m_Camera.m_Center;
-		if(SpectatorId != SPEC_FREEVIEW && m_Snap.m_aCharacters[SpectatorId].m_Active)
+		vec2 CurPosition(m_Camera.m_Center);
+		if(SpectatorId != SPEC_FREEVIEW)
 		{
 			const CNetObj_Character &CurCharacter = m_Snap.m_aCharacters[SpectatorId].m_Cur;
 			CurPosition.x = CurCharacter.m_X;

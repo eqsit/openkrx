@@ -20,7 +20,7 @@ namespace OpenKrx
 	{
 		class CGreedyCandidateJob final : public IJob
 		{
-			const IBlatantSimulation &m_World;
+			const CGameWorldSimulation &m_World;
 			CNetObj_PlayerInput m_Input;
 			int m_CheckTicks;
 			std::promise<CBlatantPlan> m_Result;
@@ -32,7 +32,7 @@ namespace OpenKrx
 			}
 
 		public:
-			CGreedyCandidateJob(const IBlatantSimulation &World, CNetObj_PlayerInput Input, int CheckTicks) :
+			CGreedyCandidateJob(const CGameWorldSimulation &World, CNetObj_PlayerInput Input, int CheckTicks) :
 				m_World(World), m_Input(Input), m_CheckTicks(CheckTicks)
 			{
 				Abortable(false);
@@ -45,7 +45,8 @@ namespace OpenKrx
 				// without ever dereferencing the (possibly already destroyed) world.
 				if(m_Claimed.exchange(true, std::memory_order_acq_rel))
 					return;
-				m_Result.set_value(CBlatantPlanner::Greedy(m_World, m_Input, m_CheckTicks));
+				auto pPrivateWorld = m_World.CloneForJob();
+				m_Result.set_value(CBlatantPlanner::Greedy(*pPrivateWorld, m_Input, m_CheckTicks));
 			}
 		};
 	}
@@ -63,24 +64,8 @@ namespace OpenKrx
 
 	std::vector<CBlatantPlan> CGameWorldSimulation::SearchCandidates(const std::vector<CNetObj_PlayerInput> &vInputs, int CheckTicks) const
 	{
-		bool ParallelSafe = m_pJobEngine != nullptr && vInputs.size() > 1;
-		// Laser bounces temporarily patch the shared collision grid. Neither existing
-		// lasers nor weapons/pickups that can spawn them may run in parallel.
-		auto &World = const_cast<CGameWorld &>(m_World);
-		if(World.FindFirst(CGameWorld::ENTTYPE_LASER))
-			ParallelSafe = false;
-		if(ParallelSafe && World.m_WorldConfig.m_PredictWeapons)
-		{
-			for(auto *pCharacter = static_cast<CCharacter *>(World.FindFirst(CGameWorld::ENTTYPE_CHARACTER)); pCharacter;
-				pCharacter = static_cast<CCharacter *>(pCharacter->TypeNext()))
-				if(pCharacter->GetWeaponGot(WEAPON_LASER) || pCharacter->GetWeaponGot(WEAPON_SHOTGUN))
-					ParallelSafe = false;
-			for(auto *pPickup = static_cast<CPickup *>(World.FindFirst(CGameWorld::ENTTYPE_PICKUP)); pPickup;
-				pPickup = static_cast<CPickup *>(pPickup->TypeNext()))
-				if(pPickup->Type() == POWERUP_WEAPON && (pPickup->Subtype() == WEAPON_LASER || pPickup->Subtype() == WEAPON_SHOTGUN))
-					ParallelSafe = false;
-		}
-		if(!ParallelSafe)
+		// Every job owns collision/tuning, including worlds that spawn lasers.
+		if(!m_pJobEngine || m_pJobEngine->JobThreadCount() <= 0 || vInputs.size() < 2)
 			return IBlatantSimulation::SearchCandidates(vInputs, CheckTicks);
 
 		// 0x1402d30b0 waits for all independent greedy jobs, then selects by input
@@ -113,11 +98,24 @@ namespace OpenKrx
 	{
 		auto pResult = std::make_unique<CGameWorldSimulation>();
 		pResult->CopyFrom(m_World, m_LocalClientId);
+		pResult->m_pJobCollision = m_pJobCollision;
+		pResult->m_pJobTuning = m_pJobTuning;
 		pResult->m_pGameClient = m_pGameClient;
 		pResult->m_pJobEngine = m_pJobEngine;
 		pResult->m_LimitAutomaticFire = m_LimitAutomaticFire;
 		pResult->m_AllowImmediateShot = m_AllowImmediateShot;
 		pResult->m_AutomaticFireStep = m_AutomaticFireStep;
+		return pResult;
+	}
+
+	std::unique_ptr<CGameWorldSimulation> CGameWorldSimulation::CloneForJob() const
+	{
+		auto pResult = std::unique_ptr<CGameWorldSimulation>(static_cast<CGameWorldSimulation *>(Clone().release()));
+		pResult->m_pJobCollision = m_World.Collision()->CreateIsolatedCopy();
+		pResult->m_pJobTuning = std::make_shared<std::array<CTuningParams, 256>>();
+		std::copy_n(m_World.TuningList(), 256, pResult->m_pJobTuning->begin());
+		pResult->m_World.RebindCollision(pResult->m_pJobCollision.get());
+		pResult->m_World.RebindTuning(pResult->m_pJobTuning->data());
 		return pResult;
 	}
 

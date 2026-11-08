@@ -150,7 +150,6 @@ class CChat : public CComponent
 	static void ConChat(IConsole::IResult *pResult, void *pUserData);
 	static void ConShowChat(IConsole::IResult *pResult, void *pUserData);
 	static void ConEcho(IConsole::IResult *pResult, void *pUserData);
-	static void ConEchoConfig(IConsole::IResult *pResult, void *pUserData);
 	static void ConClearChat(IConsole::IResult *pResult, void *pUserData);
 
 	static void ConchainChatOld(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
@@ -173,7 +172,6 @@ public:
 	void RegisterCommand(const char *pName, const char *pParams, const char *pHelpText);
 	void UnregisterCommand(const char *pName);
 	void Echo(const char *pString);
-	void EchoConfig(const char *pName);
 
 	void OnWindowResize() override;
 	void OnConsoleInit() override;

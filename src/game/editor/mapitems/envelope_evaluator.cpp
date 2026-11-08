@@ -13,7 +13,7 @@ void CMapEnvelopeEvaluator::EnvelopeEval(int TimeOffsetMillis, int EnvelopeIndex
 	if(EnvelopeIndex < 0 || EnvelopeIndex >= (int)Map()->m_vpEnvelopes.size())
 		return;
 
-	const CEnvelope *pEnvelope = Map()->m_vpEnvelopes[EnvelopeIndex].get();
+	std::shared_ptr<CEnvelope> pEnvelope = Map()->m_vpEnvelopes[EnvelopeIndex];
 	float Time = m_AnimateTime;
 	Time *= m_AnimateSpeed;
 	Time += (TimeOffsetMillis / 1000.0f);

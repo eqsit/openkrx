@@ -288,13 +288,14 @@ std::vector<CMovementSequenceSearch::CCandidate> CMovementSequenceSearch::Search
 	std::vector<CCandidate> vPopulation(std::max(0, Population));
 	if(!Context.m_pWorld || !const_cast<CGameWorld *>(Context.m_pWorld)->GetCharacterById(Context.m_Id))
 		return {};
-	const bool Parallel = pEngine != nullptr;
-	const int Workers = Parallel ? std::min(8, std::max(1, (int)std::thread::hardware_concurrency())) : 1;
+	const bool Parallel = pEngine && pEngine->JobThreadCount() > 0;
+	// Original339360 partitions by the actual pool size, bounded by population.
+	const int Workers = Parallel ? std::min(std::max(1, Population), pEngine->JobThreadCount()) : 1;
 	std::vector<std::shared_ptr<CPopulationJob>> vJobs;
 	std::vector<std::future<void>> vResults;
 	for(int I = 0; I < Workers; ++I)
 	{
-		auto pJob = std::make_shared<CPopulationJob>(Context, Base, vPopulation, Population * I / Workers, Population * (I + 1) / Workers, Depth);
+		auto pJob = std::make_shared<CPopulationJob>(Context, Base, vPopulation, I * (Population / Workers) + std::min(I, Population % Workers), (I + 1) * (Population / Workers) + std::min(I + 1, Population % Workers), Depth);
 		vResults.push_back(pJob->Result());
 		vJobs.push_back(pJob);
 		if(Parallel)

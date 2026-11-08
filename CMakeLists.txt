@@ -2792,6 +2792,7 @@ if(CLIENT)
     gameclient.h
     krx/aimbot.cpp
     krx/aimbot.h
+    krx/parallel_prediction.h
     krx/bots.cpp
     krx/bots.h
     krx/flow_field.cpp

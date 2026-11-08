@@ -13,6 +13,7 @@
 #include <optional>
 #include <vector>
 
+class IEngine;
 class CGameClient;
 class CGameWorld;
 
@@ -61,6 +62,7 @@ namespace OpenKrx
 		CAimbot();
 		~CAimbot();
 		void OnReset();
+		void SetJobEngine(IEngine *pEngine) { m_pJobEngine = pEngine; }
 		void SetSettings(const CAimbotSettings &Settings) { m_CachedSettings = Settings; }
 		CAimbotDecision AdjustInput(CGameClient *pGameClient, CNetObj_PlayerInput Input,
 			int ClientId, vec2 PhysicalMouse, const CAimbotSettings &Settings);
@@ -76,6 +78,7 @@ namespace OpenKrx
 		int WeaponTarget() const { return m_WeaponTarget; }
 
 	private:
+		IEngine *m_pJobEngine = nullptr;
 		struct CTarget
 		{
 			int m_ClientId;
