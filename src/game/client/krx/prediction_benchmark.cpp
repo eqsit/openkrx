@@ -1,4 +1,5 @@
 #include "prediction_benchmark.h"
+#include "worker_pool.h"
 
 #include <game/client/prediction/entities/character.h>
 #include <game/client/prediction/gameworld.h>
@@ -38,7 +39,7 @@ namespace OpenKrx
 			CNetObj_PlayerInput Input{};
 			std::chrono::nanoseconds CpuTime{0};
 			int Ticks = 0;
-			// REA36bd40: add elapsed time around direct-input/predicted-input/world
+			// Reference 36bd40: add elapsed time around direct-input/predicted-input/world
 			// tick until one second, or ten million iterations. Setup is not timed.
 			while(CpuTime < std::chrono::seconds(1) && Ticks < 10000000 && !Cancel.load(std::memory_order_relaxed))
 			{
@@ -81,16 +82,16 @@ namespace OpenKrx
 		m_Done = false;
 	}
 
-	bool CPredictionBenchmark::Start(const CGameWorld &Source, int ClientId, int Runs, int Threads)
+	bool CPredictionBenchmark::Start(const CGameWorld &Source, int ClientId, int Runs, int Threads, IEngine *pEngine)
 	{
 		if(m_Worker.joinable() || !Source.Collision() || !const_cast<CGameWorld &>(Source).GetCharacterById(ClientId))
 			return false;
 		auto Snapshot = std::make_shared<CSnapshot>(Source);
 		Runs = std::clamp(Runs, 1, 20);
-		Threads = std::clamp(Threads, 1, (int)std::max(1u, std::thread::hardware_concurrency()));
+		Threads = std::clamp(Threads, 1, (pEngine ? pEngine->JobThreadCount() : (int)CWorkerPool::ThreadCount(std::thread::hardware_concurrency())));
 		m_Cancel = false;
 		m_Done = false;
-		m_Worker = std::thread([this, Snapshot, ClientId, Runs, Threads] {
+		m_Worker = std::thread([this, Snapshot, ClientId, Runs, Threads, pEngine] {
 			std::vector<int> Single, Parallel;
 			for(int Run = 0; Run < Runs && !m_Cancel; ++Run)
 				Single.push_back(RunSample(Snapshot->m_World, ClientId, m_Cancel));
@@ -98,8 +99,17 @@ namespace OpenKrx
 			{
 				std::vector<int> Counts(Threads);
 				std::vector<std::thread> Workers;
+				std::vector<std::future<void>> Results;
 				for(int I = 0; I < Threads; ++I)
-					Workers.emplace_back([&, I] { Counts[I] = RunSample(Snapshot->m_World, ClientId, m_Cancel); });
+				{
+					auto Sample = [&, I] { Counts[I] = RunSample(Snapshot->m_World, ClientId, m_Cancel); };
+					if(pEngine)
+						Results.push_back(CWorkerTask::Submit(pEngine, Sample));
+					else
+						Workers.emplace_back(Sample);
+				}
+				for(auto &Result : Results)
+					Result.get();
 				for(auto &Worker : Workers)
 					Worker.join();
 				Parallel.push_back(std::accumulate(Counts.begin(), Counts.end(), 0));

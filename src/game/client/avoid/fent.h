@@ -8,6 +8,7 @@
 #include <array>
 #include <atomic>
 #include <cfloat>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -15,6 +16,7 @@
 #include <vector>
 
 class CCollision;
+class IEngine;
 namespace OpenKrx
 {
 	class CFent : public CComponent
@@ -39,7 +41,7 @@ namespace OpenKrx
 		class CEvaluator
 		{
 		public:
-			CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads);
+			CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads, IEngine *pEngine = nullptr);
 			~CEvaluator();
 			void Evaluate(std::vector<CCandidate> &vPopulation, const std::atomic<bool> &Cancel);
 
@@ -68,7 +70,7 @@ namespace OpenKrx
 		static float Evaluate(const CCandidate &Candidate, const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles);
 
 	private:
-		std::thread m_Worker;
+		std::future<void> m_Worker;
 		std::atomic<bool> m_Running{false}, m_Cancel{false}, m_Done{false};
 		std::mutex m_Mutex;
 		std::vector<CPathPoint> m_vPath;

@@ -14,6 +14,10 @@ class IEngine;
 
 namespace OpenKrx
 {
+// Shared hook geometry for planning and the track-point renderer.
+std::optional<vec2> FindBlatantHookPoint(const CCollision *pCollision, CGameClient *pGameClient,
+	int ClientId, vec2 Position, vec2 Aim, float HookLength);
+
 // Simulation backed by real DDNet prediction physics. Each instance owns an
 // isolated copy of CGameWorld, so speculative ticks never touch the live world.
 class CGameWorldSimulation final : public IBlatantSimulation

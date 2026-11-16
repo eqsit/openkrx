@@ -36,6 +36,19 @@ namespace OpenKrx
 		};
 	}
 
+	bool PrepareReplayAnalysisWorld(const CReplay &Replay, const CGameWorld &Source, const std::array<int, 2> &aIds, CGameWorld &Initial)
+	{
+		if(Replay.m_aFrames[0].empty() || !Source.Collision() || !Source.TuningList())
+			return false;
+		for(int Slot = 0; Slot < 2; ++Slot)
+			if(!Replay.m_aFrames[Slot].empty() && (aIds[Slot] < 0 || aIds[Slot] >= MAX_CLIENTS ||
+				!const_cast<CGameWorld &>(Source).GetCharacterById(aIds[Slot])))
+				return false;
+		Initial.CopyWorldIsolated(&Source);
+		Initial.m_WorldConfig.m_KrxPrediction = true;
+		return true;
+	}
+
 	bool SimulateReplayAtHookSpeed(const CReplay &Replay, const CGameWorld &Initial, int Id, float Speed, vec2 &EndPosition, const std::atomic<bool> *pCancel)
 	{
 		if(Replay.m_aFrames[0].empty() || !Initial.Collision() || !Initial.TuningList())

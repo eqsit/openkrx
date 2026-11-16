@@ -147,7 +147,7 @@ void CKrxAutoEdgeNew::AutoEdge(CNetObj_PlayerInput &Input)
 	Context.m_Id = Id;
 	Context.m_Edge = true;
 	Context.m_Target = m_LockedEdge.m_Position;
-	auto vCandidates = OpenKrx::CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_KrxAutoEdgePopulationSize, g_Config.m_KrxAutoEdgeExplorationDepth, GameClient()->Engine());
+	auto vCandidates = OpenKrx::CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_KrxAutoEdgePopulationSize, g_Config.m_KrxAutoEdgeExplorationDepth, GameClient()->KrxEngine());
 	const int TopK = std::min((int)vCandidates.size(), g_Config.m_KrxAutoEdgeTopKCandidates);
 	for(int I = 0; I < TopK; ++I)
 		if(OpenKrx::CMovementSequenceSearch::Validate(Context, vCandidates[I].m_vInputs))

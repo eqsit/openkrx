@@ -1,4 +1,5 @@
 #include "fent.h"
+#include "rocket_save.h"
 
 #include <engine/client.h>
 #include <engine/console.h>
@@ -7,6 +8,7 @@
 
 #include <game/client/gameclient.h>
 #include <game/client/krx/msvc_sort.h>
+#include <game/client/krx/worker_pool.h>
 #include <game/client/krx/replay.h>
 #include <game/client/prediction/entities/character.h>
 #include <game/collision.h>
@@ -207,9 +209,10 @@ namespace OpenKrx
 		const std::atomic<bool> *m_pCancel = nullptr;
 		unsigned m_Generation = 0, m_Remaining = 0;
 		bool m_Stop = false;
+		IEngine *m_pEngine;
 
-		CImpl(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads) :
-			m_Source(Source), m_Field(Field), m_Id(Id), m_LightTiles(LightTiles)
+		CImpl(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads, IEngine *pEngine) :
+			m_Source(Source), m_Field(Field), m_Id(Id), m_LightTiles(LightTiles), m_pEngine(pEngine)
 		{
 			NumThreads = std::max(1u, NumThreads);
 			for(unsigned I = 0; I < NumThreads; ++I)
@@ -220,6 +223,7 @@ namespace OpenKrx
 				pContext->m_pCollision = Source.Collision()->CreateIsolatedCopy();
 				m_vContexts.push_back(std::move(pContext));
 			}
+			if(!m_pEngine)
 			for(unsigned I = 0; I < NumThreads; ++I)
 				m_vThreads.emplace_back([this, I] { Worker(I); });
 		}
@@ -269,6 +273,33 @@ namespace OpenKrx
 		{
 			if(vPopulation.empty() || Cancel.load())
 				return;
+			if(m_pEngine)
+			{
+				std::vector<std::future<void>> Results;
+				const size_t Tasks = m_vContexts.size(), Count = vPopulation.size();
+				for(size_t I = 0; I < Tasks; ++I)
+				{
+					auto EvaluateRange = [&, I] {
+						auto &Context = *m_vContexts[I];
+						const size_t Begin = I * (Count / Tasks) + std::min(I, Count % Tasks);
+						const size_t End = Begin + Count / Tasks + (I < Count % Tasks);
+						for(size_t J = Begin; J < End && !Cancel.load(); ++J)
+						{
+							const float Score = EvaluateInWorld(vPopulation[J], m_Source, m_Id, m_Field, m_LightTiles, Context.m_World, Context.m_pCollision.get());
+							if(Score != FLT_MAX)
+								vPopulation[J].m_Score = Score;
+						}
+					};
+					// A one-worker pool cannot wait for nested work on itself.
+					if(m_pEngine->JobThreadCount() == 1)
+						EvaluateRange();
+					else
+						Results.push_back(CWorkerTask::Submit(m_pEngine, EvaluateRange));
+				}
+				for(auto &Result : Results)
+					Result.get();
+				return;
+			}
 			std::unique_lock Lock(m_Mutex);
 			m_pPopulation = &vPopulation;
 			m_pCancel = &Cancel;
@@ -279,8 +310,8 @@ namespace OpenKrx
 		}
 	};
 
-	CFent::CEvaluator::CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads) :
-		m_pImpl(std::make_unique<CImpl>(Source, Id, Field, LightTiles, NumThreads)) {}
+	CFent::CEvaluator::CEvaluator(const CGameWorld &Source, int Id, const CFlowField &Field, bool LightTiles, unsigned NumThreads, IEngine *pEngine) :
+		m_pImpl(std::make_unique<CImpl>(Source, Id, Field, LightTiles, NumThreads, pEngine)) {}
 	CFent::CEvaluator::~CEvaluator() = default;
 	void CFent::CEvaluator::Evaluate(std::vector<CCandidate> &vPopulation, const std::atomic<bool> &Cancel) { m_pImpl->Evaluate(vPopulation, Cancel); }
 
@@ -294,8 +325,8 @@ namespace OpenKrx
 	void CFent::Stop()
 	{
 		m_Cancel.store(true);
-		if(m_Worker.joinable())
-			m_Worker.join();
+		if(m_Worker.valid())
+			m_Worker.get();
 		m_Running.store(false);
 	}
 
@@ -322,8 +353,8 @@ namespace OpenKrx
 			int FrozenTicks = 0;
 			bool FinishPending = false;
 			CNetObj_PlayerInput Base{};
-			const unsigned Workers = std::min<unsigned>(Settings.m_Actions, std::max(1u, std::thread::hardware_concurrency()));
-			CEvaluator Evaluator(World, m_Id, Field, Settings.m_LightTiles, Workers);
+			const unsigned Workers = std::min<unsigned>(Settings.m_Actions, (unsigned)GameClient()->KrxEngine()->JobThreadCount());
+			CEvaluator Evaluator(World, m_Id, Field, Settings.m_LightTiles, Workers, GameClient()->KrxEngine());
 			for(int SearchTick = 0; SearchTick <= Settings.m_Ticks && !m_Cancel.load(); ++SearchTick)
 			{
 				auto *pCharacter = World.GetCharacterById(m_Id);
@@ -459,10 +490,25 @@ namespace OpenKrx
 
 	void CFent::Update()
 	{
+		if(g_Config.m_AvoidAgentType != 3)
+			return;
+		// The common agent dispatcher gates both new work and result publication.
+		// Temporary input/freeze gates preserve an already running search.
+		const int GateId = GameClient()->m_aLocalIds[g_Config.m_ClDummy];
+		const auto &GateInput = GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy];
+		const auto *pGateCharacter = GateId >= 0 && GateId < MAX_CLIENTS ? GameClient()->KrxPredictedWorld().GetCharacterById(GateId) : nullptr;
+		if(Client()->State() != IClient::STATE_ONLINE || !pGateCharacter ||
+			!(GateInput.m_PlayerFlags & PLAYERFLAG_PLAYING) || GameClient()->m_Snap.m_SpecInfo.m_Active ||
+			!GameClient()->m_Snap.m_pLocalCharacter || GameClient()->m_PreTasVisuals.ShouldSuspendAvoid() ||
+			IsKrxCharacterFrozen(GameClient(), GateId))
+			return;
+		const vec2 GatePos((int)pGateCharacter->m_Pos.x, (int)pGateCharacter->m_Pos.y);
+		if(GameClient()->m_aClients[GateId].m_Super && Collision()->GetTileIndex(Collision()->GetPureMapIndex(GatePos)) == TILE_FREEZE)
+			return;
 		if(m_Done.exchange(false))
 		{
-			if(m_Worker.joinable())
-				m_Worker.join();
+			if(m_Worker.valid())
+				m_Worker.get();
 			if(m_pInitial && !m_Failed && !m_Cancel.load())
 			{
 				m_pInitial->RebindCollision(Collision());
@@ -471,12 +517,8 @@ namespace OpenKrx
 			g_Config.m_AvoidFreeze = 0;
 		}
 		const bool Enabled = g_Config.m_AvoidFreeze && g_Config.m_AvoidAgentType == 3;
-		if(!Enabled || Client()->State() != IClient::STATE_ONLINE)
-		{
-			if(Running())
-				Stop();
+		if(!Enabled)
 			return;
-		}
 		if(Running())
 			return;
 		GameClient()->m_Tas.UpdatePathFinding();
@@ -487,8 +529,8 @@ namespace OpenKrx
 		const CGameWorld *pSource = GameClient()->m_Tas.Active() ? GameClient()->m_Tas.World() : &GameClient()->KrxPredictedWorld();
 		if(!pSource || !const_cast<CGameWorld *>(pSource)->GetCharacterById(m_Id))
 			return;
-		if(m_Worker.joinable())
-			m_Worker.join();
+		if(m_Worker.valid())
+			m_Worker.get();
 		m_pCollision = Collision()->CreateIsolatedCopy();
 		m_pInitial = std::make_unique<CGameWorld>();
 		m_pInitial->CopyWorldIsolated(pSource);
@@ -501,7 +543,7 @@ namespace OpenKrx
 		m_pInitial->m_WorldConfig.m_KrxExplosionStrengthValid = true;
 		m_pInitial->m_WorldConfig.m_KrxExplosionStrength = GameClient()->m_aTuning[g_Config.m_ClDummy].m_ExplosionStrength;
 		const auto *pLocal = m_pInitial->GetCharacterById(m_Id);
-		const float Radius = pLocal->Core()->m_Tuning.m_HookLength + 56.0f;
+		const float Radius = (float)GameClient()->m_aTuning[0].m_HookLength + 56.0f;
 		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
 		{
 			auto *pCharacter = m_pInitial->GetCharacterById(Id);
@@ -543,7 +585,7 @@ namespace OpenKrx
 		}
 		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "FentBot", "FentBot: Injecting fent...");
 		GameClient()->m_Tas.PrepareForFent();
-		m_Worker = std::thread([this, Settings, Field] { Search(Settings, Field); });
+		m_Worker = CWorkerTask::Submit(GameClient()->KrxEngine(), [this, Settings, Field] { Search(Settings, Field); });
 	}
 
 	void CFent::UpdateScanCamera()

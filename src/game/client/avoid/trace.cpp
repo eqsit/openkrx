@@ -305,6 +305,23 @@ namespace OpenKrx
 		Int(J, "snap_input_emitted", Emitted);
 		Int(J, "input_pipeline_ran", PipelineRan);
 		Int(J, "physical_jump", pClient->m_Controls.m_PhysicalJump);
+		// The displayed core may include the extra FastInput tick while the
+		// recorded prediction world has already been restored before that tick.
+		Point(J, "quickstop_velocity_x1000", pClient->m_PredictedChar.m_Vel);
+		J.WriteAttribute("direction_modifiers");
+		J.BeginObject();
+		Int(J, "quickstop", g_Config.m_KrxQuickStop);
+		Int(J, "quickstop_grounded", g_Config.m_KrxQuickStopGrounded);
+		Int(J, "pixelwalk", g_Config.m_KrxPixelWalk);
+		Int(J, "balancebot", g_Config.m_KrxBalanceBot);
+		Int(J, "fast_input", g_Config.m_ClFastInput);
+		Int(J, "moonwalk", g_Config.m_KrxMoonwalk);
+		Int(J, "ghostmove", g_Config.m_KrxGhostMove);
+		Int(J, "ghostmove_direction", g_Config.m_KrxGhostMoveDirection);
+		Int(J, "hookride", g_Config.m_KrxHookRide);
+		Int(J, "jetride", g_Config.m_KrxJetRide);
+		Int(J, "autoedge", g_Config.m_KrxAutoEdge);
+		J.EndObject();
 		Input(J, "raw", Raw);
 		Input(J, "after_avoid", AfterAvoid);
 		Input(J, "after_rocket", Final);

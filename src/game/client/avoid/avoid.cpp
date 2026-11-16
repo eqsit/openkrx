@@ -89,16 +89,8 @@ namespace OpenKrx
 		if(g_Config.m_AvoidDrawTrackPoint && g_Config.m_AvoidTrackPoints && m_Planner.TrackPoint())
 		{
 			const vec2 Mouse = pGameClient->m_Controls.m_aMousePos[Slot];
-			const vec2 Quantized((int)Mouse.x, (int)Mouse.y);
-			bool Hookable = false;
-			if(Quantized != vec2(0, 0))
-			{
-				const vec2 To = pLocal->m_Pos + normalize(Quantized) * (HookLength - 28.0f);
-				vec2 Hit = To;
-				int Tele = 0;
-				Hookable = pGameClient->IntersectCharacter(pLocal->m_Pos, To, Hit, Id) == -1 &&
-					pGameClient->Collision()->IntersectLineTeleHook(pLocal->m_Pos, To, &Hit, nullptr, &Tele) == TILE_SOLID && Hit != vec2(0, 0);
-			}
+			const bool Hookable = FindBlatantHookPoint(pGameClient->Collision(), pGameClient,
+				Id, pLocal->m_Pos, Mouse, HookLength).has_value();
 			Draw(*m_Planner.TrackPoint(), ColorRGBA(0, 1, 0, .7f), Hookable ? ColorRGBA(1, 1, 1, .7f) : ColorRGBA(1, 1, 0, 1));
 		}
 		pGraphics->MapScreen(OldScreen);

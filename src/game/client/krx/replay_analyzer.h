@@ -19,6 +19,9 @@ namespace OpenKrx
 		int m_Samples = 0;
 		bool m_Cancelled = false;
 	};
+	// Reconstruct the first pre-input snapshot when a loaded replay has none.
+	// Both recorded tracks must have a corresponding character in the source.
+	bool PrepareReplayAnalysisWorld(const CReplay &Replay, const CGameWorld &Source, const std::array<int, 2> &aIds, CGameWorld &Initial);
 	// 363f00: replay only the primary tee, change its tune-zone hook fire speed.
 	bool SimulateReplayAtHookSpeed(const CReplay &Replay, const CGameWorld &Initial, int Id, float Speed, vec2 &EndPosition, const std::atomic<bool> *pCancel = nullptr);
 	// 363b40/3638f0: float-add sweep [79,81], step .01; distance < .01.

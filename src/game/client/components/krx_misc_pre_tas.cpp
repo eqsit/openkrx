@@ -353,7 +353,7 @@ void CKrxMiscPreTas::ShuffleReferenceIds(std::vector<int> &vIds, std::mt19937 &R
 
 std::string CKrxMiscPreTas::FancyChat(const char *pText)
 {
-	// REA272090: preserve commands and every non-ASCII byte verbatim.
+	// Reference 272090: preserve commands and every non-ASCII byte verbatim.
 	if(pText[0] == '/')
 		return pText;
 	std::string Result;
@@ -622,7 +622,7 @@ void CKrxMiscPreTas::MassMention()
 	// Original 2b4880 creates an independent random_device-seeded MT engine.
 	std::mt19937 PrefixRandom(std::random_device{}());
 	std::string Message = apPrefixes[ReferenceUniform(PrefixRandom, 5)];
-	// REA272270: reseed rand(time) for each inserted zero-width character.
+	// Reference 272270: reseed rand(time) for each inserted zero-width character.
 	std::string Advert = "krxclient·xyz";
 	ReferenceSrand(static_cast<unsigned>(std::time(nullptr)));
 	Advert.insert(ReferenceRand() % (Advert.size() - 1) + 1, "\xe2\x80\x8b");
@@ -710,7 +710,7 @@ void CKrxMiscPreTas::AfterComponentsUpdate()
 	if(g_Config.m_KrxPredBenchmark)
 	{
 		g_Config.m_KrxPredBenchmark = 0;
-		if(m_PredictionBenchmark.Start(GameClient()->KrxPredictedWorld(), GameClient()->m_aLocalIds[g_Config.m_ClDummy], g_Config.m_KrxPredBenchmarkRuns, g_Config.m_KrxPredBenchmarkThreads))
+		if(m_PredictionBenchmark.Start(GameClient()->KrxPredictedWorld(), GameClient()->m_aLocalIds[g_Config.m_ClDummy], g_Config.m_KrxPredBenchmarkRuns, g_Config.m_KrxPredBenchmarkThreads, GameClient()->KrxEngine()))
 			Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Benchmark", "Benchmarking prediction in an isolated snapshot...");
 		else
 			Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "Benchmark", "Prediction benchmark needs a local character and no benchmark already running");
@@ -719,7 +719,7 @@ void CKrxMiscPreTas::AfterComponentsUpdate()
 
 void CKrxMiscPreTas::OnConsoleInit()
 {
-	// REA2e5340 is an output callback, not a registry variable or upload API.
+	// Reference 2e5340 is an output callback, not a registry variable or upload API.
 	Console()->Register("krx_discord_payload", "r[text]", CFGFLAG_CLIENT, ConDiscordPayload, this, "Print Discord payload diagnostics locally");
 }
 
@@ -737,25 +737,8 @@ void CKrxMiscPreTas::VoteBeforeHookSpam()
 
 void CKrxMiscPreTas::AutoVote()
 {
-	const int Seconds = GameClient()->m_Voting.SecondsLeft();
-	if(Seconds < 0)
-	{
-		m_AutoVoted = false;
-		m_AutoVoteDescription.clear();
-	}
-	else if(m_AutoVoteDescription != GameClient()->m_Voting.VoteDescription() || Seconds > m_AutoVoteLastSeconds)
-	{
-		m_AutoVoted = false;
-		m_AutoVoteDescription = GameClient()->m_Voting.VoteDescription();
-	}
-	m_AutoVoteLastSeconds = Seconds;
-	// Recovered327a90 chooses vote yes/no while SecondsLeft>=0. A single
-	// vote per vote lifetime avoids resending identical packets each frame.
-	if(g_Config.m_KrxAutoVote && Seconds >= 0 && !m_AutoVoted && !GameClient()->m_Voting.TakenChoice())
-	{
+	if(g_Config.m_KrxAutoVote && GameClient()->m_Voting.SecondsLeft() >= 0)
 		GameClient()->m_Voting.Vote(g_Config.m_KrxAutoVoteF4 ? -1 : 1);
-		m_AutoVoted = true;
-	}
 }
 
 void CKrxMiscPreTas::BeforeInput()

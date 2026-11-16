@@ -321,7 +321,7 @@ void CMovementSequenceSearch::PrepareWorld(CGameClient *pGameClient, CGameWorld 
 	for(int Other = 0; Other < MAX_CLIENTS; ++Other)
 	{
 		auto *pCharacter = World.GetCharacterById(Other);
-		if(!pCharacter || Other == Id)
+		if(!pCharacter || Other == Id || pCharacter->m_IsLocal)
 			continue;
 		if(!g_Config.m_AvoidPlayerPrediction || pGameClient->IsOtherTeam(Other) || (!pGameClient->m_Snap.m_aCharacters[Other].m_Active && pCharacter->m_SnapTicks > 10))
 			delete pCharacter;
@@ -341,7 +341,11 @@ CNetObj_PlayerInput CPilotBot::AdjustInput(CGameClient *pGameClient, CNetObj_Pla
 		return Input;
 	if(pGameClient->m_PreTasVisuals.ShouldSuspendAvoid())
 		return Input;
-	if(pGameClient->m_aClients[ClientId].m_Super && pGameClient->Collision()->GetTileIndex(pGameClient->Collision()->GetPureMapIndex(pGameClient->m_LocalCharacterPos)) == TILE_FREEZE)
+	const auto *pPredicted = pGameClient->KrxPredictedWorld().GetCharacterById(ClientId);
+	if(!pPredicted)
+		return Input;
+	const vec2 GatePos((int)pPredicted->m_Pos.x, (int)pPredicted->m_Pos.y);
+	if(pGameClient->m_aClients[ClientId].m_Super && pGameClient->Collision()->GetTileIndex(pGameClient->Collision()->GetPureMapIndex(GatePos)) == TILE_FREEZE)
 		return Input;
 	if(IsKrxCharacterFrozen(pGameClient, ClientId))
 		return Input;
@@ -385,7 +389,7 @@ CNetObj_PlayerInput CPilotBot::AdjustInput(CGameClient *pGameClient, CNetObj_Pla
 		if(!pTarget)
 			return Input;
 		Context.m_Target = pTarget->m_Pos;
-		const float NearDistance = (float)pGameClient->m_aTuning[g_Config.m_ClDummy].m_HookLength * 0.5f;
+		const float NearDistance = (float)pGameClient->m_aTuning[0].m_HookLength * 0.5f;
 		if(distance(pLocal->m_Pos, Context.m_Target) < NearDistance)
 			m_FollowState = m_StationaryTicks = 0;
 		else
@@ -412,7 +416,7 @@ CNetObj_PlayerInput CPilotBot::AdjustInput(CGameClient *pGameClient, CNetObj_Pla
 		if(!Context.m_pField->Ready())
 			return Input;
 	}
-	auto vPopulation = CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_AvoidPilotBotPopulationSize, g_Config.m_AvoidPilotBotExplorationDepth, pGameClient->Engine());
+	auto vPopulation = CMovementSequenceSearch::Search(Context, m_CachedInput, g_Config.m_AvoidPilotBotPopulationSize, g_Config.m_AvoidPilotBotExplorationDepth, pGameClient->KrxEngine());
 	if(vPopulation.empty())
 		return Input;
 	const int TopK = std::min((int)vPopulation.size(), g_Config.m_AvoidPilotBotTopKCandidates);

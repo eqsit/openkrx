@@ -887,14 +887,29 @@ namespace OpenKrx
 		g_Config.m_KrxTasAnalyzerAnalyze = 0;
 		if(m_AnalysisFuture.valid())
 			return;
-		if(m_Replay.m_aFrames[0].empty() || !m_pInitialWorld)
+		if(m_Replay.m_aFrames[0].empty())
 		{
-			Message("A valid, fully simulated replay must be loaded first.");
+			Message("Load or record a replay before analyzing stability.");
 			return;
 		}
-		// 3640c0 requests a validated/simulated replay before dispatching 363b40.
 		auto pInitial = std::make_unique<CGameWorld>();
-		pInitial->CopyWorldIsolated(m_pInitialWorld.get());
+		int Id = m_aIds[0];
+		if(m_pInitialWorld)
+			pInitial->CopyWorldIsolated(m_pInitialWorld.get());
+		else
+		{
+			// A replay loaded without runtime snapshots can initialize from the
+			// current TAS/live world. Keep this pre-input snapshot private: the
+			// analyzer must not replace the recording or advance the live world.
+			const std::array<int, 2> aIds = {GameClient()->m_aLocalIds[0], GameClient()->m_aLocalIds[1]};
+			if(Client()->State() != IClient::STATE_ONLINE ||
+				!PrepareReplayAnalysisWorld(m_Replay, Active() ? *m_pWorld : GameClient()->m_GameWorld, aIds, *pInitial))
+			{
+				Message("Replay analysis needs an online world containing each recorded tee.");
+				return;
+			}
+			Id = aIds[0];
+		}
 		auto pCollision = pInitial->Collision()->CreateIsolatedCopy();
 		pInitial->RebindCollision(pCollision.get());
 		std::array<CTuningParams, 256> aTuning;
@@ -905,7 +920,7 @@ namespace OpenKrx
 		Message(aMessage);
 		m_AnalysisCancel.store(false);
 		m_AnalysisFuture = std::async(std::launch::async,
-			[this, Replay = m_Replay, Id = m_aIds[0], Speed, aTuning, pCollision = std::move(pCollision), pInitial = std::move(pInitial), pEngine = GameClient()->Engine()]() mutable {
+			[this, Replay = m_Replay, Id, Speed, aTuning, pCollision = std::move(pCollision), pInitial = std::move(pInitial), pEngine = GameClient()->KrxEngine()]() mutable {
 				pInitial->RebindTuning(aTuning.data());
 				return AnalyzeReplayStability(Replay, *pInitial, Id, Speed, &m_AnalysisCancel, pEngine);
 			});

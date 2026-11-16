@@ -460,7 +460,13 @@ namespace OpenKrx
 			m_Diagnostic.m_pGate = "afk_or_authoritative_frozen";
 			return Input;
 		}
-		const vec2 Pos = pClient->m_LocalCharacterPos;
+		const auto *pPredicted = pClient->KrxPredictedWorld().GetCharacterById(ClientId);
+		if(!pPredicted)
+		{
+			m_Diagnostic.m_pGate = "invalid_simulation";
+			return Input;
+		}
+		const vec2 Pos = pPredicted->m_Pos;
 		if(pClient->m_aClients[ClientId].m_Super && pClient->Collision()->GetTileIndex(pClient->Collision()->GetPureMapIndex(vec2((int)Pos.x, (int)Pos.y))) == TILE_FREEZE)
 		{
 			m_Diagnostic.m_pGate = "super_freeze_tile";

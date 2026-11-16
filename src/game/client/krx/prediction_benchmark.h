@@ -7,13 +7,14 @@
 #include <thread>
 
 class CGameWorld;
+class IEngine;
 namespace OpenKrx
 {
 	class CPredictionBenchmark
 	{
 	public:
 		~CPredictionBenchmark();
-		bool Start(const CGameWorld &Source, int ClientId, int Runs, int Threads);
+		bool Start(const CGameWorld &Source, int ClientId, int Runs, int Threads, IEngine *pEngine = nullptr);
 		bool Poll(std::string &Result);
 		void Stop();
 

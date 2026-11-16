@@ -24,6 +24,7 @@
 #include <game/client/avoid/pilot_bot.h>
 #include <game/client/avoid/rocket_save.h>
 #include <game/client/krx/aimbot.h>
+#include <game/client/krx/worker_pool.h>
 #include <game/client/krx/bots.h>
 #include <game/client/krx/misc.h>
 #include <game/client/krx/rescue.h>
@@ -232,6 +233,7 @@ private:
 	CNetObjHandler m_NetObjHandler;
 	protocol7::CNetObjHandler m_NetObjHandler7;
 
+	OpenKrx::CWorkerPool m_KrxWorkerPool;
 	class IEngine *m_pEngine;
 	class IInput *m_pInput;
 	class IGraphics *m_pGraphics;
@@ -308,6 +310,7 @@ private:
 public:
 	IKernel *Kernel() { return IInterface::Kernel(); }
 	IEngine *Engine() const { return m_pEngine; }
+	IEngine *KrxEngine() { m_KrxWorkerPool.Init(); return &m_KrxWorkerPool; }
 	class IGraphics *Graphics() const { return m_pGraphics; }
 	class IClient *Client() const { return m_pClient; }
 	class CUi *Ui() { return &m_UI; }
@@ -723,7 +726,7 @@ public:
 
 	CTeamsCore m_Teams;
 
-	int IntersectCharacter(vec2 HookPos, vec2 NewPos, vec2 &NewPos2, int OwnId, vec2 *pPlayerPosition = nullptr);
+	int IntersectCharacter(vec2 HookPos, vec2 NewPos, vec2 &NewPos2, int OwnId, vec2 *pPlayerPosition = nullptr, bool RequireActiveSnapshot = true);
 
 	int LastRaceTick() const;
 	int CurrentRaceTime() const;

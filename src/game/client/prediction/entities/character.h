@@ -83,8 +83,8 @@ public:
 	bool m_KrxTeleGunTeleport = false;
 	bool m_KrxBlueTeleGunTeleport = false;
 
-	int m_TileIndex;
-	int m_TileFIndex;
+	int m_TileIndex = 0;
+	int m_TileFIndex = 0;
 
 	bool m_LastRefillJumps;
 
@@ -132,8 +132,8 @@ public:
 	void SetCoreWorld(CGameWorld *pGameWorld);
 
 	int m_LastSnapWeapon;
-	bool m_KeepHooked;
-	int m_GameTeam;
+	bool m_KeepHooked = false;
+	int m_GameTeam = 0;
 	bool m_CanMoveInFreeze;
 
 	bool Match(CCharacter *pChar) const;
@@ -155,7 +155,7 @@ public:
 
 private:
 	// weapon info
-	int m_aHitObjects[MAX_CLIENTS];
+	int m_aHitObjects[MAX_CLIENTS]{};
 	int m_NumObjectsHit;
 	int m_LastHammerHitClientId = -1;
 
@@ -165,9 +165,9 @@ private:
 	int m_ReloadTimer;
 	int m_AttackTick;
 
-	int m_MoveRestrictions;
+	int m_MoveRestrictions = 0;
 
-	int m_PainSoundTimer;
+	int m_PainSoundTimer = 0;
 
 	// these are non-heldback inputs
 	CNetObj_PlayerInput m_LatestPrevInput;

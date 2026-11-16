@@ -1,6 +1,8 @@
 #ifndef GAME_CLIENT_KRX_NOW_PLAYING_H
 #define GAME_CLIENT_KRX_NOW_PLAYING_H
 
+#include <base/detect.h>
+
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -9,10 +11,12 @@
 #include <thread>
 #include <vector>
 
+class IHttp;
+class IHttpRequest;
+
 namespace OpenKrx
 {
-	// Linux adaptation of KRX's Windows system-media provider. Only local session
-	// bus metadata is read; no shell commands, URLs or player controls are executed.
+	// Media metadata is polled off the render thread; artwork uses bounded requests.
 	class CNowPlaying
 	{
 	public:
@@ -26,9 +30,10 @@ namespace OpenKrx
 			std::string Text() const { return m_Artist.empty() || m_Title.empty() ? std::string{} : m_Artist + " - " + m_Title; }
 		};
 		~CNowPlaying();
-		CTrack Track(bool Enabled);
+		CTrack Track(bool Enabled, IHttp *pHttp = nullptr);
 		void Stop();
 		static CTrack Poll();
+		static std::shared_ptr<const std::vector<uint8_t>> DecodeArtwork(const std::vector<uint8_t> &Bytes);
 
 	private:
 		std::mutex m_Mutex;
@@ -37,6 +42,8 @@ namespace OpenKrx
 		bool m_Stop = false;
 		bool m_Enabled = false;
 		CTrack m_Track;
+		IHttp *m_pHttp = nullptr;
+		std::shared_ptr<IHttpRequest> m_pArtworkRequest;
 	};
 }
 #endif

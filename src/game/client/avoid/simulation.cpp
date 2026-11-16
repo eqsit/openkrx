@@ -138,7 +138,7 @@ namespace OpenKrx
 	void CGameWorldSimulation::PreparePlayers(bool PredictPlayers, CGameClient *pGameClient)
 	{
 		m_pGameClient = pGameClient;
-		m_pJobEngine = pGameClient ? pGameClient->Engine() : nullptr;
+		m_pJobEngine = pGameClient ? pGameClient->KrxEngine() : nullptr;
 		if(pGameClient)
 		{
 			// 21e3c0 uses the active local tuning, not the projectile owner's zone.
@@ -216,26 +216,27 @@ namespace OpenKrx
 		return m_pLocal ? m_pLocal->GlobalTuning()->m_HookLength : 380.0f;
 	}
 
+	std::optional<vec2> FindBlatantHookPoint(const CCollision *pCollision, CGameClient *pGameClient,
+		int ClientId, vec2 Position, vec2 Aim, float HookLength)
+	{
+		const vec2 QuantizedAim(static_cast<int>(Aim.x), static_cast<int>(Aim.y));
+		const vec2 To = Position + normalize(QuantizedAim) * (HookLength - 28.0f);
+		vec2 HitPos = To;
+		// Use interpolated live players, independently of speculative movement.
+		if(pGameClient && pGameClient->IntersectCharacter(Position, To, HitPos, ClientId, nullptr, false) != -1)
+			return std::nullopt;
+		int TeleNumber = 0;
+		const int Hit = pCollision->IntersectLineTeleHook(Position, To, &HitPos, nullptr, &TeleNumber);
+		if(Hit == TILE_SOLID && HitPos != vec2(0, 0))
+			return HitPos;
+		return std::nullopt;
+	}
+
 	std::optional<vec2> CGameWorldSimulation::HookPoint(vec2 Aim) const
 	{
 		if(!m_pLocal)
 			return std::nullopt;
-		// 0x1402b3980 first quantizes the aim as an input, then probes the full
-		// hook radius irrespective of the mouse's distance from the tee.
-		const vec2 QuantizedAim(static_cast<int>(Aim.x), static_cast<int>(Aim.y));
-		if(QuantizedAim == vec2(0.0f, 0.0f))
-			return std::nullopt;
-		const vec2 To = m_pLocal->m_Pos + normalize(QuantizedAim) * (HookLength() - 28.0f);
-		vec2 HitPos = To;
-		// KRX tests against interpolated live character positions before tracing
-		// the map. Keep that test independent of the speculative movement world.
-		if(m_pGameClient && m_pGameClient->IntersectCharacter(m_pLocal->m_Pos, To, HitPos, m_LocalClientId) != -1)
-			return std::nullopt;
-		int TeleNumber = 0;
-		const int Hit = m_World.Collision()->IntersectLineTeleHook(m_pLocal->m_Pos, To, &HitPos, nullptr, &TeleNumber);
-		if(Hit == TILE_SOLID && HitPos != vec2(0, 0))
-			return HitPos;
-		return std::nullopt;
+		return FindBlatantHookPoint(m_World.Collision(), m_pGameClient, m_LocalClientId, m_pLocal->m_Pos, Aim, HookLength());
 	}
 
 	std::unique_ptr<IBlatantSimulation> CreateSimulation(CGameClient *pGameClient, int ClientId, bool PredictPlayers, bool PendingAutomaticFire, bool AllowImmediateShot)

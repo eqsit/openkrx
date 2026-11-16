@@ -577,7 +577,7 @@ namespace OpenKrx
 		}
 		if(Settings.m_Hook.m_Enabled && (Decision.m_Input.m_Hook || Settings.m_AutoHook) && m_HookTarget >= 0)
 		{
-			const auto Aim = HookAim(World, ClientId, m_HookTarget, Decision.m_Input, Mouse, Settings, Radius, pGameClient ? pGameClient->Engine() : m_pJobEngine);
+			const auto Aim = HookAim(World, ClientId, m_HookTarget, Decision.m_Input, Mouse, Settings, Radius, pGameClient ? pGameClient->KrxEngine() : m_pJobEngine);
 			if(Aim && *Aim != vec2(0, 0))
 			{
 				m_HookAim = *Aim;
@@ -615,7 +615,7 @@ namespace OpenKrx
 			return Decision;
 		if(pAuth->DiagnosticReloadTimer() > 3 || m_WeaponTarget < 0 || RandomInt(1, 100) < 100 - Settings.m_ShotPercentage)
 			return Decision;
-		const auto Aim = WeaponAim(World, ClientId, m_WeaponTarget, Decision.m_Input, Mouse, Settings, Radius, TeamPlay, pGameClient, pGameClient ? pGameClient->Engine() : m_pJobEngine);
+		const auto Aim = WeaponAim(World, ClientId, m_WeaponTarget, Decision.m_Input, Mouse, Settings, Radius, TeamPlay, pGameClient, pGameClient ? pGameClient->KrxEngine() : m_pJobEngine);
 		if(!Aim || *Aim == vec2(0, 0))
 			return Decision;
 		if(!(Decision.m_Input.m_Fire & 1) && pAuth->DiagnosticReloadTimer() <= 0)
@@ -754,6 +754,6 @@ namespace OpenKrx
 		else if(auto *pLocal = Source.GetCharacterById(ClientId))
 			Input = pLocal->DiagnosticLatestInput();
 		const float Radius = pGameClient ? pGameClient->m_Controls.GetMaxMouseDistance() : 400.0f;
-		return HookAim(Source, ClientId, TargetId, Input, Mouse, m_CachedSettings, Radius, pGameClient ? pGameClient->Engine() : m_pJobEngine);
+		return HookAim(Source, ClientId, TargetId, Input, Mouse, m_CachedSettings, Radius, pGameClient ? pGameClient->KrxEngine() : m_pJobEngine);
 	}
 } // namespace OpenKrx

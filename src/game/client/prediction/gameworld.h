@@ -91,13 +91,13 @@ public:
 		bool m_KrxAvoidTeles = false;
 		bool m_KrxExplosionStrengthValid = false;
 		float m_KrxExplosionStrength = 0.0f;
-	} m_WorldConfig;
+	} m_WorldConfig{};
 
-	bool m_IsValidCopy;
+	bool m_IsValidCopy = false;
 	CGameWorld *m_pParent;
 	CGameWorld *m_pChild;
 
-	int m_LocalClientId;
+	int m_LocalClientId = -1;
 
 	bool IsLocalTeam(int OwnerId) const;
 	void OnModified() const;

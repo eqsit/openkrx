@@ -705,7 +705,7 @@ namespace OpenKrx
 		const vec2 Mouse = pGameClient->m_Controls.m_aMousePos[g_Config.m_ClDummy];
 		const auto Result = SearchShotgunWorld(pGameClient->KrxPredictedWorld(), ClientId, Input, Mouse,
 			g_Config.m_KrxAutoShotgunTicks, g_Config.m_KrxAutoShotgunPoints, (float)g_Config.m_KrxAutoShotgunFov,
-			g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunHighestVel, pGameClient->m_Controls.GetMaxMouseDistance(), pGameClient->Engine());
+			g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunHighestVel, pGameClient->m_Controls.GetMaxMouseDistance(), pGameClient->KrxEngine());
 		if(Result.m_Found)
 			Aim(pGameClient, Input, CMiscFeatures::QuantizedAim(Result.m_Aim, pGameClient->m_Controls.GetMaxMouseDistance()), g_Config.m_KrxAutoShotgunSilent != 0);
 		return Input;

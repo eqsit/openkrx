@@ -34,8 +34,9 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	for(int Index = 0; Index < 6; ++Index)
 	{
 		Tabs.VSplitLeft(TabWidth, &Button, &Tabs);
+		const int Corners = Index == 0 ? IGraphics::CORNER_L : Index == 5 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE;
 		if(DoButton_MenuTab(&s_aTabs[Index], Localize(apTabs[Index]), g_Config.m_KrxMenuTab == Index, &Button,
-			   IGraphics::CORNER_ALL, nullptr, nullptr, nullptr, nullptr, 4.0f))
+			   Corners, nullptr, nullptr, nullptr, nullptr, 4.0f))
 			g_Config.m_KrxMenuTab = Index;
 	}
 	if(g_Config.m_KrxMenuTab == 3)
@@ -195,7 +196,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 
 	if(g_Config.m_KrxMenuTab == 0)
 	{
-		const float MainHeight = (g_Config.m_KrxAimbotTargetGlow ? 220.0f : 165.0f) + (g_Config.m_KrxAimbotAdvancedSettings ? 40.0f : 0.0f);
+		const float MainHeight = (g_Config.m_KrxAimbotTargetGlow ? 240.0f : 185.0f) + (g_Config.m_KrxAimbotAdvancedSettings ? 40.0f : 0.0f);
 		if(Card(Left, MainHeight, "Main"))
 		{
 			Check(g_Config.m_KrxAimbot, "Enable");
@@ -208,6 +209,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Color(g_Config.m_KrxAimbotTargetGlowHookColor, "Hook", 7, 0x00ff80);
 			}
 			Check(g_Config.m_KrxAimbotAdvancedSettings, "Advanced Settings");
+			Check(g_Config.m_KrxAimbotAutoShootKey, "Auto Shoot", false, "Toggle auto shoot for weapons");
 			Check(g_Config.m_KrxAimbotPerfectSilent, "Perfect Silent", false, "Only for 25 TPS servers; automatic shots and hooks wait for an even predicted tick");
 			if(g_Config.m_KrxAimbotAdvancedSettings)
 			{
@@ -362,7 +364,8 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			}
 		}
 		const int NameField = g_Config.m_KrxChangeNameOnFinish && !g_Config.m_KrxChangeNameOnFinishRandom;
-		if(Card(Right, 185.0f + 20.0f * (g_Config.m_KrxChangeNameOnFinish + NameField + g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk + g_Config.m_ClFastInput), "Other"))
+		static int s_AdvancedOptions = 0;
+		if(Card(Right, 205.0f + (s_AdvancedOptions ? 40.0f : 0.0f) + 20.0f * (g_Config.m_KrxChangeNameOnFinish + NameField + g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk + g_Config.m_ClFastInput), "Other"))
 		{
 			Check(g_Config.m_KrxChangeNameOnFinish, "Change name on finish", false, "Changes name on finish");
 			if(g_Config.m_KrxChangeNameOnFinish)
@@ -391,6 +394,12 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			static CButtonContainer s_ManualVerify;
 			if(DoButton_Menu(&s_ManualVerify, Localize("Manual Verify"), 0, &VerifyButton))
 				Client()->ViewLink("https://ger10.ddnet.tw/");
+			Check(s_AdvancedOptions, "Advanced options", false, "Only enable when you know what you are doing");
+			if(s_AdvancedOptions)
+			{
+				Check(g_Config.m_KrxSendChecksum, "Send checksum", true);
+				Check(g_Config.m_KrxChecksumLog, "Checksum log", true);
+			}
 		}
 		if(Card(Right, g_Config.m_KrxChatRepeater ? 185.0f : 145.0f, "Troll"))
 		{

@@ -416,7 +416,7 @@ namespace OpenKrx
 
 	void CMediumVisuals::RenderTeeTrail()
 	{
-		// REA371b40: a 200-tick ring per tee, newest-first path, adjacent
+		// Reference 371b40: a 200-tick ring per tee, newest-first path, adjacent
 		// duplicate removal, endpoint interpolation and per-point taper/fade.
 		// The current DDNet render/prediction flags replace old private offsets.
 		const int Slot = g_Config.m_ClDummy;
@@ -532,7 +532,7 @@ namespace OpenKrx
 
 	void CMediumVisuals::RenderNowPlaying()
 	{
-		const auto Track = m_NowPlaying.Track(g_Config.m_KrxNowPlayingHud != 0);
+		const auto Track = m_NowPlaying.Track(g_Config.m_KrxNowPlayingHud != 0, Http());
 		const std::string Text = Track.Text();
 		if(Text.empty())
 		{
@@ -576,8 +576,8 @@ namespace OpenKrx
 			First.resize(Split);
 		}
 		const float TextWidth = std::max(TextRender()->TextWidth(Size, First.c_str()), TextRender()->TextWidth(Size, Second.c_str()));
-		const float ArtWidth = m_NowPlayingArt.IsValid() ? 14.f : 0.f;
-		const float PanelWidth = TextWidth + 12.f + ArtWidth;
+		const float SeparatorWidth = TextRender()->TextWidth(Size, "|");
+		const float PanelWidth = TextWidth + SeparatorWidth + 20.f;
 		const float Open = std::clamp((float)(time_get_impl() - m_NowPlayingSince) * 5.f / time_freq(), 0.f, 1.f);
 		const float Height = mix(5.f, Second.empty() ? 16.f : 18.f, Open);
 		const float X = (Width - PanelWidth) / 2.f;
@@ -598,9 +598,12 @@ namespace OpenKrx
 			GradientText(x, y, Size, pText, g_Config.m_KrxNowPlayingGradientStartColor, g_Config.m_KrxNowPlayingGradientEndColor,
 				g_Config.m_KrxNowPlayingGradientRainbow, g_Config.m_KrxNowPlayingSegmented, g_Config.m_KrxNowPlayingGradientSpeed, m_NowPlayingPhase);
 		};
-		Draw(X + 4.f + ArtWidth, 18.f + (Height - Size) / 2.f - (Second.empty() ? 0.f : 4.f), First.c_str());
+		GradientText(X + 16.f, 18.f + (Height - Size) / 2.f, Size, "|",
+			g_Config.m_KrxNowPlayingGradientEndColor, g_Config.m_KrxNowPlayingGradientStartColor,
+			g_Config.m_KrxNowPlayingGradientRainbow, g_Config.m_KrxNowPlayingSegmented, g_Config.m_KrxNowPlayingGradientSpeed, m_NowPlayingPhase);
+		Draw(X + 18.f + SeparatorWidth, 18.f + (Height - Size) / 2.f - (Second.empty() ? 0.f : 4.f), First.c_str());
 		if(!Second.empty())
-			Draw(X + 4.f + ArtWidth, 18.f + (Height - Size) / 2.f + 4.f, Second.c_str());
+			Draw(X + 18.f + SeparatorWidth, 18.f + (Height - Size) / 2.f + 4.f, Second.c_str());
 	}
 
 	void CMediumVisuals::UpdateIdentity()

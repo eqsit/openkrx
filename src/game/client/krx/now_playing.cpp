@@ -1,5 +1,12 @@
 #include "now_playing.h"
 
+#include <engine/http.h>
+
+#if defined(CONF_KRX_ARTWORK)
+#include <png.h>
+#include <turbojpeg.h>
+#endif
+
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -15,6 +22,9 @@
 
 namespace OpenKrx
 {
+#if defined(CONF_FAMILY_WINDOWS)
+	CNowPlaying::CTrack PollWindowsMedia();
+#endif
 	CNowPlaying::~CNowPlaying() { Stop(); }
 
 	void CNowPlaying::Stop()
@@ -22,6 +32,8 @@ namespace OpenKrx
 		{
 			std::lock_guard Lock(m_Mutex);
 			m_Stop = true;
+			if(m_pArtworkRequest)
+				m_pArtworkRequest->Abort();
 		}
 		m_Wakeup.notify_all();
 		if(m_Worker.joinable())
@@ -30,16 +42,22 @@ namespace OpenKrx
 		m_Track = {};
 	}
 
-	CNowPlaying::CTrack CNowPlaying::Track(bool Enabled)
+	CNowPlaying::CTrack CNowPlaying::Track(bool Enabled, IHttp *pHttp)
 	{
 		std::lock_guard StartLock(m_Mutex);
 		m_Enabled = Enabled;
+		m_pHttp = pHttp;
+		if(!Enabled && m_pArtworkRequest)
+			m_pArtworkRequest->Abort();
 		if(!Enabled)
 			m_Track = {};
 		if(Enabled && !m_Worker.joinable())
 		{
 			m_Stop = false;
 			m_Worker = std::thread([this] {
+				std::string CachedUrl;
+				std::shared_ptr<const std::vector<uint8_t>> CachedArt;
+				auto RetryAt = std::chrono::steady_clock::time_point{};
 				for(;;)
 				{
 					{
@@ -49,6 +67,46 @@ namespace OpenKrx
 							return;
 					}
 					auto Track = Poll();
+					if(!Track.m_pArt && (Track.m_ArtUrl.rfind("https://", 0) == 0 || Track.m_ArtUrl.rfind("http://", 0) == 0))
+					{
+						const auto Now = std::chrono::steady_clock::now();
+						if(Track.m_ArtUrl != CachedUrl || Now >= RetryAt)
+						{
+							CachedUrl = Track.m_ArtUrl;
+							CachedArt.reset();
+							RetryAt = Now + std::chrono::seconds(30);
+							std::shared_ptr<IHttpRequest> Request;
+							{
+								std::lock_guard Lock(m_Mutex);
+								if(m_Enabled && !m_Stop && m_pHttp)
+								{
+									Request = HttpGet(CachedUrl.c_str());
+									Request->Timeout({1000, 2000, 1024, 1});
+									Request->MaxResponseSize(2 * 1024 * 1024);
+									Request->LogProgress(HTTPLOG::NONE);
+									m_pArtworkRequest = Request;
+									m_pHttp->Run(Request);
+								}
+							}
+							if(Request)
+							{
+								Request->Wait();
+								if(Request->State() == EHttpState::DONE)
+								{
+									unsigned char *pBytes = nullptr;
+									size_t Size = 0;
+									Request->Result(&pBytes, &Size);
+									if(pBytes && Size <= 2 * 1024 * 1024)
+										CachedArt = DecodeArtwork(std::vector<uint8_t>(pBytes, pBytes + Size));
+									if(CachedArt)
+										RetryAt = Now + std::chrono::minutes(5);
+								}
+								std::lock_guard Lock(m_Mutex);
+								m_pArtworkRequest.reset();
+							}
+						}
+						Track.m_pArt = CachedArt;
+					}
 					std::unique_lock Lock(m_Mutex);
 					if(m_Stop)
 						return;
@@ -63,9 +121,51 @@ namespace OpenKrx
 		return m_Track;
 	}
 
+	std::shared_ptr<const std::vector<uint8_t>> CNowPlaying::DecodeArtwork(const std::vector<uint8_t> &Bytes)
+	{
+		if(Bytes.size() < 24 || Bytes.size() > 2 * 1024 * 1024)
+			return {};
+		const auto Big = [&](size_t Offset) { return (uint32_t(Bytes[Offset]) << 24) | (uint32_t(Bytes[Offset + 1]) << 16) | (uint32_t(Bytes[Offset + 2]) << 8) | Bytes[Offset + 3]; };
+		if(std::memcmp(Bytes.data(), "\x89PNG\r\n\x1a\n", 8) == 0)
+		{
+			if(Big(16) == 0 || Big(20) == 0 || Big(16) > 2048 || Big(20) > 2048)
+				return {};
+			return std::make_shared<const std::vector<uint8_t>>(Bytes);
+		}
+#if defined(CONF_KRX_ARTWORK)
+		if(Bytes[0] != 0xff || Bytes[1] != 0xd8)
+			return {};
+		std::unique_ptr<void, decltype(&tjDestroy)> Decoder(tjInitDecompress(), tjDestroy);
+		int Width, Height, Subsampling, ColorSpace;
+		if(!Decoder || tjDecompressHeader3(Decoder.get(), Bytes.data(), Bytes.size(), &Width, &Height, &Subsampling, &ColorSpace) != 0 ||
+			Width < 1 || Height < 1 || Width > 2048 || Height > 2048)
+			return {};
+		std::vector<uint8_t> Pixels(size_t(Width) * Height * 4);
+		if(tjDecompress2(Decoder.get(), Bytes.data(), Bytes.size(), Pixels.data(), Width, 0, Height, TJPF_RGBA, TJFLAG_STOPONWARNING) != 0)
+			return {};
+		png_image Image{};
+		Image.version = PNG_IMAGE_VERSION;
+		Image.width = Width;
+		Image.height = Height;
+		Image.format = PNG_FORMAT_RGBA;
+		png_alloc_size_t Size = 0;
+		if(!png_image_write_to_memory(&Image, nullptr, &Size, 0, Pixels.data(), 0, nullptr))
+			return {};
+		auto Result = std::make_shared<std::vector<uint8_t>>(Size);
+		if(!png_image_write_to_memory(&Image, Result->data(), &Size, 0, Pixels.data(), 0, nullptr))
+			return {};
+		Result->resize(Size);
+		return Result;
+#else
+		return {};
+#endif
+	}
+
 	CNowPlaying::CTrack CNowPlaying::Poll()
 	{
-#if defined(CONF_KRX_MPRIS)
+#if defined(CONF_FAMILY_WINDOWS)
+		return PollWindowsMedia();
+#elif defined(CONF_KRX_MPRIS)
 		if(!std::getenv("DBUS_SESSION_BUS_ADDRESS"))
 			return {};
 		// A private connection belongs exclusively to this worker. Fixed call
@@ -115,10 +215,9 @@ namespace OpenKrx
 				Players.emplace_back(pName);
 			dbus_message_iter_next(&Array);
 		}
-		CTrack Fallback;
 		const auto LoadArtwork = [](CTrack &Track) {
-			// Linux MPRIS exposes a URL rather than Windows thumbnail bytes. Read
-			// local regular PNG files only; never fetch remote art URLs here.
+			// Local files are read without blocking on device/FIFO paths. Remote
+			// artwork is handled by the worker through the shared HTTP service.
 			if(Track.m_ArtUrl.compare(0, 7, "file://") != 0)
 				return;
 			std::string Path;
@@ -161,9 +260,8 @@ namespace OpenKrx
 				Read += Got;
 			}
 			close(Fd);
-			const auto Big = [&](size_t Offset) { return (uint32_t((*Art)[Offset]) << 24) | (uint32_t((*Art)[Offset + 1]) << 16) | (uint32_t((*Art)[Offset + 2]) << 8) | (*Art)[Offset + 3]; };
-			if(Read == Art->size() && std::memcmp(Art->data(), "\x89PNG\r\n\x1a\n", 8) == 0 && Big(16) <= 2048 && Big(20) <= 2048)
-				Track.m_pArt = std::move(Art);
+			if(Read == Art->size())
+				Track.m_pArt = DecodeArtwork(*Art);
 		};
 		for(const auto &Player : Players)
 		{
@@ -231,19 +329,13 @@ namespace OpenKrx
 				}
 				dbus_message_iter_next(&Entries);
 			}
-			if(!Track.Text().empty())
+			if(Playing && !Track.Text().empty())
 			{
-				if(Playing)
-				{
-					LoadArtwork(Track);
-					return Track;
-				}
-				if(Fallback.Text().empty())
-					Fallback = std::move(Track);
+				LoadArtwork(Track);
+				return Track;
 			}
 		}
-		LoadArtwork(Fallback);
-		return Fallback;
+		return {};
 #else
 		return {};
 #endif

@@ -184,9 +184,10 @@ typedef std::function<void(int ClientId, bool DisallowReset)> FAntiPingInterfere
 class CCharacterCore
 {
 	CWorldCore *m_pWorld = nullptr;
-	CCollision *m_pCollision;
+	CCollision *m_pCollision = nullptr;
 
 public:
+	CCharacterCore() { Reset(); }
 	static constexpr float PhysicalSize() { return 28.0f; }
 	static constexpr vec2 PhysicalSizeVec2() { return vec2(28.0f, 28.0f); }
 	vec2 m_Pos;
@@ -201,7 +202,7 @@ public:
 	int HookedPlayer() const { return m_HookedPlayer; }
 	void SetHookedPlayer(int HookedPlayer);
 
-	int m_ActiveWeapon;
+	int m_ActiveWeapon = -1;
 	class CWeaponStat
 	{
 	public:
@@ -209,7 +210,7 @@ public:
 		int m_Ammo;
 		int m_Ammocost;
 		bool m_Got;
-	} m_aWeapons[NUM_WEAPONS];
+	} m_aWeapons[NUM_WEAPONS]{};
 
 	// ninja
 	struct
@@ -218,7 +219,7 @@ public:
 		int m_ActivationTick;
 		int m_CurrentMoveTime;
 		int m_OldVelAmount;
-	} m_Ninja;
+	} m_Ninja{};
 
 	bool m_NewHook;
 
@@ -227,9 +228,9 @@ public:
 	int m_JumpedTotal;
 	int m_Jumps;
 
-	int m_Direction;
-	int m_Angle;
-	CNetObj_PlayerInput m_Input;
+	int m_Direction = 0;
+	int m_Angle = 0;
+	CNetObj_PlayerInput m_Input{};
 
 	int m_TriggeredEvents;
 
@@ -245,12 +246,12 @@ public:
 	void Quantize();
 
 	// DDRace
-	int m_Id;
-	bool m_Reset;
+	int m_Id = -1;
+	bool m_Reset = false;
 	CCollision *Collision() { return m_pCollision; }
 
-	int m_Colliding;
-	bool m_LeftWall;
+	int m_Colliding = 0;
+	bool m_LeftWall = true;
 
 	// DDNet Character
 	void SetTeamsCore(CTeamsCore *pTeams);
@@ -281,9 +282,9 @@ public:
 	void SetAntiPingInterfereCallback(FAntiPingInterfereCallback Callback);
 
 private:
-	CTeamsCore *m_pTeams;
-	int m_MoveRestrictions;
-	int m_HookedPlayer;
+	CTeamsCore *m_pTeams = nullptr;
+	int m_MoveRestrictions = 0;
+	int m_HookedPlayer = -1;
 	static bool IsSwitchActiveCb(unsigned char Number, void *pUser);
 
 	FAntiPingInterfereCallback m_AntiPingInterfereCallback = [](int ClientId, bool DisallowReset) {};

@@ -2792,6 +2792,7 @@ if(CLIENT)
     gameclient.h
     krx/aimbot.cpp
     krx/aimbot.h
+    krx/worker_pool.h
     krx/parallel_prediction.h
     krx/bots.cpp
     krx/bots.h
@@ -3089,7 +3090,22 @@ if(CLIENT)
       PROPERTY OUTPUT_NAME ${CLIENT_EXECUTABLE}
   )
   target_link_libraries(game-client ${LIBS_CLIENT})
+  if(TARGET_OS STREQUAL "windows")
+    find_path(KRX_WINRT_INCLUDE_DIR winrt/Windows.Media.Control.h REQUIRED)
+    target_sources(game-client PRIVATE src/game/client/krx/now_playing_windows.cpp)
+    target_include_directories(game-client PRIVATE ${KRX_WINRT_INCLUDE_DIR})
+    target_link_libraries(game-client windowsapp windowscodecs ole32)
+    if(MSVC)
+      set_source_files_properties(src/game/client/krx/now_playing_windows.cpp PROPERTIES COMPILE_OPTIONS "/EHsc" SKIP_PRECOMPILE_HEADERS ON)
+    else()
+      set_source_files_properties(src/game/client/krx/now_playing_windows.cpp PROPERTIES COMPILE_OPTIONS "-fexceptions" SKIP_PRECOMPILE_HEADERS ON)
+    endif()
+  endif()
+
   if(TARGET_OS STREQUAL "linux" AND PKG_CONFIG_FOUND)
+    pkg_check_modules(KRX_JPEG REQUIRED IMPORTED_TARGET libturbojpeg)
+    target_link_libraries(game-client PkgConfig::KRX_JPEG)
+    target_compile_definitions(game-client PRIVATE CONF_KRX_ARTWORK)
     pkg_check_modules(KRX_DBUS QUIET IMPORTED_TARGET dbus-1)
     if(KRX_DBUS_FOUND)
       target_link_libraries(game-client PkgConfig::KRX_DBUS)
