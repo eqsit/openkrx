@@ -354,6 +354,64 @@ namespace OpenKrx
 		}
 	}
 
+	void CPreTasVisuals::RenderPlayerIndicator()
+	{
+		const auto *pGame = GameClient();
+		const int LocalId = pGame->m_Snap.m_LocalClientId;
+		if(!g_Config.m_ClPlayerIndicator || LocalId < 0 || LocalId >= MAX_CLIENTS ||
+			!pGame->m_Snap.m_aCharacters[LocalId].m_Active ||
+			(g_Config.m_ClIndicatorInteam && pGame->m_Teams.Team(LocalId) == 0))
+			return;
+		const auto &Local = pGame->m_aClients[LocalId];
+		const CScreenRect Screen = Graphics()->GetScreen();
+		for(int Id = 0; Id < MAX_CLIENTS; ++Id)
+		{
+			const auto &Other = pGame->m_aClients[Id];
+			const bool Frozen = Other.m_FreezeEnd > 0 || Other.m_DeepFrozen;
+			if(Id == LocalId || !pGame->m_Snap.m_apPlayerInfos[Id] || !pGame->m_Snap.m_aCharacters[Id].m_Active ||
+				Other.m_Team != Local.m_Team || Other.m_Spec || (g_Config.m_ClPlayerIndicatorFreeze && !Frozen))
+				continue;
+			const vec2 Pos = Other.m_RenderPos;
+			if(g_Config.m_ClIndicatorHideVisibleTees && Screen.Inside(Pos))
+				continue;
+			const vec2 Delta = Pos - Local.m_RenderPos;
+			const float Distance = length(Delta);
+			float Offset = g_Config.m_ClIndicatorOffset;
+			if(g_Config.m_ClIndicatorVariableDistance)
+				Offset = mix(Offset, (float)g_Config.m_ClIndicatorOffsetMax, std::min(Distance / g_Config.m_ClIndicatorVariableMaxDistance, 1.0f));
+			const vec2 IndicatorPos = Local.m_RenderPos + (Distance > 0 ? Delta / Distance : vec2(0, 0)) * Offset;
+			float Alpha = g_Config.m_ClIndicatorOpacity / 100.0f;
+			if(g_Config.m_ClIndicatorTees)
+			{
+				CTeeRenderInfo Info = Other.m_RenderInfo;
+				if(Frozen)
+				{
+					Info.m_ColorBody.r *= .4f;
+					Info.m_ColorBody.g *= .4f;
+					Info.m_ColorBody.b *= .4f;
+					Info.m_ColorFeet.r *= .4f;
+					Info.m_ColorFeet.g *= .4f;
+					Info.m_ColorFeet.b *= .4f;
+					Alpha *= .8f;
+				}
+				Info.m_Size = g_Config.m_ClIndicatorRadius * 4.0f;
+				RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Other.m_RenderCur.m_Emote, vec2(1, 0), IndicatorPos, Alpha);
+			}
+			else
+			{
+				const unsigned Packed = !Frozen ? g_Config.m_ClIndicatorAlive : Other.m_Predicted.m_IsInFreeze ? g_Config.m_ClIndicatorFreeze : g_Config.m_ClIndicatorDead;
+				ColorRGBA Color = color_cast<ColorRGBA>(ColorHSLA(Packed));
+				Color.a = Alpha;
+				Graphics()->TextureClear();
+				Graphics()->QuadsBegin();
+				Graphics()->SetColor(Color);
+				Graphics()->DrawCircle(IndicatorPos.x, IndicatorPos.y, g_Config.m_ClIndicatorRadius, 16);
+				Graphics()->QuadsEnd();
+			}
+		}
+		Graphics()->SetColor(1, 1, 1, 1);
+	}
+
 	void CPreTasVisuals::RenderFrozenHud()
 	{
 		// Original 0x140277060 (the unrelated status messages at its start belong
@@ -455,6 +513,7 @@ namespace OpenKrx
 		Graphics()->MapScreen(Graphics()->MapScreenToWorld(Camera.m_Center.x, Camera.m_Center.y, 100, 100, 100, 0, 0, Graphics()->ScreenAspect(), Camera.m_Zoom));
 		RenderTileOutlines();
 		RenderTrajectory();
+		RenderPlayerIndicator();
 		RenderFrozenHud();
 		Graphics()->MapScreen(Old);
 	}

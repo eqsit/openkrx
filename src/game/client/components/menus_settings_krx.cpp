@@ -103,14 +103,17 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		if(pTip)
 			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};
-	const auto Slider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false, const char *pTip = nullptr) {
+	const auto Slider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false, const char *pTip = nullptr, bool Logarithmic = false, unsigned Flags = CUi::SCROLLBAR_OPTION_NOCLAMPVALUE) {
 		Body.HSplitTop(20.0f, &Row, &Body);
 		if(Indent)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
 		Ui()->DoScrollbarOption(&Value, &Value, &Row, Localize(pText), Min, Max,
-			&CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
+			Logarithmic ? static_cast<const IScrollbarScale *>(&CUi::ms_LogarithmicScrollbarScale) : &CUi::ms_LinearScrollbarScale, Flags);
 		if(pTip)
 			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
+	};
+	const auto LogSlider = [&](int &Value, const char *pText, int Min, int Max, bool Indent = false, const char *pTip = nullptr, unsigned Flags = CUi::SCROLLBAR_OPTION_NOCLAMPVALUE) {
+		Slider(Value, pText, Min, Max, Indent, pTip, true, Flags);
 	};
 	const auto Text = [&](char *pValue, size_t Size, const char *pText, int Index, const char *pEmpty = nullptr) {
 		static CLineInput s_aInputs[10];
@@ -208,16 +211,16 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Color(g_Config.m_KrxAimbotTargetGlowWeaponColor, "Weapon", 6, 0x00ff80);
 				Color(g_Config.m_KrxAimbotTargetGlowHookColor, "Hook", 7, 0x00ff80);
 			}
-			Check(g_Config.m_KrxAimbotAdvancedSettings, "Advanced Settings");
 			Check(g_Config.m_KrxAimbotAutoShootKey, "Auto Shoot", false, "Toggle auto shoot for weapons");
 			Check(g_Config.m_KrxAimbotPerfectSilent, "Perfect Silent", false, "Only for 25 TPS servers; automatic shots and hooks wait for an even predicted tick");
+			Check(g_Config.m_KrxAimbotAdvancedSettings, "Advanced Settings");
 			if(g_Config.m_KrxAimbotAdvancedSettings)
 			{
 				Slider(g_Config.m_KrxAimbotMinShootLength, "Min Shoot Delay", 1, 10, true);
 				Slider(g_Config.m_KrxAimbotMaxShootLength, "Max Shoot Delay", 1, 10, true);
 			}
 		}
-		if(Card(Left, 115.0f, "Hotkeys"))
+		if(Card(Left, 110.0f, "Hotkeys"))
 		{
 			Key(13, "Aimbot:", "toggle krx_aimbot 1 0");
 			Key(11, "Aimbot Auto Hook:", "+toggle krx_aimbot_autohook_key 1 0");
@@ -258,7 +261,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	}
 	else if(g_Config.m_KrxMenuTab == 1)
 	{
-		if(Card(Left, 225.0f + 20.0f * g_Config.m_KrxQuickStop + 40.0f * g_Config.m_KrxDummyFly, "Bots", "https://krxclient.gitbook.io/docs/features/misc"))
+		if(Card(Left, 205.0f + 20.0f * g_Config.m_KrxQuickStop, "Bots", "https://krxclient.gitbook.io/docs/features/misc"))
 		{
 			Check(g_Config.m_KrxMoonwalk, "Moonwalk");
 			Check(g_Config.m_KrxAutoFire, "Auto Fire");
@@ -268,40 +271,22 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			Check(g_Config.m_KrxQuickStop, "Quick Stop");
 			if(g_Config.m_KrxQuickStop)
 				Check(g_Config.m_KrxQuickStopGrounded, "Ground Only", true);
-			Check(g_Config.m_KrxDummyFly, "Dummy Fly", false, "Makes the dummy hammer + hook too");
-			if(g_Config.m_KrxDummyFly)
-			{
-				Check(g_Config.m_KrxDummyFlyHook, "Hook", true);
-				Check(g_Config.m_KrxDummyFlyKinta, "Kinta", true);
-			}
 			Check(g_Config.m_KrxJetRide, "Jet Ride", false, "Works like hook ride bot but with jetpack");
 			Check(g_Config.m_KrxAutoAled, "Auto Aled", false, "Auto hammers when an aled is possible");
 		}
-		if(Card(Left, g_Config.m_KrxAutoEdgeAdvancedSettings ? 345 : 245, "Auto Edge"))
-		{
-			Check(g_Config.m_KrxAutoEdge, "Enable");
-			Check(g_Config.m_KrxAutoEdgeAdvancedSettings, "Advanced settings");
-			if(g_Config.m_KrxAutoEdgeAdvancedSettings)
-			{
-				Slider(g_Config.m_KrxAutoEdgePopulationSize, "Population Size", 128, 8192);
-				Slider(g_Config.m_KrxAutoEdgeExplorationDepth, "Exploration Depth", 1, 50);
-				Slider(g_Config.m_KrxAutoEdgeTopKCandidates, "Top-K Candidates", 1, 100);
-				Slider(g_Config.m_KrxAutoEdgeSequenceLength, "Sequence Length", 1, 20);
-				Slider(g_Config.m_KrxAutoEdgeDetectionRange, "Detection Range", 100, 800);
-			}
-			Check(g_Config.m_KrxAutoEdgeDetectFreeze, "Detect Freeze");
-			Check(g_Config.m_KrxAutoEdgeDetectDeath, "Detect Death");
-			Check(g_Config.m_KrxAutoEdgeDetectTele, "Detect Teleporters");
-			Check(g_Config.m_KrxAutoEdgeShowVisitedTiles, "Visited tiles", false, "The original registers this option but has no rendering consumer");
-			Check(g_Config.m_KrxAutoEdgeShowFoundEdges, "Show Found Edges");
-			Check(g_Config.m_KrxAutoEdgeShowLockedEdge, "Show Locked Edge");
-		}
-		if(Card(Left, g_Config.m_KrxSpoofVersion ? 105.0f : 85.0f, "Protections"))
+		static int s_AdvancedOptions = 0;
+		if(Card(Left, 105.0f + 20.0f * g_Config.m_KrxSpoofVersion + 40.0f * s_AdvancedOptions, "Protections"))
 		{
 			Check(g_Config.m_KrxRandomTimeoutSeed, "Random Timeout Seed");
 			Check(g_Config.m_KrxSpoofVersion, "Version Spoofer");
 			if(g_Config.m_KrxSpoofVersion)
-				Slider(g_Config.m_KrxSpoofVersionNr, "Version", 10000, 20000, true);
+				LogSlider(g_Config.m_KrxSpoofVersionNr, "Version", 10000, 20000, true);
+			Check(s_AdvancedOptions, "Advanced options", false, "Only enable when you know what you are doing");
+			if(s_AdvancedOptions)
+			{
+				Check(g_Config.m_KrxSendChecksum, "Send checksum", true);
+				Check(g_Config.m_KrxChecksumLog, "Checksum log", true);
+			}
 		}
 		if(Card(Left, g_Config.m_KrxModDetector ? 105.0f : 65.0f, "Mod Detector"))
 		{
@@ -315,6 +300,22 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 					"Will leave when a suspicious player is detected(Suggestion: keep this off unless you want to be very stealthy)");
 			}
 		}
+		if(Card(Left, g_Config.m_KrxAutoEdgeAdvancedSettings ? 245 : 145, "Auto Edge"))
+		{
+			Check(g_Config.m_KrxAutoEdge, "Enable");
+			Pair(g_Config.m_KrxAutoEdgeDetectFreeze, "Detect Freeze", g_Config.m_KrxAutoEdgeDetectDeath, "Detect Death");
+			Check(g_Config.m_KrxAutoEdgeDetectTele, "Detect Teleporters");
+			Pair(g_Config.m_KrxAutoEdgeShowFoundEdges, "Show Found Edges", g_Config.m_KrxAutoEdgeShowLockedEdge, "Show Locked Edge");
+			Check(g_Config.m_KrxAutoEdgeAdvancedSettings, "Advanced settings");
+			if(g_Config.m_KrxAutoEdgeAdvancedSettings)
+			{
+				Slider(g_Config.m_KrxAutoEdgeDetectionRange, "Detection Range", 100, 800, false, nullptr, false, 0);
+				LogSlider(g_Config.m_KrxAutoEdgePopulationSize, "Population Size", 128, 8192, false, nullptr, 0);
+				Slider(g_Config.m_KrxAutoEdgeExplorationDepth, "Exploration Depth", 5, 50, false, nullptr, false, 0);
+				Slider(g_Config.m_KrxAutoEdgeTopKCandidates, "Top-K Candidates", 5, 100, false, nullptr, false, 0);
+				Slider(g_Config.m_KrxAutoEdgeSequenceLength, "Sequence Length", 1, 20, false, nullptr, false, 0);
+			}
+		}
 		if(Card(Left, 65.0f + 20.0f * g_Config.m_KrxAutoShotgun + (g_Config.m_KrxAutoShotgun && g_Config.m_KrxAutoShotgunAdvanced ? 120.0f : 0.0f), "Auto Shotgun"))
 		{
 			Check(g_Config.m_KrxAutoShotgun, "Enable");
@@ -326,9 +327,9 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 					Check(g_Config.m_KrxAutoShotgunMostBounces, g_Config.m_KrxAutoShotgunMostBounces ? "Bounces: Most" : "Bounces: Least");
 					Check(g_Config.m_KrxAutoShotgunHighestVel, g_Config.m_KrxAutoShotgunHighestVel ? "Speed: Most" : "Speed: Least");
 					Check(g_Config.m_KrxAutoShotgunSilent, "Silent");
-					Slider(g_Config.m_KrxAutoShotgunPoints, "Points", 1, 100);
-					Slider(g_Config.m_KrxAutoShotgunTicks, "Ticks", 1, 100);
-					Slider(g_Config.m_KrxAutoShotgunFov, "FOV", 1, 315);
+					LogSlider(g_Config.m_KrxAutoShotgunPoints, "Points", 1, 100);
+					LogSlider(g_Config.m_KrxAutoShotgunTicks, "Ticks", 1, 100);
+					LogSlider(g_Config.m_KrxAutoShotgunFov, "FOV", 1, 315);
 				}
 			}
 		}
@@ -343,10 +344,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				{
 					Check(g_Config.m_KrxUnfreezeBotMostBounces, g_Config.m_KrxUnfreezeBotMostBounces ? "Bounces: Most" : "Bounces: Least");
 					Check(g_Config.m_KrxUnfreezeBotSilent, "Silent");
-					Slider(g_Config.m_KrxUnfreezeBotPoints, "Points", 1, 100);
-					Slider(g_Config.m_KrxUnfreezeBotCurDirTicks, "Current dir ticks", 1, 100);
-					Slider(g_Config.m_KrxUnfreezeBotTicks, "Ticks", 1, 100);
-					Slider(g_Config.m_KrxUnfreezeBotFov, "FOV", 1, 315);
+					LogSlider(g_Config.m_KrxUnfreezeBotPoints, "Points", 1, 100);
+					LogSlider(g_Config.m_KrxUnfreezeBotCurDirTicks, "Current dir ticks", 1, 100);
+					LogSlider(g_Config.m_KrxUnfreezeBotTicks, "Ticks", 1, 100);
+					LogSlider(g_Config.m_KrxUnfreezeBotFov, "FOV", 1, 315);
 				}
 			}
 		}
@@ -363,9 +364,17 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 					Slider(g_Config.m_KrxFakeAimSpeed, "Speed", -50, 50);
 			}
 		}
+		if(Card(Left, 105.0f, "Prediction Benchmark"))
+		{
+			static CButtonContainer s_PredictionBenchmark;
+			Body.HSplitTop(20, &Row, &Body);
+			if(DoButton_Menu(&s_PredictionBenchmark, Localize(g_Config.m_KrxPredBenchmark ? "Stop" : "Start"), 0, &Row))
+				g_Config.m_KrxPredBenchmark ^= 1;
+			LogSlider(g_Config.m_KrxPredBenchmarkRuns, "Runs", 1, 20);
+			LogSlider(g_Config.m_KrxPredBenchmarkThreads, "Threads", 1, 256);
+		}
 		const int NameField = g_Config.m_KrxChangeNameOnFinish && !g_Config.m_KrxChangeNameOnFinishRandom;
-		static int s_AdvancedOptions = 0;
-		if(Card(Right, 205.0f + (s_AdvancedOptions ? 40.0f : 0.0f) + 20.0f * (g_Config.m_KrxChangeNameOnFinish + NameField + g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk + g_Config.m_ClFastInput), "Other"))
+		if(Card(Right, 185.0f + 20.0f * (g_Config.m_KrxChangeNameOnFinish + NameField + g_Config.m_KrxAutoTeam + g_Config.m_KrxAntiAfk + g_Config.m_ClFastInput), "Other"))
 		{
 			Check(g_Config.m_KrxChangeNameOnFinish, "Change name on finish", false, "Changes name on finish");
 			if(g_Config.m_KrxChangeNameOnFinish)
@@ -379,7 +388,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				FlatSlider(g_Config.m_KrxAutoTeamPreferred, "Team", 0, 63, "Preferred team number");
 			Check(g_Config.m_KrxAntiAfk, "Anti afk");
 			if(g_Config.m_KrxAntiAfk)
-				Slider(g_Config.m_KrxAntiAfkSeconds, "Seconds", 1, 300, true, "Duration in seconds for getting afk on a server");
+				LogSlider(g_Config.m_KrxAntiAfkSeconds, "Seconds", 1, 300, true, "Duration in seconds for getting afk on a server");
 			Check(g_Config.m_KrxKillOnFreeze, "Kill on freeze", false, "Automatically kills when you get frozen");
 			Check(g_Config.m_ClFastInput, "Fast input", false, "1 tick faster visual input delay");
 			if(g_Config.m_ClFastInput)
@@ -394,12 +403,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			static CButtonContainer s_ManualVerify;
 			if(DoButton_Menu(&s_ManualVerify, Localize("Manual Verify"), 0, &VerifyButton))
 				Client()->ViewLink("https://ger10.ddnet.tw/");
-			Check(s_AdvancedOptions, "Advanced options", false, "Only enable when you know what you are doing");
-			if(s_AdvancedOptions)
-			{
-				Check(g_Config.m_KrxSendChecksum, "Send checksum", true);
-				Check(g_Config.m_KrxChecksumLog, "Checksum log", true);
-			}
+
 		}
 		if(Card(Right, g_Config.m_KrxChatRepeater ? 185.0f : 145.0f, "Troll"))
 		{
@@ -413,12 +417,6 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				FlatSlider(g_Config.m_KrxChatRepeaterLength, "Min Message Length", 1, 20);
 				Slider(g_Config.m_KrxChatRepeaterCooldown, "Cooldown (seconds)", 5, 10);
 			}
-		}
-		if(Card(Right, g_Config.m_KrxAutoVote ? 85.0f : 65.0f, "Auto Vote"))
-		{
-			Check(g_Config.m_KrxAutoVote, "Enable");
-			if(g_Config.m_KrxAutoVote)
-				Check(g_Config.m_KrxAutoVoteF4, g_Config.m_KrxAutoVoteF4 ? "Mode: F4" : "Mode: F3");
 		}
 		if(Card(Right, g_Config.m_KrxIdStealer ? 205.0f : 65.0f, "ID Stealer"))
 		{
@@ -445,6 +443,21 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxGhostMoveHookClosest, "Hook closest", false, "Makes it so you hook the closest tee, others don't see you changing aim at all and the hook is invisible to them");
 			}
 		}
+		if(Card(Right, g_Config.m_KrxDummyFly ? 105.0f : 65.0f, "Dummy Fly"))
+		{
+			Check(g_Config.m_KrxDummyFly, "Enable", false, "The dummy becomes your hammer-fly partner");
+			if(g_Config.m_KrxDummyFly)
+			{
+				Check(g_Config.m_KrxDummyFlyHook, "Hook");
+				Check(g_Config.m_KrxDummyFlyKinta, "Kinta");
+			}
+		}
+		if(Card(Right, g_Config.m_KrxAutoVote ? 85.0f : 65.0f, "Auto Vote"))
+		{
+			Check(g_Config.m_KrxAutoVote, "Enable");
+			if(g_Config.m_KrxAutoVote)
+				Check(g_Config.m_KrxAutoVoteF4, g_Config.m_KrxAutoVoteF4 ? "Mode: F4" : "Mode: F3");
+		}
 		if(Card(Right, g_Config.m_KrxAutoVoteKickMode == 1 ? 150.0f : 125.0f, "Auto Vote Kick"))
 		{
 			Check(g_Config.m_KrxAutoVoteKick, "Enable");
@@ -470,18 +483,6 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	}
 	else if(g_Config.m_KrxMenuTab == 2)
 	{
-		if(Card(Left, g_Config.m_KrxNowPlayingHud ? 180 : 65, "Now Playing HUD"))
-		{
-			Check(g_Config.m_KrxNowPlayingHud, "Enable");
-			if(g_Config.m_KrxNowPlayingHud)
-			{
-				Check(g_Config.m_KrxNowPlayingSegmented, "Segmented");
-				Slider(g_Config.m_KrxNowPlayingGradientSpeed, "Speed", 1, 100);
-				Color(g_Config.m_KrxNowPlayingGradientStartColor, "Start", 26, 0x55ff80);
-				Color(g_Config.m_KrxNowPlayingGradientEndColor, "End", 27, 0x55ff42);
-				Check(g_Config.m_KrxNowPlayingGradientRainbow, "Rainbow");
-			}
-		}
 		if(Card(Left, g_Config.m_KrxFeaturesHud ? 260.0f : 105.0f, "HUD", "https://krxclient.gitbook.io/docs/features/visuals-hud"))
 		{
 			Check(g_Config.m_KrxFeaturesHud, "Features HUD", false, "Hides the HUD with features (Aimbot, Avoid, ...)");
@@ -508,6 +509,18 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Color(g_Config.m_KrxWatermarkGradientStartColor, "Start", 10, 0x55ff80);
 				Color(g_Config.m_KrxWatermarkGradientEndColor, "End", 11, 0x55ff42);
 				Check(g_Config.m_KrxWatermarkGradientRainbow, "Rainbow");
+			}
+		}
+		if(Card(Left, g_Config.m_KrxNowPlayingHud ? 180 : 65, "Now Playing HUD"))
+		{
+			Check(g_Config.m_KrxNowPlayingHud, "Enable");
+			if(g_Config.m_KrxNowPlayingHud)
+			{
+				Check(g_Config.m_KrxNowPlayingSegmented, "Segmented");
+				Slider(g_Config.m_KrxNowPlayingGradientSpeed, "Speed", 1, 100);
+				Color(g_Config.m_KrxNowPlayingGradientStartColor, "Start", 26, 0x55ff80);
+				Color(g_Config.m_KrxNowPlayingGradientEndColor, "End", 27, 0x55ff42);
+				Check(g_Config.m_KrxNowPlayingGradientRainbow, "Rainbow");
 			}
 		}
 		if(Card(Left, g_Config.m_KrxCustomTheme ? 140.0f : 65.0f, "Custom Menu"))
@@ -541,22 +554,50 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Color(g_Config.m_ClOutlineColorKill, "Death outline color", 14, 0);
 			}
 		}
-		if(Card(Left, g_Config.m_ClLastNotify ? 250.0f : 210.0f, "KoG"))
+		if(Card(Left, g_Config.m_ClFrozenTeesHud ? 165.0f : 65.0f, "Frozen Tee HUD"))
 		{
 			Check(g_Config.m_ClFrozenTeesHud, "Show Frozen HUD");
-			Check(g_Config.m_ClFrozenTeesHudSkins, "Use Skins Instead of Ninja Tees");
-			Check(g_Config.m_ClFrozenTeesOnlyInteam, "Only Show After Joining a Team");
-			FlatSlider(g_Config.m_ClFrozenTeesMaxRows, "Max Rows", 1, 6);
-			// Original visual slider spans 8..27 although registry clamps at20.
-			FlatSlider(g_Config.m_ClFrozenTeesSize, "Tee Size", 8, 27);
-			Body.HSplitTop(20.0f, &Row, &Body);
-			CUIRect CountFrozen;
-			Row.VSplitMid(&Row, &CountFrozen);
-			if(DoButton_CheckBox(&g_Config.m_ClFrozenTeesText, Localize("Tees Right Alive Text"), g_Config.m_ClFrozenTeesText > 0, &Row))
-				g_Config.m_ClFrozenTeesText = g_Config.m_ClFrozenTeesText < 1;
-			static CButtonContainer s_CountFrozen;
-			if(g_Config.m_ClFrozenTeesText && DoButton_CheckBox(&s_CountFrozen, Localize("Count Frozen Tees"), g_Config.m_ClFrozenTeesText == 2, &CountFrozen))
-				g_Config.m_ClFrozenTeesText = (g_Config.m_ClFrozenTeesText != 2) + 1;
+			if(g_Config.m_ClFrozenTeesHud)
+			{
+				Check(g_Config.m_ClFrozenTeesHudSkins, "Use Skins Instead of Ninja Tees");
+				Check(g_Config.m_ClFrozenTeesOnlyInteam, "Only Show After Joining a Team");
+				FlatSlider(g_Config.m_ClFrozenTeesMaxRows, "Max Rows", 1, 6);
+				// Original visual slider spans 8..27 although registry clamps at20.
+				FlatSlider(g_Config.m_ClFrozenTeesSize, "Tee Size", 8, 27);
+				Body.HSplitTop(20.0f, &Row, &Body);
+				CUIRect CountFrozen;
+				Row.VSplitMid(&Row, &CountFrozen);
+				if(DoButton_CheckBox(&g_Config.m_ClFrozenTeesText, Localize("Tees Right Alive Text"), g_Config.m_ClFrozenTeesText > 0, &Row))
+					g_Config.m_ClFrozenTeesText = g_Config.m_ClFrozenTeesText < 1;
+				static CButtonContainer s_CountFrozen;
+				if(g_Config.m_ClFrozenTeesText && DoButton_CheckBox(&s_CountFrozen, Localize("Count Frozen Tees"), g_Config.m_ClFrozenTeesText == 2, &CountFrozen))
+					g_Config.m_ClFrozenTeesText = (g_Config.m_ClFrozenTeesText != 2) + 1;
+			}
+		}
+		if(Card(Left, (g_Config.m_ClPlayerIndicator ? 225.0f : 65.0f) + (g_Config.m_ClIndicatorVariableDistance ? 40.0f : 0.0f), "Player Indicator"))
+		{
+			Check(g_Config.m_ClPlayerIndicator, "Enable");
+			if(g_Config.m_ClPlayerIndicator)
+			{
+				Check(g_Config.m_ClIndicatorHideVisibleTees, "Hide visible tees");
+				Check(g_Config.m_ClPlayerIndicatorFreeze, "Only show frozen tees");
+				Check(g_Config.m_ClIndicatorInteam, "Only show in team");
+				Check(g_Config.m_ClIndicatorTees, "Render tees instead of circles");
+				LogSlider(g_Config.m_ClIndicatorRadius, "Indicator size", 1, 16);
+				LogSlider(g_Config.m_ClIndicatorOpacity, "Indicator opacity", 0, 100);
+				Check(g_Config.m_ClIndicatorVariableDistance, "Change indicator offset based on distance");
+				if(g_Config.m_ClIndicatorVariableDistance)
+				{
+					LogSlider(g_Config.m_ClIndicatorOffset, "Indicator min offset", 16, 200);
+					LogSlider(g_Config.m_ClIndicatorOffsetMax, "Indicator max offset", 16, 200);
+					LogSlider(g_Config.m_ClIndicatorVariableMaxDistance, "Indicator max distance", 500, 7000);
+				}
+				else
+					LogSlider(g_Config.m_ClIndicatorOffset, "Indicator offset", 16, 200);
+			}
+		}
+		if(Card(Left, g_Config.m_ClLastNotify ? 130.0f : 85.0f, "KoG"))
+		{
 			Check(g_Config.m_ClLastNotify, "Show When You Are Last");
 			if(g_Config.m_ClLastNotify)
 			{
@@ -628,8 +669,8 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			if(g_Config.m_KrxTrajectoryEsp)
 			{
 				Check(g_Config.m_KrxTrajectoryEspSelfOnly, "Self only");
-				Slider(g_Config.m_KrxTrajectoryEspTicks, "Ticks", 1, 50, false, "Trajectory will predict this much ticks");
-				Slider(g_Config.m_KrxTrajectoryEspPathThickness, "Path thickness", 1, 10, false, "Thickness of dots or line.");
+				LogSlider(g_Config.m_KrxTrajectoryEspTicks, "Ticks", 1, 50, false, "Trajectory will predict this much ticks");
+				LogSlider(g_Config.m_KrxTrajectoryEspPathThickness, "Path thickness", 1, 10, false, "Thickness of dots or line.");
 				const char *apModes[] = {"Full line", "Dotted"};
 				Choice(g_Config.m_KrxTrajectoryEspPathMode, "", apModes, 2, 5);
 				Body.HSplitTop(5.0f, nullptr, &Body);
@@ -649,9 +690,9 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Choice(g_Config.m_KrxTrailType, "", apModes, 5, 2);
 				if(g_Config.m_KrxTrailType == 4)
 				{
-					Slider(g_Config.m_ClTeeTrailWidth, "Trail width", 0, 20);
-					Slider(g_Config.m_ClTeeTrailLength, "Trail length", 5, 200);
-					Slider(g_Config.m_ClTeeTrailAlpha, "Trail alpha", 1, 100);
+					LogSlider(g_Config.m_ClTeeTrailWidth, "Trail width", 1, 20);
+					LogSlider(g_Config.m_ClTeeTrailLength, "Trail length", 1, 200);
+					LogSlider(g_Config.m_ClTeeTrailAlpha, "Trail alpha", 1, 100);
 					Check(g_Config.m_ClTeeTrailTaper, "Trail low taper");
 					Check(g_Config.m_ClTeeTrailFade, "Trail fade");
 					const char *apColors[] = {"Solid", "Tee", "Rainbow", "Speed", "Random"};
@@ -669,40 +710,38 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 		{
 			Check(g_Config.m_KrxSmoothCam, "Smooth cam", false, "Smooth camera for in-game or demo. Mostly useful in demo");
 			if(g_Config.m_KrxSmoothCam)
-				Slider(g_Config.m_KrxSmoothCamSmoothness, "Smoothness", 1, 100, true, "Smoothness of smooth cam(lower = faster)");
+				LogSlider(g_Config.m_KrxSmoothCamSmoothness, "Smoothness", 1, 100, true, "Smoothness of smooth cam(lower = faster)");
 			Check(g_Config.m_KrxSuperDyncam, "Super dyncam", false, "Enables super zoom when using dyncam");
 		}
 	}
 	else if(g_Config.m_KrxMenuTab == 3)
 	{
-		const auto Action = [&](const char *pText, int Index) {
+		const auto Action = [&](const char *pText, int Index, bool Active = false) {
 			static CButtonContainer s_aActions[8];
 			Body.HSplitTop(20, &Row, &Body);
-			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row);
+			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0,
+				Active ? ColorRGBA(1, 0, 0, .5f) : ColorRGBA(1, 1, 1, .5f));
 		};
-		const float Height = 185 + (g_Config.m_KrxFentLightTile ? 20 : 0) + (g_Config.m_KrxFentAdvancedSettings ? 60 : 0);
 		if(g_Config.m_AvoidAgentType < 2)
 		{
-			if(Card(Left, g_Config.m_AvoidAfkProtection ? 145 : 125, "Main"))
+			if(Card(Left, g_Config.m_AvoidAfkProtection ? 135 : 115, "Main"))
 			{
-				Check(g_Config.m_AvoidFreeze, "Enable");
+				Body.HSplitTop(5, nullptr, &Body);
+				if(Action(g_Config.m_AvoidFreeze ? "Stop" : "Enable", 5, g_Config.m_AvoidFreeze))
+					g_Config.m_AvoidFreeze ^= 1;
+				Body.HSplitTop(5, nullptr, &Body);
 				Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction");
 				Check(g_Config.m_AvoidAfkProtection, "Afk protection");
 				if(g_Config.m_AvoidAfkProtection)
-					Slider(g_Config.m_AvoidAfkTime, "Seconds", 1, 300);
+					LogSlider(g_Config.m_AvoidAfkTime, "Seconds", 1, 300, true);
 			}
 			if(g_Config.m_AvoidAgentType == 1)
 			{
-				if(Card(Left, 205, "Settings"))
+				if(Card(Left, 105, "Settings"))
 				{
-					Slider(g_Config.m_AvoidLegitCheckTicks, "Check ticks", 1, 50);
-					Slider(g_Config.m_ClAvoidNumIterations, "Quality", 1, 1000);
-					Check(g_Config.m_AvoidLegitDirection, "Direction");
+					LogSlider(g_Config.m_AvoidLegitCheckTicks, "Check ticks", 1, 50);
 					Check(g_Config.m_AvoidLegitHook, "Hook");
-					Slider(g_Config.m_AvoidDirectionWeight, "Direction priority", 1, 1000);
-					Slider(g_Config.m_AvoidHookWeight, "Hook priority", 1, 1000);
-					Slider(g_Config.m_AvoidLifespanWeight, "Life priority", 1, 1000);
-					Slider(g_Config.m_AvoidExplorationConstant, "Randomness", 1, 1000);
+					Check(g_Config.m_AvoidLegitDirection, "Direction");
 				}
 				if(Card(Right, g_Config.m_AvoidLegitUnfreeze ? 125 : 105, "Tiles"))
 				{
@@ -710,29 +749,48 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 					Check(g_Config.m_AvoidLegitDeath, "Death");
 					Check(g_Config.m_AvoidLegitUnfreeze, "Unfreeze");
 					if(g_Config.m_AvoidLegitUnfreeze)
-						Slider(g_Config.m_AvoidLegitUnfreezeTicks, "Ticks", 1, 30);
+						LogSlider(g_Config.m_AvoidLegitUnfreezeTicks, "Ticks", 1, 50, true);
+				}
+				if(Card(Right, 145, "Priority"))
+				{
+					LogSlider(g_Config.m_ClAvoidNumIterations, "Quality", 1, 1000);
+					LogSlider(g_Config.m_AvoidExplorationConstant, "Randomness", 1, 100);
+					LogSlider(g_Config.m_AvoidDirectionWeight, "Direction priority", 1, 1000);
+					LogSlider(g_Config.m_AvoidHookWeight, "Hook priority", 1, 1000);
+					LogSlider(g_Config.m_AvoidLifespanWeight, "Life priority", 1, 1000);
 				}
 			}
 			Scroll.End();
 			return;
 		}
-		if(g_Config.m_AvoidAgentType == 4 && Card(Left, 245, "Pilot Bot", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/pilot-bot"))
+		if(g_Config.m_AvoidAgentType == 4)
 		{
-			Check(g_Config.m_AvoidFreeze, "Enable Pilot Bot");
-			Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction");
-			const char *apModes[] = {"Autonomous", "Follow Cursor", "Follow Player"};
-			Choice(g_Config.m_AvoidPilotBotMode, "Mode", apModes, 3, 13);
-			Slider(g_Config.m_AvoidPilotBotPopulationSize, "Population Size", 128, 8192);
-			Slider(g_Config.m_AvoidPilotBotExplorationDepth, "Exploration Depth", 5, 50);
-			Slider(g_Config.m_AvoidPilotBotTopKCandidates, "Top-K Candidates", 1, 100);
-			Slider(g_Config.m_AvoidPilotBotSequenceLength, "Sequence Length", 1, 20);
+			if(Card(Left, 125, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/pilot-bot"))
+			{
+				Body.HSplitTop(5, nullptr, &Body);
+				if(Action(g_Config.m_AvoidFreeze ? "Stop" : "Enable", 5, g_Config.m_AvoidFreeze))
+					g_Config.m_AvoidFreeze ^= 1;
+				Body.HSplitTop(5, nullptr, &Body);
+				Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction");
+				Body.HSplitTop(5, nullptr, &Body);
+				const char *apModes[] = {"Autonomous", "Follow Cursor", "Follow Player"};
+				Choice(g_Config.m_AvoidPilotBotMode, "", apModes, 3, 13);
+			}
+			if(Card(Left, 135, "Settings"))
+			{
+				LogSlider(g_Config.m_AvoidPilotBotPopulationSize, "Population Size", 128, 8192);
+				Slider(g_Config.m_AvoidPilotBotExplorationDepth, "Exploration Depth", 5, 50);
+				Slider(g_Config.m_AvoidPilotBotTopKCandidates, "Top-K Candidates", 1, 100);
+				Slider(g_Config.m_AvoidPilotBotSequenceLength, "Sequence Length", 1, 20);
+			}
 		}
-		if(g_Config.m_AvoidAgentType == 3 && Card(Left, Height, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/fentbot"))
+		const float FentHeight = (g_Config.m_KrxFentAdvancedSettings ? 210 : 155) + (g_Config.m_KrxFentLightTile ? 20 : 0);
+		if(g_Config.m_AvoidAgentType == 3 && Card(Left, FentHeight, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/avoid/fentbot"))
 		{
 			Check(g_Config.m_AvoidPlayerPrediction, "Player Prediction", false, "Different from settings player prediction - this completely removes all characters");
 			Check(g_Config.m_KrxFentLightTile, "Unfreeze", false, "Supports going through light tiles");
 			if(g_Config.m_KrxFentLightTile)
-				Slider(g_Config.m_KrxFentLightTileRadius, "Radius", 0, 20, false, "Radius for the light tiles");
+				Slider(g_Config.m_KrxFentLightTileRadius, "Radius", 1, 20, true, "Radius for the light tiles");
 			Check(g_Config.m_KrxFentAdvancedSettings, "Advanced Settings");
 			if(g_Config.m_KrxFentAdvancedSettings)
 			{
@@ -743,35 +801,41 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			}
 			else
 			{
+				Body.HSplitTop(5, nullptr, &Body);
 				const char *apQuality[] = {"Low", "Mid", "Max"};
-				Choice(g_Config.m_KrxFentQualitySetting, "Quality", apQuality, 3, 8);
+				Choice(g_Config.m_KrxFentQualitySetting, "", apQuality, 3, 8);
 			}
 			Body.HSplitTop(5, nullptr, &Body);
-			if(Action(g_Config.m_AvoidFreeze ? "Overdose" : "Inject fent", 0))
+			if(Action(g_Config.m_AvoidFreeze ? "Overdose" : "Inject fent", 0, g_Config.m_AvoidFreeze))
 				g_Config.m_AvoidFreeze ^= 1;
 		}
-		if(Card(Left, 145, "Visuals"))
+		if(Card(Right, g_Config.m_AvoidAgentType == 3 ? 110 : 85, "Visuals"))
 		{
 			Check(g_Config.m_AvoidDrawPath, "Render path", false, "Shows visuals for path");
-			Check(g_Config.m_KrxTileEditorEnable, "Enable Editor");
 			Check(g_Config.m_KrxPathFindingRenderFlowField, "Render pathfinding", false, "Shows visuals for pathfinding");
-			Check(g_Config.m_KrxFentSpectateScan, "Spectate scan", false, "Spectates the latest position of the scan");
+			if(g_Config.m_AvoidAgentType == 3)
+			{
+				Body.HSplitTop(5, nullptr, &Body);
+				Check(g_Config.m_KrxFentSpectateScan, "Spectate scan", false, "Spectates the latest position of the scan");
+			}
 		}
-		if(Card(Right, 105, "Pathfinding"))
+		if(Card(Right, 215, "Tile Editor"))
 		{
 			if(Action("Recalculate", 1))
 				g_Config.m_KrxPathFinding = 1;
+			Body.HSplitTop(5, nullptr, &Body);
 			if(Action("Auto Finish", 2))
 				g_Config.m_KrxTileEditorAutoFinish = 1;
-		}
-		if(Card(Right, 165, "Tile Editor"))
-		{
+			Body.HSplitTop(10, nullptr, &Body);
 			Check(g_Config.m_KrxTileEditorEnable, "Enable Editor");
+			Body.HSplitTop(5, nullptr, &Body);
 			const char *apTypes[] = {"Tunnel", "Finish"};
-			Choice(g_Config.m_KrxTileEditorType, "Type", apTypes, 2, 14);
+			Choice(g_Config.m_KrxTileEditorType, "", apTypes, 2, 14);
+			Body.HSplitTop(5, nullptr, &Body);
 			if(Action("Auto Tunnels", 3))
 				g_Config.m_KrxTileEditorAutoTunnel = 1;
 			Slider(g_Config.m_KrxTileEditorAutoTunnelWidth, "Auto Tunnel Width", 0, 10);
+			Body.HSplitTop(5, nullptr, &Body);
 			if(Action("Clear All Tiles", 4))
 				g_Config.m_KrxTileEditorClear = 1;
 		}
@@ -779,10 +843,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 	else if(g_Config.m_KrxMenuTab == 4)
 	{
 		GameClient()->m_Tas.CheckAutoSyncVault();
-		const auto Action = [&](const char *pText, int Index, ColorRGBA Color = ColorRGBA(1, 1, 1, .5f)) {
+		const auto Action = [&](const char *pText, int Index, ColorRGBA ButtonColor = ColorRGBA(1, 1, 1, .5f)) {
 			static CButtonContainer s_aActions[16];
 			Body.HSplitTop(20, &Row, &Body);
-			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, Color);
+			return DoButton_Menu(&s_aActions[Index], Localize(pText), 0, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5, 0, ButtonColor);
 		};
 		const bool HasReplay = GameClient()->m_Tas.Replay().m_aFrames[0].size() > 50;
 		if(Card(Left, HasReplay ? 115 : 90, "Main", "https://krxclient.gitbook.io/docs/ultimate-features/tas"))
@@ -854,7 +918,7 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			}
 			Check(g_Config.m_KrxAutoSaveReplayEnabled, "Auto Save Replay", false, "Automatically saves a TAS replay to the replays-folder/auto/ directory");
 			if(g_Config.m_KrxAutoSaveReplayEnabled)
-				Slider(g_Config.m_KrxAutoSaveReplayInterval, "Seconds", 10, 120, true, "Sets the interval in seconds for autosave");
+				LogSlider(g_Config.m_KrxAutoSaveReplayInterval, "Seconds", 10, 120, true, "Sets the interval in seconds for autosave");
 		}
 		if(Card(Left, 180, "Hotkeys"))
 		{
@@ -1120,10 +1184,10 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 				Check(g_Config.m_KrxPredictionHeart, "Heart tile prediction", false, "Enables global heart tile support, disable when heart tile doesn't freeze");
 				Check(g_Config.m_KrxPredictionMoveRestriction, "Move restrictions prediction", false, "Recommended for speed: OFF | When off removes predicting the stopper tiles");
 				Check(g_Config.m_KrxPredictionPlayers, "Player loop", false, "Recommended for speed: OFF | When off removes checking player collisions");
-				Slider(g_Config.m_ClPredictionMargin, "Prediction margin", 20, 300, false, "Minimum 20 margin is required for bots to work properly");
+				LogSlider(g_Config.m_ClPredictionMargin, "Prediction margin", 20, 300, false, "Minimum 20 margin is required for bots to work properly");
 			}
-			Slider(g_Config.m_KrxBalanceBotOffset, "Balance Bot Offset", 1, 10);
-			Slider(g_Config.m_KrxHookNearestFov, "Hook Nearest Fov", 1, 360);
+			LogSlider(g_Config.m_KrxBalanceBotOffset, "Balance Bot Offset", 1, 10);
+			LogSlider(g_Config.m_KrxHookNearestFov, "Hook Nearest Fov", 1, 360);
 		}
 		static int s_InitialRpcId = g_Config.m_KrxDiscordRpcId;
 		const bool RpcChanged = s_InitialRpcId != g_Config.m_KrxDiscordRpcId;
@@ -1160,14 +1224,9 @@ void CMenus::RenderSettingsKrx(CUIRect MainView)
 			}
 		}
 		// Explicit OpenKRX additions remain separate from recovered KRX cards.
-		if(Card(Right, 170.0f, "Benchmarks"))
+		if(Card(Right, 105.0f, "Flow Field Benchmark"))
 		{
-			Slider(g_Config.m_KrxPredBenchmarkThreads, "Prediction threads", 1, 512);
-			Slider(g_Config.m_KrxPredBenchmarkRuns, "Prediction runs", 1, 20);
-			static CButtonContainer s_PredictionBenchmark, s_FlowBenchmark;
-			Body.HSplitTop(20, &Row, &Body);
-			if(DoButton_Menu(&s_PredictionBenchmark, Localize("Benchmark prediction"), 0, &Row))
-				g_Config.m_KrxPredBenchmark = 1;
+			static CButtonContainer s_FlowBenchmark;
 			Slider(g_Config.m_KrxFlowFieldBenchmarkRuns, "Flow field runs", 1, 100);
 			Body.HSplitTop(20, &Row, &Body);
 			if(DoButton_Menu(&s_FlowBenchmark, Localize("Benchmark flow field"), 0, &Row))

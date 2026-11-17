@@ -57,7 +57,7 @@ void CMenus::RenderSettingsAvoid(CUIRect MainView)
 			Row.VSplitLeft(20.0f, nullptr, &Row);
 		// KRX uses flag 2 (NOCLAMPVALUE). Opening the page must preserve ticks=0.
 		Ui()->DoScrollbarOption(&Value, &Value, &Row, Localize(pText), Min, Max,
-			&CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
+			&CUi::ms_LogarithmicScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
 		if(pTip)
 			Ui()->DoToolTip(&Value, &Row, Localize(pTip));
 	};

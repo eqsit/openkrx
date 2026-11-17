@@ -34,6 +34,7 @@ namespace OpenKrx
 		void RenderTrajectory();
 		void RenderTileOutlines();
 		void RenderFrozenHud();
+		void RenderPlayerIndicator();
 
 	public:
 		int Sizeof() const override { return sizeof(*this); }
